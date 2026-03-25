@@ -1,0 +1,8 @@
+fastapi[all]
+sqlalchemy
+psycopg2-binary
+pydantic
+pydantic-settings
+python-dotenv
+twilio
+passlib[bcrypt]
