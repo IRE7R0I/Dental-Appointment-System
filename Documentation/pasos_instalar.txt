@@ -1,0 +1,11 @@
+Crear entorno virtual 
+
+python -m venv venv
+source venv/Scripts/activate
+pip install -r requirements.txt
+
+Crear Tablas primero en postgreSQL
+ejecutar crear_tablas.py
+
+y luego para abrir el servidor:
+uvicorn app.main:app --reload
