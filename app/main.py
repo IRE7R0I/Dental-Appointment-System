@@ -2,12 +2,16 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from .database import get_db
 from . import models, schemas, crud
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 app = FastAPI(title="OdontoGest API", version="0.1.0")
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 @app.get("/")
 def home():
-    return {"mensaje": "¡Bienvenido a OdontoGest, Juanma!"}
+    # Buscamos el archivo index.html dentro de tu carpeta static
+    return FileResponse("app/static/dashboard.html")
 
 # RUTA PARA CREAR PACIENTES
 @app.post("/pacientes/", response_model=schemas.Paciente)

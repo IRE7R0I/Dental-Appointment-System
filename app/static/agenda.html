@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OdontoGest - Agenda</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="stylesheet" href="/app/static/css/style.css">
+
+</head>
+
+<body class="flex h-screen overflow-hidden text-slate-800">
+
+    <!-- NAVIGATION RAIL -->
+    <nav
+        class="w-20 md:w-[90px] bg-white flex flex-col items-center py-6 border-r border-slate-200 z-20 shrink-0 shadow-sm">
+        <div class="mb-10 w-12 h-12 bg-[#eaf4fe] rounded-2xl flex items-center justify-center text-[#0061a4]">
+            <span class="material-symbols-rounded text-3xl filled">dentistry</span>
+        </div>
+        <div class="flex flex-col gap-6 w-full px-2">
+            <!-- Home -->
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div
+                    class="w-14 h-8 rounded-full flex items-center justify-center text-slate-600 group-hover:bg-slate-100 transition-colors">
+                    <span class="material-symbols-rounded">home</span>
+                </div>
+                <span class="text-[12px] font-medium mt-1.5 text-slate-600 group-hover:text-slate-900">Home</span>
+            </div>
+            <!-- Pacientes -->
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div
+                    class="w-14 h-8 rounded-full flex items-center justify-center text-slate-600 group-hover:bg-slate-100 transition-colors">
+                    <span class="material-symbols-rounded">group</span>
+                </div>
+                <span class="text-[12px] font-medium mt-1.5 text-slate-600 group-hover:text-slate-900">Pacientes</span>
+            </div>
+            <!-- Agenda (ACTIVO) -->
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div
+                    class="w-14 h-8 rounded-full bg-[#c2e7ff] flex items-center justify-center text-[#001d35] transition-colors shadow-sm">
+                    <span class="material-symbols-rounded filled">calendar_today</span>
+                </div>
+                <span class="text-[12px] font-medium mt-1.5 text-[#001d35]">Agenda</span>
+            </div>
+            <!-- Pagos -->
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div
+                    class="w-14 h-8 rounded-full flex items-center justify-center text-slate-600 group-hover:bg-slate-100 transition-colors">
+                    <span class="material-symbols-rounded">payments</span>
+                </div>
+                <span class="text-[12px] font-medium mt-1.5 text-slate-600 group-hover:text-slate-900">Pagos</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ÁREA DE CONTENIDO PRINCIPAL -->
+    <main class="flex-1 flex flex-col h-full bg-white relative">
+
+        <!-- CALENDAR HEADER (Barra Superior M3) -->
+        <header
+            class="px-6 py-4 flex flex-col lg:flex-row justify-between items-center gap-4 border-b border-slate-200 z-10 bg-white">
+
+            <!-- Controles de Navegación Izquierda -->
+            <div class="flex items-center gap-4 w-full lg:w-auto">
+                <button
+                    class="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors">
+                    Hoy
+                </button>
+                <div class="flex items-center gap-1">
+                    <button
+                        class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-600 transition-colors">
+                        <span class="material-symbols-rounded">chevron_left</span>
+                    </button>
+                    <button
+                        class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-600 transition-colors">
+                        <span class="material-symbols-rounded">chevron_right</span>
+                    </button>
+                </div>
+                <h2 class="text-xl font-bold text-slate-800 ml-2">Sábado 11, Abril 2026</h2>
+            </div>
+
+            <!-- Controles Derecha (Filtros y Vistas) -->
+            <div class="flex items-center gap-4 w-full lg:w-auto overflow-x-auto hide-scroll pb-2 lg:pb-0">
+                <!-- Chips Filtro Profesionales -->
+                <div class="flex bg-slate-100 p-1 rounded-xl">
+                    <button id="btn-dario" onclick="filtrarDoctor('Dario')"
+                        class="px-4 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors bg-transparent">Darío</button>
+                    <button id="btn-fabiana" onclick="filtrarDoctor('Fabiana')"
+                        class="px-4 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors bg-transparent">Fabiana</button>
+                    <button id="btn-ambos" onclick="filtrarDoctor('Ambos')"
+                        class="px-4 py-1.5 rounded-lg text-sm font-bold bg-white text-[#0061a4] shadow-sm transition-all">Ambos</button>
+                </div>
+
+                <div class="h-6 w-px bg-slate-300 mx-1"></div>
+
+                <!-- Selector de Vista -->
+                <div class="flex bg-slate-100 p-1 rounded-xl">
+                    <button id="btn-dia" onclick="cambiarVista('Dia')"
+                        class="px-4 py-1.5 rounded-lg text-sm font-bold bg-white text-slate-800 shadow-sm transition-all">Día</button>
+                    <button id="btn-semana" onclick="cambiarVista('Semana')"
+                        class="px-4 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors bg-transparent">Semana</button>
+                    <button id="btn-mes" onclick="cambiarVista('Mes')"
+                        class="px-4 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors bg-transparent">Mes</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- CUERPO DEL CALENDARIO -->
+        <div class="flex-1 flex flex-col overflow-hidden bg-white">
+
+            <!-- Cabecera de Columnas (Nombres de Doctores) -->
+            <div class="flex border-b border-slate-200 bg-white z-10 sticky top-0 pr-2">
+                <!-- pr-2 compensa el scrollbar -->
+                <div class="w-16 shrink-0 border-r border-slate-100"></div> <!-- Espacio para las horas -->
+
+                <div class="flex-1 flex text-center">
+                    <!-- Header Doctor 1: Darío -->
+                    <div id="head-dario"
+                        class="flex-1 py-3 border-r border-slate-100 flex flex-col items-center transition-all duration-300">
+                        <div
+                            class="w-12 h-12 rounded-full bg-[#eaf4fe] text-[#1e91ed] flex items-center justify-center font-bold text-lg mb-1 border border-[#1e91ed]/20">
+                            D</div>
+                        <h3 class="font-bold text-slate-800">Dr. Darío</h3>
+                        <p class="text-xs text-slate-500 font-medium">Odontología General</p>
+                    </div>
+                    <!-- Header Doctor 2: Fabiana -->
+                    <div id="head-fabiana" class="flex-1 py-3 flex flex-col items-center transition-all duration-300">
+                        <div
+                            class="w-12 h-12 rounded-full bg-[#f6eff9] text-[#9963af] flex items-center justify-center font-bold text-lg mb-1 border border-[#9963af]/20">
+                            F</div>
+                        <h3 class="font-bold text-slate-800">Dra. Fabiana</h3>
+                        <p class="text-xs text-slate-500 font-medium">Ortodoncia</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grilla Horaria Scrolleable -->
+            <div class="flex-1 overflow-y-auto relative" id="calendarGrid">
+
+                <div class="flex min-h-[960px] relative"> <!-- 12 horas * 80px -->
+
+                    <!-- Eje de Tiempo (Izquierda) -->
+                    <div class="w-16 shrink-0 border-r border-slate-100 bg-white z-10 relative">
+                        <div class="time-slot relative"><span
+                                class="absolute -top-3 right-2 text-xs font-bold text-slate-400">08:00</span></div>
+                        <div class="time-slot relative"><span
+                                class="absolute -top-3 right-2 text-xs font-bold text-slate-400">09:00</span></div>
+                        <div class="time-slot relative"><span
+                                class="absolute -top-3 right-2 text-xs font-bold text-slate-400">10:00</span></div>
+                        <div class="time-slot relative"><span
+                                class="absolute -top-3 right-2 text-xs font-bold text-slate-400">11:00</span></div>
+                        <div class="time-slot relative"><span
+                                class="absolute -top-3 right-2 text-xs font-bold text-slate-400">12:00</span></div>
+                        <div class="time-slot relative"><span
+                                class="absolute -top-3 right-2 text-xs font-bold text-slate-400">13:00</span></div>
+                        <div class="time-slot relative"><span
+                                class="absolute -top-3 right-2 text-xs font-bold text-slate-400">14:00</span></div>
+                        <div class="time-slot relative"><span
+                                class="absolute -top-3 right-2 text-xs font-bold text-slate-400">15:00</span></div>
+                        <div class="time-slot relative"><span
+                                class="absolute -top-3 right-2 text-xs font-bold text-slate-400">16:00</span></div>
+                        <div class="time-slot relative"><span
+                                class="absolute -top-3 right-2 text-xs font-bold text-slate-400">17:00</span></div>
+                        <div class="time-slot relative"><span
+                                class="absolute -top-3 right-2 text-xs font-bold text-slate-400">18:00</span></div>
+                        <div class="time-slot relative"><span
+                                class="absolute -top-3 right-2 text-xs font-bold text-slate-400">19:00</span></div>
+                        <div class="time-slot relative"><span
+                                class="absolute -top-3 right-2 text-xs font-bold text-slate-400">20:00</span></div>
+                    </div>
+
+                    <!-- Contenedor Principal de Eventos -->
+                    <div class="flex-1 flex relative calendar-grid">
+
+                        <!-- LÍNEA DE TIEMPO ACTUAL (Roja) -->
+                        <div class="absolute w-full border-t-2 border-red-500 z-20 pointer-events-none flex items-center"
+                            style="top: 660px;">
+                            <div class="w-3 h-3 bg-red-500 rounded-full -ml-[6px]"></div>
+                        </div>
+
+                        <!-- Columna Darío -->
+                        <div id="col-dario"
+                            class="flex-1 border-r border-slate-100 relative transition-all duration-300">
+                            <!-- Bloques interactivos vacíos -->
+                            <div class="absolute w-full empty-slot-hover transition-colors"
+                                style="top: 0px; height: 40px;" onclick="abrirModalTurno('08:00', 'Darío')"></div>
+                            <div class="absolute w-full empty-slot-hover transition-colors"
+                                style="top: 40px; height: 40px;" onclick="abrirModalTurno('08:30', 'Darío')"></div>
+
+                            <!-- Evento Darío 1 -->
+                            <div class="absolute left-1 right-2 rounded-lg border-l-4 border-[#1e91ed] bg-[#eaf4fe] p-2 shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden group"
+                                style="top: 80px; height: 60px;">
+                                <div class="flex justify-between items-start">
+                                    <h4 class="text-sm font-bold text-slate-800 leading-tight">Martín Pérez</h4>
+                                    <span
+                                        class="material-symbols-rounded text-[14px] text-emerald-600 bg-emerald-100 rounded-full"
+                                        title="Realizado">check_circle</span>
+                                </div>
+                                <p class="text-xs text-[#1e91ed] font-medium truncate mt-0.5">Extracción de molar</p>
+                                <p
+                                    class="text-[10px] text-slate-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    09:00 - 09:45</p>
+                            </div>
+
+                            <!-- Evento Darío 2 -->
+                            <div class="absolute left-1 right-2 rounded-lg border-l-4 border-[#1e91ed] bg-[#eaf4fe] p-2 shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden group"
+                                style="top: 200px; height: 80px;">
+                                <div class="flex justify-between items-start">
+                                    <h4 class="text-sm font-bold text-slate-800 leading-tight">Roberto Fernández</h4>
+                                    <span
+                                        class="material-symbols-rounded text-[14px] text-amber-600 bg-amber-100 rounded-full"
+                                        title="Pendiente">schedule</span>
+                                </div>
+                                <p class="text-xs text-[#1e91ed] font-medium truncate mt-0.5">Control de ortodoncia</p>
+                                <p
+                                    class="text-[10px] text-slate-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    10:30 - 11:30</p>
+                            </div>
+                        </div>
+
+                        <!-- Columna Fabiana -->
+                        <div id="col-fabiana" class="flex-1 relative transition-all duration-300">
+                            <!-- Evento Fabiana 1 -->
+                            <div class="absolute left-1 right-2 rounded-lg border-l-4 border-[#9963af] bg-[#f6eff9] p-2 shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden group"
+                                style="top: 140px; height: 100px;">
+                                <div class="flex justify-between items-start">
+                                    <h4 class="text-sm font-bold text-slate-800 leading-tight">Lucía Gómez</h4>
+                                    <span
+                                        class="material-symbols-rounded text-[14px] text-emerald-600 bg-emerald-100 rounded-full"
+                                        title="Realizado">check_circle</span>
+                                </div>
+                                <p class="text-xs text-[#9963af] font-medium truncate mt-0.5">Limpieza profunda</p>
+                                <p
+                                    class="text-[10px] text-slate-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    09:45 - 11:00</p>
+                            </div>
+
+                            <!-- Evento Fabiana 2 -->
+                            <div class="absolute left-1 right-2 rounded-lg border-l-4 border-[#9963af] bg-[#f6eff9] p-2 shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden group"
+                                style="top: 260px; height: 60px;">
+                                <div class="flex justify-between items-start">
+                                    <h4 class="text-sm font-bold text-slate-800 leading-tight">Andrea Torres</h4>
+                                    <span
+                                        class="material-symbols-rounded text-[14px] text-amber-600 bg-amber-100 rounded-full"
+                                        title="Pendiente">schedule</span>
+                                </div>
+                                <p class="text-xs text-[#9963af] font-medium truncate mt-0.5">Blanqueamiento láser</p>
+                                <p
+                                    class="text-[10px] text-slate-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    11:15 - 12:00</p>
+                            </div>
+
+                            <!-- Interacción vacía -->
+                            <div class="absolute w-full empty-slot-hover transition-colors"
+                                style="top: 640px; height: 80px;" onclick="abrirModalTurno('16:00', 'Fabiana')"></div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- FAKE MODAL SIMULADO PARA LA INTERACCIÓN -->
+    <div id="demoModal"
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-[24px] p-8 shadow-2xl w-full max-w-sm text-center">
+            <div
+                class="w-16 h-16 bg-[#eaf4fe] text-[#0061a4] rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-rounded text-3xl">calendar_add_on</span>
+            </div>
+            <h3 class="text-xl font-bold text-slate-800 mb-2">¡Interacción detectada!</h3>
+            <p class="text-slate-500 text-sm mb-6">Has hecho clic para asignar un turno a las <strong id="modalHoraText"
+                    class="text-slate-800"></strong> con el <strong id="modalDocText"
+                    class="text-[#0061a4]"></strong>.<br><br>Acá se abriría el modal real que tenés en tu archivo
+                Python.</p>
+            <button onclick="cerrarModal()"
+                class="w-full bg-[#0061a4] hover:bg-[#00528c] text-white font-bold py-3 rounded-xl transition-all">Entendido,
+                cerrar</button>
+        </div>
+    </div>
+
+    <script src="/app/static/js/agenda.js"></script>
+</body>
+
+</html>

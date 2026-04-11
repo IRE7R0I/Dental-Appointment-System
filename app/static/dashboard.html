@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OdontoGest - Mendoza</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body class="flex h-screen overflow-hidden text-slate-800 bg-[#F8FAFC]">
+
+    <nav class="w-20 md:w-[90px] bg-white flex flex-col items-center py-6 border-r border-slate-200 z-20 shrink-0">
+        <div class="mb-10 w-12 h-12 bg-[#eaf4fe] rounded-2xl flex items-center justify-center text-[#0061a4]">
+            <span class="material-symbols-rounded text-3xl filled">dentistry</span>
+        </div>
+        <div class="flex flex-col gap-6 w-full px-2">
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div class="w-14 h-8 rounded-full bg-[#c2e7ff] flex items-center justify-center text-[#001d35]">
+                    <span class="material-symbols-rounded filled">home</span>
+                </div>
+                <span class="text-[12px] font-medium mt-1.5 text-[#001d35]">Home</span>
+            </div>
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div class="w-14 h-8 rounded-full flex items-center justify-center text-slate-600 group-hover:bg-slate-200 transition-colors">
+                    <span class="material-symbols-rounded">group</span>
+                </div>
+                <span class="text-[12px] font-medium mt-1.5 text-slate-600">Pacientes</span>
+            </div>
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div class="w-14 h-8 rounded-full flex items-center justify-center text-slate-600 group-hover:bg-slate-200 transition-colors">
+                    <span class="material-symbols-rounded">calendar_today</span>
+                </div>
+                <span class="text-[12px] font-medium mt-1.5 text-slate-600">Agenda</span>
+            </div>
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div class="w-14 h-8 rounded-full flex items-center justify-center text-slate-600 group-hover:bg-slate-200 transition-colors">
+                    <span class="material-symbols-rounded">payments</span>
+                </div>
+                <span class="text-[12px] font-medium mt-1.5 text-slate-600">Pagos</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-1 flex flex-col h-full overflow-y-auto">
+
+        <header class="px-8 py-6 flex justify-between items-center sticky top-0 bg-[#F8FAFC]/90 backdrop-blur-md z-10">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Inicio</h1>
+                <p class="text-sm text-slate-500 mt-1">Gestión diaria de la clínica</p>
+            </div>
+            <button id="btnAsignarTurno"
+                class="bg-[#0061a4] hover:bg-[#00528c] text-white px-5 py-4 rounded-[16px] flex items-center gap-2 shadow-sm hover:shadow-md transition-all active:scale-95">
+                <span class="material-symbols-rounded">calendar_add_on</span>
+                <span class="font-medium tracking-wide">Asignar Turno</span>
+            </button>
+        </header>
+
+        <div class="px-8 pb-10 w-full">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div class="bg-white rounded-[24px] p-6 shadow-sm border border-slate-100">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
+                            <span class="material-symbols-rounded filled">how_to_reg</span>
+                        </div>
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Hoy</span>
+                    </div>
+                    <h2 class="text-3xl font-bold text-slate-800">14</h2>
+                    <p class="text-sm text-slate-500 font-medium">Pacientes Realizados</p>
+                </div>
+                <div class="bg-white rounded-[24px] p-6 shadow-sm border border-slate-100">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
+                            <span class="material-symbols-rounded filled">pending_actions</span>
+                        </div>
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Pendientes</span>
+                    </div>
+                    <h2 class="text-3xl font-bold text-slate-800">8</h2>
+                    <p class="text-sm text-slate-500 font-medium">Pacientes por Realizar</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-50 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-slate-800">Turnos del Día</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-50 bg-slate-50/30">
+                                <th class="px-6 py-4">Horario</th>
+                                <th class="px-6 py-4">Paciente</th>
+                                <th class="px-6 py-4">Doctor</th>
+                                <th class="px-6 py-4">Tratamiento</th>
+                                <th class="px-6 py-4 text-center">Perfil</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaTurnos" class="text-sm">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="modalTurno" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-[28px] p-8 shadow-2xl border border-slate-100">
+            <h2 class="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <span class="material-symbols-rounded text-[#0061a4]">calendar_add_on</span>
+                Nuevo Turno
+            </h2>
+            
+            <form id="formTurno" class="space-y-4">
+                <div class="relative">
+                    <label class="text-xs font-bold text-slate-500 uppercase ml-1">Buscar Paciente</label>
+                    <input type="text" id="busquedaPaciente" placeholder="DNI o Nombre..." required
+                           class="w-full mt-1 px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0061a4] focus:outline-none transition-all">
+                    <div id="resultadosBusqueda" class="hidden absolute w-full bg-white border border-slate-200 rounded-xl mt-1 shadow-xl z-[60] max-h-48 overflow-y-auto"></div>
+                    <input type="hidden" id="dniSeleccionado" required>
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-slate-500 uppercase ml-1">Doctor</label>
+                    <select id="idDoctor" class="w-full mt-1 px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0061a4] bg-white">
+                        <option value="1">Darío</option>
+                        <option value="2">Fabiana</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 uppercase ml-1">Fecha y Hora</label>
+                        <input type="datetime-local" id="fechaHora" required class="w-full mt-1 px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0061a4]">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 uppercase ml-1">Motivo / Tratamiento</label>
+                        <input type="text" id="motivo" placeholder="Ej: Limpieza" required class="w-full mt-1 px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0061a4]">
+                    </div>
+                </div>
+
+                <div class="flex gap-3 mt-8">
+                    <button type="button" onclick="cerrarModal()" class="flex-1 py-3 font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Cancelar</button>
+                    <button type="submit" class="flex-1 py-3 font-bold bg-[#0061a4] text-white rounded-xl hover:bg-[#00528c] shadow-md transition-all active:scale-95">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
