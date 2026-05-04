@@ -1,6 +1,5 @@
-from app.database import engine, Base
-# Importamos los modelos para que Base sepa que existen
-from app.models import Paciente, Doctor, Turno, Pago, HistoriaClinica
+from backend.database import engine, Base
+from backend.models import Paciente, Doctor, Turno, Pago, HistoriaClinica
 
 def init_db():
     print("🔨 Conectando con PostgreSQL...")

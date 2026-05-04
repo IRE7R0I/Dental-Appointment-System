@@ -1,0 +1,68 @@
+ODONTOGEST - DESCRIPCIÓN DEL PROYECTO
+======================================
+Versión actual: v1.x (Backend operativo · Frontend en migración a React/TS)
+
+OdontoGest es una plataforma de gestión clínica para centralizar la
+administración de pacientes, turnos y finanzas en un consultorio odontológico.
+El objetivo es descargar la carga administrativa de la secretaria, permitiendo
+control del flujo de caja y la agenda médica en tiempo real.
+
+ESTADO ACTUAL DEL PROYECTO
+----------------------------
+  Backend:  OPERATIVO (FastAPI + SQLAlchemy + Pydantic)
+  Frontend: EN MIGRACIÓN (HTML/CSS/JS → React + TypeScript)
+
+SEPARACIÓN FRONTEND / BACKEND (Arquitectura objetivo)
+------------------------------------------------------
+  La arquitectura objetivo es un monorepo con dos proyectos bien separados:
+
+  /backend     → Python + FastAPI    [existente · pendiente refactor]
+  /frontend    → React + TypeScript  [migración desde HTML/JS vanilla]
+
+  La comunicación es exclusivamente por API REST (JSON).
+  No debe haber lógica de negocio en el frontend, solo presentación y
+  llamadas a la API.
+
+STACK TECNOLÓGICO
+-----------------
+  Backend (actual y objetivo):
+    - Python + FastAPI
+    - SQLAlchemy (ORM, modelos relacionales)
+    - Pydantic (schemas de validación estricta)
+    - SQLite (dev) / PostgreSQL (producción)
+    Archivos actuales:
+      main.py      → entrypoint, definición de rutas
+      crud.py      → operaciones de base de datos (Create/Read/Update/Delete)
+      database.py  → configuración de la conexión y sesión
+      models.py    → modelos SQLAlchemy (tablas)
+      schemas.py   → schemas Pydantic (validación de entrada/salida)
+
+  Frontend (objetivo tras migración):
+    - React.js + TypeScript (arquitectura basada en componentes)
+    - Tailwind CSS (estética Material Design 3)
+    - React Router v6 (navegación SPA)
+    - Axios (consumo de la API REST del backend)
+    - Tipos estrictos: interface Turno · type Moneda = 'ARS' | 'USD'
+
+VISTAS ACTUALES → COMPONENTES REACT OBJETIVO
+---------------------------------------------
+  agenda.html + agenda.js         →  pages/AgendaPage.tsx
+  dashboard.html + dashboard.js   →  pages/DashboardPage.tsx
+  pagos.html + pagos.js           →  pages/PagosPage.tsx
+  perfil-paciente.html + .js      →  pages/PerfilPacientePage.tsx
+
+COMPONENTES CRÍTICOS (UI)
+--------------------------
+  Dashboard KPI:
+    Tarjetas con contadores en tiempo real: turnos Realizados vs. Pendientes,
+    ingresos ARS e ingresos USD del día actual.
+
+  Modal Multimoneda:
+    Componente de entrada que permite seleccionar divisa (ARS/USD) al cerrar
+    una práctica. Registra el movimiento en la cuenta corriente del paciente.
+
+ROADMAP DE FEATURES FUTUROS
+----------------------------
+  - Notificaciones automáticas (Mail / WhatsApp)
+  - Portal del paciente (autogestión de turnos)
+  - Reportes exportables (PDF / Excel)

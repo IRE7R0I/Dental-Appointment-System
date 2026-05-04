@@ -1,8 +1,36 @@
+# === ODONTOGEST — DEPENDENCIAS BACKEND ===
+
+# --- Core ---
 fastapi[all]
+# Web framework. Incluye uvicorn, starlette, cors, etc.
+
 sqlalchemy
-psycopg2-binary
+# ORM para modelos de base de datos relacionales
+
 pydantic
+# Validación de datos (schemas Request/Response)
+
 pydantic-settings
+# Carga de settings desde .env con tipado estricto
+
 python-dotenv
-twilio
+# Carga variables de entorno desde archivo .env
+
+# --- Base de Datos ---
+psycopg2-binary
+# Driver PostgreSQL (producción). En dev se usa SQLite (no requiere driver extra)
+
+alembic
+# Migraciones de base de datos. Control de versiones sobre el schema SQL.
+
+# --- Utilidades ---
 passlib[bcrypt]
+# Hashing de contraseñas (para futura autenticación, CHANGE-007)
+
+# --- Notificaciones (CHANGE-006) ---
+twilio
+# SDK oficial Twilio para WhatsApp/SMS (no requerido hasta CHANGE-006)
+
+# --- Reportes (CHANGE-008) ---
+# openpyxl       # Generación de archivos Excel (FUTURO — CHANGE-008)
+# reportlab      # Generación de archivos PDF (FUTURO — CHANGE-008)

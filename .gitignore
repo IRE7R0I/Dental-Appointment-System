@@ -1,7 +1,39 @@
+# === Python / Backend ===
 venv/
 env/
 __pycache__/
 *.pyc
-.env
+*.pyo
 *.db
+*.sqlite3
+alembic.ini
+alembic/
+
+# === Node / Frontend ===
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/node_modules/
+*.tsbuildinfo
+
+# === Entorno ===
+.env
+.env.local
+.env.*.local
+
+# === IDE ===
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+*.log
+
+# === Build output ===
+dist/
+build/
+*.egg-info/

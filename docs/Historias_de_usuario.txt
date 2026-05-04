@@ -1,0 +1,107 @@
+ODONTOGEST - HISTORIAS DE USUARIO
+==================================
+Rol Principal: Secretaria del consultorio odontológico
+
+──────────────────────────────────────────────────────
+HU-001 | CENTRALIZACIÓN DE TURNOS
+──────────────────────────────────────────────────────
+Como secretaria,
+quiero asignar turnos buscando rápidamente al paciente por DNI,
+para organizar la jornada de los doctores sin errores de duplicación.
+
+Criterios de Aceptación:
+  - El sistema permite buscar un paciente ingresando su DNI.
+  - Si existe, los datos del paciente se autocompletan en el formulario.
+  - El sistema valida que no existan turnos duplicados (mismo paciente,
+    doctor, fecha y hora).
+  - El turno queda asociado al doctor seleccionado.
+  - Vista correspondiente: AgendaPage.tsx (migrar desde agenda.html)
+
+──────────────────────────────────────────────────────
+HU-002 | CIERRE DE TURNO Y COBRO
+──────────────────────────────────────────────────────
+Como secretaria,
+quiero marcar un turno como realizado e ingresar el costo (ARS o USD)
+apenas el paciente sale del consultorio,
+para mantener la cuenta corriente actualizada al instante.
+
+Criterios de Aceptación:
+  - El turno puede marcarse como "Realizado" desde la vista de agenda.
+  - Al marcarlo, se abre el Modal Multimoneda para ingresar el monto.
+  - Se puede seleccionar divisa: ARS o USD.
+  - El monto se registra en la cuenta corriente del paciente de inmediato.
+  - Si no paga en el momento, queda registrado como deuda pendiente.
+  - Vista correspondiente: PagosPage.tsx (migrar desde pagos.html)
+
+──────────────────────────────────────────────────────
+HU-003 | CONTROL DE CAJA DIARIA
+──────────────────────────────────────────────────────
+Como secretaria,
+quiero visualizar en el dashboard cuántos pacientes fueron atendidos hoy
+y cuánto dinero ingresó,
+para realizar el arqueo de caja sin planillas manuales.
+
+Criterios de Aceptación:
+  - El Dashboard KPI muestra: turnos Realizados, turnos Pendientes del día.
+  - Se muestra el total de ingresos del día desglosado por moneda (ARS / USD).
+  - Los datos se actualizan en tiempo real al completar cada turno.
+  - La info es visible sin necesidad de generar reportes adicionales.
+  - Vista correspondiente: DashboardPage.tsx (migrar desde dashboard.html)
+
+──────────────────────────────────────────────────────
+HU-004 | GESTIÓN DE CUENTAS CORRIENTES Y DEUDORES
+──────────────────────────────────────────────────────
+Como secretaria,
+quiero filtrar la lista de pacientes deudores,
+para realizar recordatorios de pago de tratamientos iniciados.
+
+Criterios de Aceptación:
+  - Existe una vista de "Pacientes con deuda" filtrable.
+  - Se muestra el saldo deudor de cada paciente (ARS y/o USD).
+  - Se pueden ver los tratamientos asociados a cada deuda.
+  - La lista es ordenable por monto de deuda o antigüedad.
+  - Vista correspondiente: PerfilPacientePage.tsx (migrar desde perfil-paciente.html)
+
+──────────────────────────────────────────────────────
+HU-005 | REVISIÓN Y REFACTOR DEL BACKEND
+──────────────────────────────────────────────────────
+Como desarrollador/agente,
+quiero revisar el código existente en el backend (main.py, crud.py,
+database.py, models.py, schemas.py),
+para asegurarme de que sigue buenas prácticas antes de que el nuevo
+frontend React consuma la API.
+
+Criterios de Aceptación:
+  - main.py usa routers de FastAPI separados por dominio (pacientes,
+    turnos, finanzas) en lugar de tener todas las rutas en un solo archivo.
+  - crud.py tiene funciones tipadas y separadas por entidad.
+  - models.py define relaciones explícitas con FK y backref.
+  - schemas.py diferencia schemas de Request y Response por endpoint.
+  - database.py expone una función get_db() para inyección de dependencias.
+  - Todos los endpoints devuelven status codes HTTP correctos.
+  - CORS habilitado correctamente para que el frontend React lo consuma.
+
+──────────────────────────────────────────────────────
+HU-006 | MIGRACIÓN DEL FRONTEND A REACT + TYPESCRIPT
+──────────────────────────────────────────────────────
+Como desarrollador/agente,
+quiero migrar las 4 vistas actuales (HTML/CSS/JS vanilla) a componentes
+React con TypeScript,
+para obtener un frontend mantenible, tipado y desacoplado del backend.
+
+Criterios de Aceptación:
+  - Cada vista HTML se convierte en un Page component (*.tsx).
+  - Los estilos usan Tailwind CSS con estética Material Design 3.
+  - Toda llamada al backend pasa por un servicio centralizado (api/ o services/).
+  - Los tipos están definidos en un archivo types.ts compartido.
+  - El proyecto tiene estructura estándar:
+      /frontend
+        /src
+          /pages       → AgendaPage · DashboardPage · PagosPage · PerfilPacientePage
+          /components  → Modal · KPICard · TurnoRow · etc.
+          /services    → api.ts (Axios + endpoints)
+          /types       → index.ts (interfaces y types)
+        tailwind.config.ts
+        tsconfig.json
+  - La skill de frontend-design debe ser leída antes de generar cualquier
+    componente UI para garantizar diseño consistente y profesional.

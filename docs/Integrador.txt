@@ -1,0 +1,158 @@
+ODONTOGEST - GUÍA DE INTEGRACIÓN PARA AGENTE IA
+================================================
+Este archivo es la primera lectura obligatoria del agente al iniciar
+cualquier tarea sobre el proyecto OdontoGest.
+
+────────────────────────────────────────────────
+1. ORDEN DE LECTURA OBLIGATORIO AL INICIAR
+────────────────────────────────────────────────
+  1. docs/Descripcion.txt              → Contexto del proyecto y stack
+  2. docs/Historias_de_usuario.txt     → Requisitos funcionales
+  3. docs/CHANGES.md                   → Estado actual de cambios en curso
+  4. openspec/specs/*/spec.md          → Especificaciones técnicas por módulo
+
+────────────────────────────────────────────────
+2. CONTEXTO DEL NEGOCIO
+────────────────────────────────────────────────
+  - Consultorio odontológico argentino.
+  - Usuaria principal: SECRETARIA (no técnica).
+  - Monedas: ARS (Pesos Argentinos) y USD (Dólares).
+  - Flujo central: Turno → Atención → Cobro → Cuenta Corriente.
+  - El estado del proyecto es: backend operativo, frontend en migración.
+
+────────────────────────────────────────────────
+3. ESTADO ACTUAL DEL CÓDIGO (leer antes de tocar archivos)
+────────────────────────────────────────────────
+  BACKEND (app/):
+    main.py      → entrypoint FastAPI, contiene rutas actuales
+    crud.py      → funciones de acceso a base de datos
+    database.py  → configuración SQLAlchemy y función get_db()
+    models.py    → modelos ORM (tablas de la DB)
+    schemas.py   → schemas Pydantic de validación
+
+    ⚠ TAREA PENDIENTE: Revisar y refactorizar siguiendo HU-005.
+      El agente debe analizar cada archivo antes de proponer cambios.
+      No asumir que el código ya sigue buenas prácticas.
+
+  FRONTEND (app/static/):
+    Actualmente en HTML + CSS + JS vanilla.
+    Vistas existentes: agenda · dashboard · pagos · perfil-paciente
+    
+    ⚠ TAREA PENDIENTE: Migrar a React + TypeScript (HU-006).
+      El agente NO debe modificar los HTML actuales.
+      Debe crear un proyecto frontend separado en /frontend.
+
+────────────────────────────────────────────────
+4. SKILLS DISPONIBLES PARA EL AGENTE
+────────────────────────────────────────────────
+  Antes de generar cualquier código de UI, leer obligatoriamente:
+
+  frontend-design SKILL:
+    Ubicación: /mnt/skills/public/frontend-design/SKILL.md
+    Usar para: cualquier componente React, página, layout o estilo.
+    Garantiza diseño consistente, profesional y no genérico.
+    OBLIGATORIO antes de escribir el primer componente .tsx.
+
+  Otras skills disponibles:
+    /mnt/skills/public/docx/SKILL.md
+    /mnt/skills/public/pdf/SKILL.md
+    /mnt/skills/public/pptx/SKILL.md
+
+────────────────────────────────────────────────
+5. RESTRICCIONES TÉCNICAS ESTRICTAS
+────────────────────────────────────────────────
+  Backend:
+    - Separar rutas por dominio usando APIRouter de FastAPI.
+    - Usar inyección de dependencias con Depends(get_db).
+    - Schemas Pydantic separados: XxxCreate · XxxResponse · XxxUpdate.
+    - Habilitar CORS para que React pueda consumir la API.
+    - Status codes HTTP correctos: 201 para POST, 404 para not found, etc.
+
+  Frontend (React + TS):
+    - type Moneda = 'ARS' | 'USD'  →  NUNCA usar strings libres para moneda.
+    - Toda llamada HTTP centralizada en /src/services/api.ts.
+    - Sin lógica de negocio en componentes: solo presentación + hooks.
+    - Usar React Query o useEffect + Axios para fetching de datos.
+    - Tailwind para estilos, Material Design 3 como referencia visual.
+    - Nunca mezclar CSS inline con clases Tailwind.
+
+  General:
+    - No duplicar lógica entre frontend y backend.
+    - No hardcodear URLs: usar variables de entorno (.env).
+    - Separación estricta: /backend y /frontend como proyectos independientes.
+
+────────────────────────────────────────────────
+6. MÓDULOS Y ENDPOINTS ESPERADOS DEL BACKEND
+────────────────────────────────────────────────
+  /pacientes
+    GET    /pacientes            → listar pacientes
+    GET    /pacientes/{dni}      → obtener paciente por DNI
+    POST   /pacientes            → crear paciente
+    PUT    /pacientes/{dni}      → actualizar paciente
+    GET    /pacientes/deudores   → listar pacientes con saldo > 0
+
+  /turnos
+    GET    /turnos               → listar turnos (filtro por fecha/doctor)
+    POST   /turnos               → crear turno
+    PUT    /turnos/{id}          → actualizar estado / cerrar con cobro
+    DELETE /turnos/{id}          → cancelar turno
+
+  /finanzas
+    POST   /pagos                → registrar pago/cobro
+    GET    /caja/hoy             → resumen del día (turnos + ingresos ARS/USD)
+
+────────────────────────────────────────────────
+7. ESTRUCTURA DE CARPETAS OBJETIVO
+────────────────────────────────────────────────
+  /backend
+    main.py
+    database.py
+    models.py
+    schemas.py
+    crud.py
+    /routers
+      pacientes.py
+      turnos.py
+      finanzas.py
+    requirements.txt
+    .env
+
+  /frontend
+    /src
+      /pages
+        AgendaPage.tsx
+        DashboardPage.tsx
+        PagosPage.tsx
+        PerfilPacientePage.tsx
+      /components
+        Modal.tsx
+        KPICard.tsx
+        TurnoRow.tsx
+        MultiCurrencyInput.tsx
+      /services
+        api.ts
+      /types
+        index.ts
+      App.tsx
+      main.tsx
+    tailwind.config.ts
+    tsconfig.json
+    .env
+    package.json
+
+  /docs                          ← esta carpeta
+  /openspec                      ← specs y cambios OpenSpec
+
+────────────────────────────────────────────────
+8. CÓMO PROPONER CAMBIOS (OpenSpec)
+────────────────────────────────────────────────
+  Al recibir un nuevo requerimiento:
+    1. Crear carpeta: openspec/changes/<nombre-en-kebab-case>/
+    2. Generar: proposal.md · design.md · tasks.md · specs/<modulo>/spec.md
+    3. Registrar el cambio en docs/CHANGES.md con estado: PROPUESTO
+
+  Convenciones de naming:
+    Cambios:     kebab-case    (ej: refactor-backend-routers)
+    Interfaces:  PascalCase    (ej: interface Turno)
+    Campos:      snake_case    (ej: paciente_dni)
+    IDs de HU:   HU-001...
