@@ -4,6 +4,7 @@ import DashboardPage from './pages/DashboardPage';
 import AgendaPage from './pages/AgendaPage';
 import PagosPage from './pages/PagosPage';
 import PerfilPacientePage from './pages/PerfilPacientePage';
+import HistorialPacientePage from './pages/HistorialPacientePage';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/agenda" element={<AgendaPage />} />
             <Route path="/pagos" element={<PagosPage />} />
+            <Route path="/pacientes/:dni/historial" element={<HistorialPacientePage />} />
             <Route path="/pacientes" element={<PerfilPacientePage />} />
           </Routes>
         </main>

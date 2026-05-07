@@ -19,6 +19,20 @@ from backend.schemas.finanzas import CerrarTurnoInput, CerrarTurnoResponse
 router = APIRouter(prefix="/turnos", tags=["Turnos"])
 
 
+def _turno_to_response(turno) -> TurnoResponse:
+    """Convierte un Turno SQLAlchemy a TurnoResponse incluyendo relaciones."""
+    return TurnoResponse(
+        id=turno.id,
+        fecha_hora=turno.fecha_hora,
+        motivo=turno.motivo,
+        dni_paciente=turno.dni_paciente,
+        id_doctor=turno.id_doctor,
+        estado=turno.estado,
+        paciente={"nombre": turno.paciente.nombre, "apellido": turno.paciente.apellido, "dni": turno.paciente.dni, "obra_social": turno.paciente.obra_social} if turno.paciente else None,
+        doctor={"id": turno.doctor.id, "nombre": turno.doctor.nombre} if turno.doctor else None,
+    )
+
+
 @router.get("/", response_model=list[TurnoResponse])
 def listar_turnos(
     fecha: Optional[date] = Query(None, description="Filtrar por fecha (YYYY-MM-DD)"),
@@ -26,12 +40,14 @@ def listar_turnos(
     paciente_dni: Optional[str] = Query(None, description="Filtrar por DNI de paciente"),
     db: Session = Depends(get_db),
 ):
-    return obtener_todos_turnos(db, fecha=fecha, id_doctor=id_doctor, paciente_dni=paciente_dni)
+    turnos = obtener_todos_turnos(db, fecha=fecha, id_doctor=id_doctor, paciente_dni=paciente_dni)
+    return [_turno_to_response(t) for t in turnos]
 
 
 @router.get("/hoy", response_model=list[TurnoResponse])
 def turnos_hoy(db: Session = Depends(get_db)):
-    return obtener_turnos_hoy(db)
+    turnos = obtener_turnos_hoy(db)
+    return [_turno_to_response(t) for t in turnos]
 
 
 @router.get("/paciente/{dni}", response_model=list[TurnoResponse])
@@ -39,7 +55,7 @@ def turnos_por_paciente(dni: str, db: Session = Depends(get_db)):
     turnos = obtener_turnos_por_paciente(db, dni)
     if not turnos:
         raise HTTPException(status_code=404, detail="No se encontraron turnos para este paciente")
-    return turnos
+    return [_turno_to_response(t) for t in turnos]
 
 
 @router.post("/", response_model=TurnoResponse, status_code=201)
@@ -62,7 +78,7 @@ def post_turno(turno: TurnoCreate, db: Session = Depends(get_db)):
     ).first()
     if existe:
         raise HTTPException(status_code=400, detail="El doctor ya tiene un turno a esa hora")
-    return crear_turno(db=db, turno=turno)
+    return _turno_to_response(crear_turno(db=db, turno=turno))
 
 
 @router.patch("/{turno_id}/cancelar", response_model=TurnoResponse)
@@ -70,7 +86,7 @@ def cancelar_turno_api(turno_id: int, db: Session = Depends(get_db)):
     db_turno = cancelar_turno(db, turno_id)
     if not db_turno:
         raise HTTPException(status_code=404, detail="Turno no encontrado")
-    return db_turno
+    return _turno_to_response(db_turno)
 
 
 @router.delete("/{turno_id}")

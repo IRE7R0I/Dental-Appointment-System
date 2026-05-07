@@ -7,8 +7,10 @@ from decimal import Decimal
 class PagoCreate(BaseModel):
     monto: Decimal
     metodo_pago: str
-    id_turno: int
+    id_turno: Optional[int] = None
     moneda: str = "ARS"
+    dni_paciente: Optional[str] = None
+    notas: Optional[str] = None
 
 
 class PagoResponse(PagoCreate):
@@ -17,6 +19,31 @@ class PagoResponse(PagoCreate):
 
     class Config:
         from_attributes = True
+
+
+# ─── Pago con contexto (para listado de finanzas) ───────────────
+
+class PacienteMinResponse(BaseModel):
+    dni: str
+    nombre: str
+    apellido: str
+
+
+class DoctorMinResponse(BaseModel):
+    id: int
+    nombre: str
+
+
+class PagoContextoResponse(BaseModel):
+    id: int
+    fecha_pago: datetime
+    monto: float
+    moneda: str
+    metodo_pago: str
+    id_turno: Optional[int]
+    dni_paciente: Optional[str]
+    paciente: Optional[PacienteMinResponse]
+    doctor: Optional[DoctorMinResponse]
 
 
 # ─── Inputs para cerrar turno ─────────────────────────────────

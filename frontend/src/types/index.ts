@@ -108,3 +108,64 @@ export interface PagoFormItem {
   moneda: Moneda;
   metodo: string;
 }
+
+export interface HistorialTratamientoResponse {
+  nombre: string;
+  cantidad: number;
+  precio_ars?: number;
+  precio_usd?: number;
+}
+
+export interface PagoEnHistorialResponse {
+  id: number;
+  fecha: string;
+  monto: number;
+  moneda: string;
+  metodo_pago: string;
+}
+
+export interface HistorialTurnoItemResponse {
+  id: number;
+  fecha_hora: string;
+  estado: string;
+  doctor: { id: number; nombre: string };
+  tratamientos: HistorialTratamientoResponse[];
+  total_ars: number;
+  total_usd: number;
+  pagos: PagoEnHistorialResponse[];
+  total_pagado_ars: number;
+  total_pagado_usd: number;
+  saldo_ars: number;
+  saldo_usd: number;
+}
+
+export interface TotalesHistorial {
+  total_tratamientos_ars: number;
+  total_tratamientos_usd: number;
+  total_pagado_ars: number;
+  total_pagado_usd: number;
+  saldo_ars: number;
+  saldo_usd: number;
+}
+
+export interface HistorialPacienteResponse {
+  dni_paciente: string;
+  nombre: string;
+  apellido: string;
+  saldo_ars: number;
+  saldo_usd: number;
+  turnos: HistorialTurnoItemResponse[];
+  totales: TotalesHistorial;
+}
+
+export interface PagoContextoResponse {
+  id: number;
+  fecha_pago: string;
+  monto: number;
+  moneda: string;
+  metodo_pago: string;
+  id_turno: number | null;
+  dni_paciente: string | null;
+  paciente: { dni: string; nombre: string; apellido: string } | null;
+  doctor: { id: number; nombre: string } | null;
+}

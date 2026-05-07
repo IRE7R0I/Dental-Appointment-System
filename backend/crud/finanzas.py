@@ -1,18 +1,41 @@
 from datetime import date, datetime
 from decimal import Decimal
-from sqlalchemy.orm import Session
+from typing import Optional, List
+from sqlalchemy.orm import Session, joinedload
 from backend import models
 from backend.schemas.finanzas import PagoCreate, CerrarTurnoResponse
 
 
 def crear_pago(db: Session, pago: PagoCreate):
+    # ── Determinar DNI del paciente ──
+    dni = pago.dni_paciente
+    if not dni and pago.id_turno:
+        turno = db.query(models.Turno).filter(models.Turno.id == pago.id_turno).first()
+        if turno:
+            dni = turno.dni_paciente
+
+    # ── 1. Registrar el pago ──
     db_pago = models.Pago(
         monto=pago.monto,
         metodo_pago=pago.metodo_pago,
         id_turno=pago.id_turno,
         moneda=pago.moneda,
+        dni_paciente=dni,
     )
     db.add(db_pago)
+
+    # ── 2. Actualizar cuenta corriente del paciente ──
+    if dni:
+        from backend.crud.pacientes import registrar_movimiento
+        registrar_movimiento(
+            db,
+            dni=dni,
+            tipo="pago",
+            monto=pago.monto,
+            moneda=pago.moneda,
+            descripcion=pago.notas or f"Pago {pago.metodo_pago}",
+        )
+
     db.commit()
     db.refresh(db_pago)
     return db_pago
@@ -177,3 +200,118 @@ def resumen_caja_hoy(db: Session):
         ingresos_usd=ingresos_usd,
         total_ingresos=total,
     )
+
+
+# ─── Listado de pagos filtrado ──────────────────────────────────────
+
+def _float(val):
+    if val is None:
+        return 0.0
+    return float(val)
+
+
+def _normalizar_metodo(metodo: str) -> str:
+    """Normaliza variaciones de método de pago a 'efectivo' o 'transferencia'."""
+    if not metodo:
+        return metodo
+    m = metodo.lower()
+    if m in ("banco", "mercadopago", "mp", "transferencia", "transfer"):
+        return "transferencia"
+    return "efectivo"
+
+
+def listar_pagos_filtrados(
+    db: Session,
+    fecha_desde=None,
+    fecha_hasta=None,
+    metodo_pago=None,
+    dni_paciente=None,
+    id_doctor=None,
+    solo_deudores=False,
+):
+    """
+    Lista pagos con datos de paciente y doctor, filtrable.
+    """
+    from backend.schemas.finanzas import PagoContextoResponse
+
+    # ── Subquery: DNIs de deudores ──
+    deudores_dnis = set()
+    if solo_deudores:
+        cuentas = db.query(models.CuentaCorriente).filter(
+            (models.CuentaCorriente.saldo_ars > 0) | (models.CuentaCorriente.saldo_usd > 0)
+        ).all()
+        deudores_dnis = {c.dni_paciente for c in cuentas}
+
+    # ── Query base sobre Pago ──
+    query = db.query(models.Pago)
+
+    if fecha_desde:
+        query = query.filter(models.Pago.fecha_pago >= datetime.combine(fecha_desde, datetime.min.time()))
+    if fecha_hasta:
+        query = query.filter(models.Pago.fecha_pago <= datetime.combine(fecha_hasta, datetime.max.time()))
+    if metodo_pago:
+        metodo_norm = _normalizar_metodo(metodo_pago)
+        # LIKE para cubrir variaciones en la DB (banco, mercadopago, transferencia)
+        query = query.filter(models.Pago.metodo_pago.ilike(f"%{metodo_norm}%"))
+
+    pagos = query.order_by(models.Pago.fecha_pago.desc()).all()
+
+    resultados = []
+    for pago in pagos:
+        # ── Solo deudores: verificar ──
+        dni = pago.dni_paciente
+        if solo_deudores and dni not in deudores_dnis:
+            continue
+
+        # ── Filtro por DNI paciente ──
+        if dni_paciente and dni != dni_paciente:
+            continue
+
+        # ── Obtener contexto del turno y paciente ──
+        paciente_data = None
+        doctor_data = None
+        turno_id = pago.id_turno
+
+        if turno_id:
+            turno = db.query(models.Turno).options(
+                joinedload(models.Turno.paciente),
+                joinedload(models.Turno.doctor),
+            ).filter(models.Turno.id == turno_id).first()
+            if turno:
+                if id_doctor and turno.id_doctor != id_doctor:
+                    continue
+                if turno.paciente:
+                    paciente_data = {
+                        "dni": turno.paciente.dni,
+                        "nombre": turno.paciente.nombre,
+                        "apellido": turno.paciente.apellido,
+                    }
+                if turno.doctor:
+                    doctor_data = {
+                        "id": turno.doctor.id,
+                        "nombre": turno.doctor.nombre,
+                    }
+
+        # ── Si no hay turno, buscar paciente directo ──
+        if not paciente_data and dni:
+            pac = db.query(models.Paciente).filter(models.Paciente.dni == dni).first()
+            if pac:
+                paciente_data = {
+                    "dni": pac.dni,
+                    "nombre": pac.nombre,
+                    "apellido": pac.apellido,
+                }
+
+        resultados.append(PagoContextoResponse(
+            id=pago.id,
+            fecha_pago=pago.fecha_pago,
+            monto=_float(pago.monto),
+            moneda=pago.moneda,
+            metodo_pago=pago.metodo_pago,
+            id_turno=turno_id,
+            dni_paciente=dni,
+            paciente=paciente_data,
+            doctor=doctor_data,
+        ))
+
+    return resultados

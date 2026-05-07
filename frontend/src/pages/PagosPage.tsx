@@ -1,15 +1,26 @@
 import { useEffect, useState } from 'react';
-import { getCajaHoy, getDeudores, getTurnos, registrarPago } from '../services/api';
-import type { ResumenCaja, Deudor, Turno } from '../types';
+import { getCajaHoy, getDeudores, getTurnos, registrarPago, getPagos } from '../services/api';
+import type { ResumenCaja, Deudor, Turno, PagoContextoResponse } from '../types';
 import KPICard from '../components/KPICard';
 
 type FiltroCuenta = 'todos' | 'deudores_ars' | 'deudores_usd' | 'aldia';
+type PeriodoTipo = 'mes' | 'semana';
+type MetodoFiltro = 'todos' | 'efectivo' | 'transferencia';
 
 export default function PagosPage() {
   const [caja, setCaja] = useState<ResumenCaja | null>(null);
   const [deudores, setDeudores] = useState<Deudor[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<FiltroCuenta>('todos');
+
+  // ── Registro de pagos ──────────────────────────────────────
+  const [pagos, setPagos] = useState<PagoContextoResponse[]>([]);
+  const [loadingPagos, setLoadingPagos] = useState(false);
+  const [periodoTipo, setPeriodoTipo] = useState<PeriodoTipo>('mes');
+  const [periodoValor, setPeriodoValor] = useState(''); // e.g. "2026-05"
+  const [filtroMetodo, setFiltroMetodo] = useState<MetodoFiltro>('todos');
+  const [pagosExpandido, setPagosExpandido] = useState<number | null>(null);
+  const [errorPagos, setErrorPagos] = useState('');
 
   const [sideSheetOpen, setSideSheetOpen] = useState(false);
   const [cobroPaciente, setCobroPaciente] = useState<Deudor | null>(null);
@@ -52,6 +63,88 @@ export default function PagosPage() {
     return true;
   });
 
+  // ── Helpers para períodos ──────────────────────────────────
+  const getMesesOptions = () => {
+    const opts = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const label = d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      opts.push({ label: label.charAt(0).toUpperCase() + label.slice(1), value });
+    }
+    return opts;
+  };
+
+  const getSemanasOptions = (yearMonth: string) => {
+    if (!yearMonth) return [];
+    const [y, m] = yearMonth.split('-').map(Number);
+    const diasEnMes = new Date(y, m, 0).getDate();
+    const semanas = [];
+    let dia = 1;
+    let numSemana = 1;
+    const monthName = new Date(y, m - 1, 1).toLocaleDateString('es-AR', { month: 'long' });
+    while (dia <= diasEnMes) {
+      const hastaDia = Math.min(dia + 6, diasEnMes);
+      semanas.push({
+        label: `${numSemana}ta sem. ${monthName} (${dia.toString().padStart(2,'0')}–${hastaDia.toString().padStart(2,'0')})`,
+        desde: `${yearMonth}-${dia.toString().padStart(2, '0')}`,
+        hasta: `${yearMonth}-${hastaDia.toString().padStart(2, '0')}`,
+      });
+      dia += 7;
+      numSemana++;
+    }
+    return semanas;
+  };
+
+  // Inicializar período por defecto (solo una vez al montar)
+  const mesActual = new Date().toISOString().slice(0, 7);
+  useEffect(() => {
+    if (!periodoValor) setPeriodoValor(mesActual);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPagos() {
+      if (!periodoValor) return;
+      setLoadingPagos(true);
+      setErrorPagos('');
+      try {
+        let params: Record<string, string> = {};
+        if (periodoTipo === 'mes') {
+          const [y, m2] = periodoValor.split('-').map(Number);
+          const desde = `${periodoValor}-01`;
+          const hasta = `${periodoValor}-${new Date(y, m2, 0).getDate().toString().padStart(2, '0')}`;
+          params = { fecha_desde: desde, fecha_hasta: hasta };
+        } else {
+          const semanas = getSemanasOptions(periodoValor.slice(0, 7));
+          const sem = semanas.find(s => s.label === periodoValor);
+          if (sem) {
+            params = { fecha_desde: sem.desde, fecha_hasta: sem.hasta };
+          }
+        }
+        if (filtroMetodo !== 'todos') {
+          params.metodo_pago = filtroMetodo;
+        }
+        const data = await getPagos(params);
+        if (!cancelled) setPagos(data);
+      } catch {
+        if (!cancelled) setErrorPagos('No se pudieron cargar los pagos');
+      } finally {
+        if (!cancelled) setLoadingPagos(false);
+      }
+    }
+    loadPagos();
+    return () => { cancelled = true; };
+  }, [periodoValor, periodoTipo, filtroMetodo]);
+
+  const pagosTotalesARS = pagos.reduce((s, p) => p.moneda === 'ARS' ? s + p.monto : s, 0);
+  const pagosTotalesUSD = pagos.reduce((s, p) => p.moneda === 'USD' ? s + p.monto : s, 0);
+
+  function formatFechaPago(iso: string) {
+    return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: '2-digit' });
+  }
+
   const chips: { key: FiltroCuenta; label: string }[] = [
     { key: 'todos', label: 'Todos' },
     { key: 'deudores_ars', label: 'Deudores ARS' },
@@ -78,6 +171,17 @@ export default function PagosPage() {
 
   async function handleRegistrarCobro() {
     if (!cobroPaciente || cobroMonto <= 0) return;
+
+    // ── Validation: payment cannot exceed owed amount ──
+    const deudaActual = cobroMoneda === 'ARS'
+      ? cobroPaciente.saldo_ars
+      : cobroPaciente.saldo_usd;
+
+    if (cobroMonto > deudaActual) {
+      alert(`El monto no puede exceder la deuda (${cobroMoneda} ${deudaActual.toLocaleString()})`);
+      return;
+    }
+
     setCobrando(true);
     try {
       await registrarPago({
@@ -85,20 +189,41 @@ export default function PagosPage() {
         moneda: cobroMoneda,
         metodo_pago: cobroMetodo,
         ...(cobroTurnoId ? { id_turno: cobroTurnoId } : {}),
+        dni_paciente: cobroPaciente.dni,
         notas: cobroNotas || undefined,
       });
+
+      // ── Optimistic update: reduce local balance immediately ──
+      setDeudores(prev => prev.map(d => {
+        if (d.dni !== cobroPaciente.dni) return d;
+        return {
+          ...d,
+          saldo_ars: cobroMoneda === 'ARS' ? d.saldo_ars - cobroMonto : d.saldo_ars,
+          saldo_usd: cobroMoneda === 'USD' ? d.saldo_usd - cobroMonto : d.saldo_usd,
+        };
+      }));
+
+      // ── Update side sheet with new remaining balance ──
+      setCobroPaciente(prev => prev ? {
+        ...prev,
+        saldo_ars: cobroMoneda === 'ARS' ? prev.saldo_ars - cobroMonto : prev.saldo_ars,
+        saldo_usd: cobroMoneda === 'USD' ? prev.saldo_usd - cobroMonto : prev.saldo_usd,
+      } : null);
+
       setCobroExito(true);
-      const deudoresData = await getDeudores();
-      setDeudores(deudoresData);
     } catch { /* ignore */ } finally {
       setCobrando(false);
     }
   }
 
   function getSaldoActual(deudor: Deudor) {
-    return cobroPaciente?.dni === deudor.dni && cobroExito
-      ? { ars: 0, usd: 0 }
-      : { ars: deudor.saldo_ars, usd: deudor.saldo_usd };
+    // After payment success, cobroPaciente already has reduced balance (optimistic update).
+    // For the patient whose payment was just processed, use cobroPaciente balance.
+    // For others, use the deudor object directly.
+    if (cobroPaciente?.dni === deudor.dni) {
+      return { ars: cobroPaciente.saldo_ars, usd: cobroPaciente.saldo_usd };
+    }
+    return { ars: deudor.saldo_ars, usd: deudor.saldo_usd };
   }
 
   return (
@@ -123,7 +248,7 @@ export default function PagosPage() {
           delay={0}
         />
         <KPICard
-          title="Saldo en la Calle"
+          title="Saldo a Cobrar"
           value={
             loading
               ? '-'
@@ -243,6 +368,201 @@ export default function PagosPage() {
         </div>
       </div>
 
+      {/* ── Registro de Pagos ──────────────────────────────────── */}
+      <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden animate-fade-slide-up">
+        <div className="p-6 border-b border-slate-50 flex flex-col gap-4">
+          <div className="flex justify-between items-start">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <span className="material-symbols-rounded text-slate-400">payments</span>
+              Registro de Pagos
+            </h3>
+            {/* Period type toggle */}
+            <div className="flex gap-1 bg-slate-100 rounded-full p-1">
+              {(['mes', 'semana'] as PeriodoTipo[]).map(pt => (
+                <button
+                  key={pt}
+                  onClick={() => {
+                    setPeriodoTipo(pt);
+                    setPeriodoValor(''); // reset so effect re-runs
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                    periodoTipo === pt
+                      ? 'bg-white text-[#0061a4] shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {pt === 'mes' ? 'Por Mes' : 'Por Semana'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Period value selector */}
+          <div className="flex flex-wrap gap-3 items-center">
+            {periodoTipo === 'mes' ? (
+              <select
+                value={periodoValor}
+                onChange={e => setPeriodoValor(e.target.value)}
+                className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0061a4]/30"
+              >
+                {getMesesOptions().map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            ) : (
+              <>
+                <select
+                  value={periodoValor ? periodoValor.slice(0, 7) : ''}
+                  onChange={e => {
+                    const mes = e.target.value;
+                    if (mes) {
+                      const semanas = getSemanasOptions(mes);
+                      setPeriodoValor(semanas[0]?.label ?? '');
+                    } else {
+                      setPeriodoValor('');
+                    }
+                  }}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0061a4]/30"
+                >
+                  <option value="">Mes…</option>
+                  {getMesesOptions().map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                {periodoValor && (
+                  <select
+                    value={periodoValor}
+                    onChange={e => setPeriodoValor(e.target.value)}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0061a4]/30"
+                  >
+                    {getSemanasOptions(periodoValor.slice(0, 7)).map(s => (
+                      <option key={s.label} value={s.label}>{s.label}</option>
+                    ))}
+                  </select>
+                )}
+              </>
+            )}
+
+            {/* Metodo filter */}
+            <div className="flex gap-1 bg-slate-100 rounded-full p-1 ml-auto">
+              {(['todos', 'efectivo', 'transferencia'] as MetodoFiltro[]).map(m => (
+                <button
+                  key={m}
+                  onClick={() => setFiltroMetodo(m)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                    filtroMetodo === m
+                      ? 'bg-white text-[#0061a4] shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {m === 'todos' ? 'Todos' : m === 'efectivo' ? 'Efectivo' : 'Transferencia'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Totales */}
+          {!loadingPagos && (
+            <div className="flex gap-3">
+              <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl px-4 py-2 flex items-center gap-2">
+                <span className="material-symbols-rounded text-[#0061a4] text-lg">account_balance</span>
+                <div>
+                  <p className="text-xs text-slate-500 font-medium">Total ARS</p>
+                  <p className="text-sm font-bold text-[#0061a4]">${pagosTotalesARS.toLocaleString('es-AR')}</p>
+                </div>
+              </div>
+              <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl px-4 py-2 flex items-center gap-2">
+                <span className="material-symbols-rounded text-emerald-600 text-lg">attach_money</span>
+                <div>
+                  <p className="text-xs text-slate-500 font-medium">Total USD</p>
+                  <p className="text-sm font-bold text-emerald-700">U$D {pagosTotalesUSD.toLocaleString('es-AR')}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Paciente</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Doctor</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Método</th>
+                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Monto</th>
+                <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Turno</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {loadingPagos ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-sm">Cargando…</td>
+                </tr>
+              ) : errorPagos ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-red-400 text-sm">{errorPagos}</td>
+                </tr>
+              ) : pagos.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-sm">No hay pagos en este período</td>
+                </tr>
+              ) : (
+                pagos.map(pago => (
+                  <tr key={pago.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      {formatFechaPago(pago.fecha_pago)}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-slate-800">
+                      {pago.paciente
+                        ? `${pago.paciente.nombre} ${pago.paciente.apellido}`
+                        : <span className="text-slate-400 italic">Sin paciente</span>}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      {pago.doctor ? pago.doctor.nombre : <span className="text-slate-400 italic">—</span>}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${
+                        pago.metodo_pago === 'efectivo'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                          : 'bg-blue-50 text-blue-700 border-blue-100'
+                      }`}>
+                        <span className="material-symbols-rounded text-[13px]">
+                          {pago.metodo_pago === 'efectivo' ? 'payments' : 'account_balance'}
+                        </span>
+                        {pago.metodo_pago}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className={`text-sm font-bold ${
+                        pago.moneda === 'ARS' ? 'text-[#0061a4]' : 'text-emerald-700'
+                      }`}>
+                        {pago.moneda === 'ARS'
+                          ? `$${pago.monto.toLocaleString('es-AR')}`
+                          : `U$D ${pago.monto.toLocaleString('es-AR')}`}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {pago.id_turno ? (
+                        <span className="text-xs font-mono text-slate-400">#{pago.id_turno}</span>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        {!loadingPagos && (
+          <div className="px-6 py-3 border-t border-slate-50 text-xs text-slate-400 text-right">
+            {pagos.length} pago{pagos.length !== 1 ? 's' : ''} registrado{pagos.length !== 1 ? 's' : ''}
+          </div>
+        )}
+      </div>
+
       {sideSheetOpen && cobroPaciente && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-end">
           <div
@@ -319,7 +639,10 @@ export default function PagosPage() {
                         <label className="text-xs font-bold text-slate-500 ml-1">Moneda del Abono</label>
                         <select
                           value={cobroMoneda}
-                          onChange={e => setCobroMoneda(e.target.value as 'ARS' | 'USD')}
+                          onChange={e => {
+                            setCobroMoneda(e.target.value as 'ARS' | 'USD');
+                            setCobroMonto(0);
+                          }}
                           className="w-full mt-1 px-4 py-3 rounded-[12px] border border-slate-200 focus:ring-2 focus:ring-[#0061a4] bg-slate-50 font-bold text-slate-800 outline-none"
                         >
                           <option value="ARS">Pesos Argentinos (ARS)</option>
@@ -387,14 +710,29 @@ export default function PagosPage() {
                       </div>
 
                       <div className="pt-4">
-                        <button
-                          onClick={handleRegistrarCobro}
-                          disabled={cobrando || cobroMonto <= 0}
-                          className="w-full bg-[#0061a4] hover:bg-[#00528c] text-white font-bold py-4 rounded-[16px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <span className="material-symbols-rounded">receipt</span>
-                          {cobrando ? 'Procesando...' : 'Registrar Abono'}
-                        </button>
+                        {(() => {
+                          const deudaMax = cobroMoneda === 'ARS'
+                            ? cobroPaciente.saldo_ars
+                            : cobroPaciente.saldo_usd;
+                          const excede = cobroMonto > deudaMax;
+                          return (
+                            <>
+                              {excede && cobroMonto > 0 && (
+                                <p className="text-xs text-[#B3261E] font-medium mb-2 text-center">
+                                  El monto no puede exceder los {cobroMoneda} {deudaMax.toLocaleString()}
+                                </p>
+                              )}
+                              <button
+                                onClick={handleRegistrarCobro}
+                                disabled={cobrando || cobroMonto <= 0 || excede}
+                                className="w-full bg-[#0061a4] hover:bg-[#00528c] text-white font-bold py-4 rounded-[16px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <span className="material-symbols-rounded">receipt</span>
+                                {cobrando ? 'Procesando...' : 'Registrar Abono'}
+                              </button>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>

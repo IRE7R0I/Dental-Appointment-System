@@ -26,8 +26,8 @@ function formatHour(iso: string) {
 
 export default function TurnoCard({ turno, onClick, style }: TurnoCardProps) {
   const pacienteNombre = turno.paciente
-    ? `${turno.paciente.apellido}, ${turno.paciente.nombre}`
-    : turno.dni_paciente;
+    ? `${turno.paciente.nombre} ${turno.paciente.apellido} - DNI ${turno.paciente.dni}`
+    : `DNI ${turno.dni_paciente}`;
 
   return (
     <button

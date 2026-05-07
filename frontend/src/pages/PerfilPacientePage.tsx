@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getPacientes, getTurnos, getCuentaCorriente, crearPaciente, actualizarPaciente, getDoctores } from '../services/api';
 import type { Paciente, Turno, Doctor, CuentaCorrienteResponse } from '../types';
 
@@ -13,6 +14,7 @@ const OBRAS_SOCIALES_DEFAULT = [
   'PAMI',
   'Otra',
 ];
+
 
 type Vista = 'lista' | 'perfil' | 'editar';
 
@@ -91,6 +93,7 @@ export default function PerfilPacientePage() {
   const [nuevoForm, setNuevoForm] = useState({ dni: '', nombre: '', apellido: '', telefono: '', email: '', domicilio: '', obra_social: 'Particular' });
   const [creando, setCreando] = useState(false);
   const [errorNuevo, setErrorNuevo] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     let cancelled = false;
@@ -191,8 +194,6 @@ export default function PerfilPacientePage() {
     const deudaARS = cuentaSel?.saldo_ars ?? 0;
     const deudaUSD = cuentaSel?.saldo_usd ?? 0;
     const tieneDeuda = deudaARS > 0 || deudaUSD > 0;
-    const totalFacturadoARS = cuentaSel?.movimientos?.filter(m => m.tipo === 'debito' && m.monto_ars).reduce((s, m) => s + (m.monto_ars ?? 0), 0) ?? 0;
-    const totalPagadoARS = cuentaSel?.movimientos?.filter(m => m.tipo === 'credito' && m.monto_ars).reduce((s, m) => s + (m.monto_ars ?? 0), 0) ?? 0;
 
     return (
       <div className="p-4 md:p-8 pb-28 md:pb-10 h-full flex flex-col">
@@ -279,22 +280,10 @@ export default function PerfilPacientePage() {
                   <span className="material-symbols-rounded text-[18px]">account_balance_wallet</span>
                   Resumen de Cuenta
                 </h3>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    <p className="text-xs text-slate-500 font-medium mb-1">Total Facturado</p>
-                    <p className="text-xl font-bold text-slate-800">
-                      {cuentaSel ? `$ ${(totalFacturadoARS || 0).toLocaleString()}` : '—'}
-                    </p>
-                  </div>
-                  <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
-                    <p className="text-xs text-emerald-600 font-medium mb-1">Pagado</p>
-                    <p className="text-xl font-bold text-emerald-700">
-                      {cuentaSel ? `$ ${(totalPagadoARS || 0).toLocaleString()}` : '—'}
-                    </p>
-                  </div>
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                    <p className="text-xs text-slate-500 font-medium mb-1">Saldo Restante</p>
-                    <p className={`text-xl font-bold ${deudaARS > 0 ? 'text-[#B3261E]' : 'text-[#0061a4]'}`}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center">
+                    <p className="text-xs text-slate-500 font-medium mb-2">Saldo Restante</p>
+                    <p className={`text-2xl font-bold ${deudaARS > 0 ? 'text-[#B3261E]' : 'text-[#0061a4]'}`}>
                       {cuentaSel
                         ? deudaARS > 0
                           ? `$ ${deudaARS.toLocaleString()}`
@@ -306,6 +295,14 @@ export default function PerfilPacientePage() {
                         U$D {deudaUSD.toLocaleString()}
                       </p>
                     )}
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center">
+                    <button
+                      onClick={() => navigate(`/pacientes/${pacienteSel?.dni}/historial`)}
+                      className="bg-[#0061a4] text-white px-5 py-3 rounded-lg hover:bg-[#004e8a] transition-colors w-full font-bold"
+                    >
+                      Historial de Pagos y Tratamientos
+                    </button>
                   </div>
                 </div>
               </div>

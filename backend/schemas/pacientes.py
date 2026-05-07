@@ -42,8 +42,8 @@ class MovimientoResponse(BaseModel):
 
 class CuentaCorrienteResponse(BaseModel):
     dni_paciente: str
-    saldo_ars: Decimal
-    saldo_usd: Decimal
+    saldo_ars: float
+    saldo_usd: float
     ultima_actualizacion: Optional[datetime] = None
     movimientos: list[MovimientoResponse] = []
 
@@ -56,5 +56,8 @@ class DeudorResponse(BaseModel):
     nombre: str
     apellido: str
     telefono: Optional[str] = None
-    saldo_ars: Decimal
-    saldo_usd: Decimal
+    saldo_ars: float
+    saldo_usd: float
+
+    class Config:
+        from_attributes = True

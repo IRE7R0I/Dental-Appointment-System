@@ -310,9 +310,10 @@ export default function AgendaPage() {
   function renderTurnoCard(turno: Turno, index: number) {
     const doctorColor = DOCTOR_COLORS[turno.id_doctor] || { bg: 'bg-slate-50/60', border: 'border-l-slate-400', dot: '#94a3b8', name: 'Doctor' };
     const estadoConf = ESTADO_CONFIG[turno.estado] || { label: turno.estado, classes: 'bg-slate-50 text-slate-600 border-slate-200', icon: 'help' };
+    const doctorNombre = turno.doctor?.nombre || doctorColor.name;
     const pacienteNombre = turno.paciente
-      ? `${turno.paciente.apellido}, ${turno.paciente.nombre}`
-      : turno.dni_paciente;
+      ? `${turno.paciente.nombre} ${turno.paciente.apellido} - DNI ${turno.paciente.dni}`
+      : `DNI ${turno.dni_paciente}`;
 
     return (
       <button
@@ -340,7 +341,7 @@ export default function AgendaPage() {
                 className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: doctorColor.dot }}
               />
-              <span className="text-sm font-semibold text-slate-700">{doctorColor.name}</span>
+              <span className="text-sm font-semibold text-slate-700">{doctorNombre}</span>
             </div>
 
             {/* Patient name */}
@@ -720,17 +721,19 @@ export default function AgendaPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
-                <div className="w-12 h-12 rounded-full bg-[#c2e7ff] flex items-center justify-center text-[#0061a4]">
-                  <span className="material-symbols-rounded">person</span>
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800">
-                    {turnoSeleccionado.paciente?.apellido}, {turnoSeleccionado.paciente?.nombre}
-                  </p>
-                  <p className="text-xs text-slate-500">DNI {turnoSeleccionado.dni_paciente}</p>
-                </div>
-              </div>
+                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
+                    <div className="w-12 h-12 rounded-full bg-[#c2e7ff] flex items-center justify-center text-[#0061a4]">
+                      <span className="material-symbols-rounded">person</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">
+                        {turnoSeleccionado.paciente
+                          ? `${turnoSeleccionado.paciente.nombre} ${turnoSeleccionado.paciente.apellido}`
+                          : `Paciente DNI ${turnoSeleccionado.dni_paciente}`}
+                      </p>
+                      <p className="text-xs text-slate-500">DNI {turnoSeleccionado.dni_paciente}</p>
+                    </div>
+                  </div>
 
               <div className="bg-slate-50 rounded-2xl p-4">
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Obra Social</p>
@@ -747,7 +750,7 @@ export default function AgendaPage() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="bg-slate-50 rounded-2xl p-4">
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Doctor</p>
-                  <p className="font-bold text-slate-800">{turnoSeleccionado.doctor?.nombre || `Dr. #${turnoSeleccionado.id_doctor}`}</p>
+                  <p className="font-bold text-slate-800">{turnoSeleccionado.doctor?.nombre || 'Sin doctor asignado'}</p>
                 </div>
                 <div className="bg-slate-50 rounded-2xl p-4">
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Horario</p>
@@ -794,17 +797,19 @@ export default function AgendaPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
-                <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
-                  <span className="material-symbols-rounded">check_circle</span>
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800">
-                    {turnoSeleccionado.paciente?.apellido}, {turnoSeleccionado.paciente?.nombre}
-                  </p>
-                  <p className="text-xs text-slate-500">DNI {turnoSeleccionado.dni_paciente}</p>
-                </div>
-              </div>
+                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
+                    <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                      <span className="material-symbols-rounded">check_circle</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">
+                        {turnoSeleccionado.paciente
+                          ? `${turnoSeleccionado.paciente.nombre} ${turnoSeleccionado.paciente.apellido}`
+                          : `Paciente DNI ${turnoSeleccionado.dni_paciente}`}
+                      </p>
+                      <p className="text-xs text-slate-500">DNI {turnoSeleccionado.dni_paciente}</p>
+                    </div>
+                  </div>
 
               <div className="bg-slate-50 rounded-2xl p-4">
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Obra Social</p>
@@ -821,7 +826,7 @@ export default function AgendaPage() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="bg-slate-50 rounded-2xl p-4">
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Doctor</p>
-                  <p className="font-bold text-slate-800">{turnoSeleccionado.doctor?.nombre || `Dr. #${turnoSeleccionado.id_doctor}`}</p>
+                  <p className="font-bold text-slate-800">{turnoSeleccionado.doctor?.nombre || 'Sin doctor asignado'}</p>
                 </div>
                 <div className="bg-slate-50 rounded-2xl p-4">
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Horario</p>
@@ -920,17 +925,19 @@ export default function AgendaPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
-                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600">
-                  <span className="material-symbols-rounded">cancel</span>
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800">
-                    {turnoSeleccionado.paciente?.apellido}, {turnoSeleccionado.paciente?.nombre}
-                  </p>
-                  <p className="text-xs text-slate-500">DNI {turnoSeleccionado.dni_paciente}</p>
-                </div>
-              </div>
+                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
+                    <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                      <span className="material-symbols-rounded">cancel</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">
+                        {turnoSeleccionado.paciente
+                          ? `${turnoSeleccionado.paciente.nombre} ${turnoSeleccionado.paciente.apellido}`
+                          : `Paciente DNI ${turnoSeleccionado.dni_paciente}`}
+                      </p>
+                      <p className="text-xs text-slate-500">DNI {turnoSeleccionado.dni_paciente}</p>
+                    </div>
+                  </div>
 
               <div className="bg-slate-50 rounded-2xl p-4">
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Obra Social</p>
@@ -947,7 +954,7 @@ export default function AgendaPage() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="bg-slate-50 rounded-2xl p-4">
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Doctor</p>
-                  <p className="font-bold text-slate-800">{turnoSeleccionado.doctor?.nombre || `Dr. #${turnoSeleccionado.id_doctor}`}</p>
+                  <p className="font-bold text-slate-800">{turnoSeleccionado.doctor?.nombre || 'Sin doctor asignado'}</p>
                 </div>
                 <div className="bg-slate-50 rounded-2xl p-4">
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Horario</p>
@@ -986,15 +993,17 @@ export default function AgendaPage() {
               </button>
             </div>
 
-            <div className="mb-6 bg-slate-50 rounded-2xl p-4">
-              <p className="text-sm font-bold text-slate-800">
-                {turnoSeleccionado.paciente?.apellido}, {turnoSeleccionado.paciente?.nombre}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                {turnoSeleccionado.doctor?.nombre} &middot;{' '}
-                {formatHour(turnoSeleccionado.fecha_hora)}
-              </p>
-            </div>
+<div className="mb-6 bg-slate-50 rounded-2xl p-4">
+                <p className="text-sm font-bold text-slate-800">
+                  {turnoSeleccionado.paciente
+                    ? `${turnoSeleccionado.paciente.nombre} ${turnoSeleccionado.paciente.apellido}`
+                    : `Paciente DNI ${turnoSeleccionado.dni_paciente}`}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {turnoSeleccionado.doctor?.nombre || 'Sin doctor asignado'} &middot;{' '}
+                  {formatHour(turnoSeleccionado.fecha_hora)}
+                </p>
+              </div>
 
             {/* Tratamientos */}
             <div className="mb-6">

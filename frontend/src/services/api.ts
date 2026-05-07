@@ -1,7 +1,8 @@
 import axios from 'axios';
 import type {
   Paciente, Turno, Doctor, ResumenCaja, Deudor,
-  CerrarTurnoInput, CerrarTurnoResponse, CuentaCorrienteResponse
+  CerrarTurnoInput, CerrarTurnoResponse, CuentaCorrienteResponse,
+  HistorialPacienteResponse, PagoContextoResponse
 } from '../types';
 
 const api = axios.create({ baseURL: '/api' });
@@ -30,7 +31,27 @@ export const getCajaHoy = () => api.get<ResumenCaja>('/finanzas/caja/hoy').then(
 export const getCuentaCorriente = (dni: string) =>
   api.get(`/pacientes/${dni}/cuenta`).then(r => r.data as CuentaCorrienteResponse);
 
-export const registrarPago = (data: { monto: number; moneda: string; metodo_pago: string; id_turno?: number; notas?: string }) =>
+export const registrarPago = (data: { monto: number; moneda: string; metodo_pago: string; id_turno?: number; dni_paciente?: string; notas?: string }) =>
   api.post('/finanzas/pagos', data).then(r => r.data);
+
+export const getHistorialPaciente = (
+  dni: string,
+  params?: { fecha_desde?: string; fecha_hasta?: string }
+) => {
+  const searchParams = new URLSearchParams();
+  searchParams.append('dni', dni);
+  if (params?.fecha_desde) searchParams.append('fecha_desde', params.fecha_desde);
+  if (params?.fecha_hasta) searchParams.append('fecha_hasta', params.fecha_hasta);
+  return api.get<HistorialPacienteResponse>(`/pacientes/historial?${searchParams.toString()}`).then(r => r.data);
+};
+
+export const getPagos = (params?: {
+  fecha_desde?: string;
+  fecha_hasta?: string;
+  metodo_pago?: string;
+  dni_paciente?: string;
+  id_doctor?: number;
+  solo_deudores?: boolean;
+}) => api.get<PagoContextoResponse[]>('/finanzas/pagos', { params }).then(r => r.data);
 
 export default api;

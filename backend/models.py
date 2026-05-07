@@ -73,12 +73,14 @@ class Pago(Base):
     monto = Column(DECIMAL(10, 2), nullable=False)
     fecha_pago = Column(DateTime, default=datetime.now)
     metodo_pago = Column(String(50)) # Efectivo, Transferencia, etc.
-    
+
     moneda = Column(String(3), default='ARS')
     saldo_pendiente = Column(DECIMAL(10,2), nullable=True)
+    dni_paciente = Column(String(20), ForeignKey("pacientes.dni"), nullable=True)  # null si el pago viene con id_turno
 
     id_turno = Column(Integer, ForeignKey("turnos.id"))
     turno = relationship("Turno", back_populates="pagos")
+    paciente = relationship("Paciente", foreign_keys=[dni_paciente])
 
 class CuentaCorriente(Base):
     __tablename__ = "cuentas_corrientes"

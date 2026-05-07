@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from typing import Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from backend import models
 from backend.schemas.turnos import TurnoCreate
 
@@ -15,12 +15,21 @@ def crear_turno(db: Session, turno: TurnoCreate):
     )
     db.add(db_turno)
     db.commit()
-    db.refresh(db_turno)
+
+    # Recargar con relaciones incluidas para devolver en la respuesta
+    db_turno = db.query(models.Turno).options(
+        joinedload(models.Turno.paciente),
+        joinedload(models.Turno.doctor),
+    ).filter(models.Turno.id == db_turno.id).first()
+
     return db_turno
 
 
 def cancelar_turno(db: Session, turno_id: int):
-    db_turno = db.query(models.Turno).filter(models.Turno.id == turno_id).first()
+    db_turno = db.query(models.Turno).options(
+        joinedload(models.Turno.paciente),
+        joinedload(models.Turno.doctor),
+    ).filter(models.Turno.id == turno_id).first()
     if db_turno:
         db_turno.estado = "Cancelado"
         db.commit()
@@ -48,7 +57,10 @@ def obtener_todos_turnos(
     id_doctor: Optional[int] = None,
     paciente_dni: Optional[str] = None,
 ):
-    query = db.query(models.Turno)
+    query = db.query(models.Turno).options(
+        joinedload(models.Turno.paciente),
+        joinedload(models.Turno.doctor),
+    )
     if fecha:
         query = query.filter(models.Turno.fecha_hora >= datetime.combine(fecha, datetime.min.time()))
         query = query.filter(models.Turno.fecha_hora <= datetime.combine(fecha, datetime.max.time()))
