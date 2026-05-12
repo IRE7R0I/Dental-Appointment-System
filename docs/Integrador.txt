@@ -6,44 +6,91 @@ cualquier tarea sobre el proyecto OdontoGest.
 ────────────────────────────────────────────────
 1. ORDEN DE LECTURA OBLIGATORIO AL INICIAR
 ────────────────────────────────────────────────
-  1. docs/Descripcion.txt              → Contexto del proyecto y stack
-  2. docs/Historias_de_usuario.txt     → Requisitos funcionales
-  3. docs/CHANGES.md                   → Estado actual de cambios en curso
-  4. openspec/specs/*/spec.md          → Especificaciones técnicas por módulo
+  1. docs/Integrador.txt               → este archivo (contexto y restricciones)
+  2. docs/Descripcion.txt              → contexto del proyecto y stack completo
+  3. docs/Historias_de_usuario.txt     → requisitos funcionales (✅ / 🔲)
+  4. docs/CHANGES.md                   → estado de cambios: completados y pendientes
+  5. openspec/specs/*/spec.md          → especificaciones técnicas por módulo
 
 ────────────────────────────────────────────────
 2. CONTEXTO DEL NEGOCIO
 ────────────────────────────────────────────────
   - Consultorio odontológico argentino.
-  - Usuaria principal: SECRETARIA (no técnica).
+  - Dos doctores: Darío y Fabiana. Secretaria como usuaria principal (no técnica).
   - Monedas: ARS (Pesos Argentinos) y USD (Dólares).
+  - Métodos de pago: efectivo / transferencia o Mercado Pago. Sin tarjetas.
   - Flujo central: Turno → Atención → Cobro → Cuenta Corriente.
-  - El estado del proyecto es: backend operativo, frontend en migración.
+  - El sistema maneja historias clínicas → cumplimiento Ley 25.326 (Habeas Data).
+  - Horarios: mañana 09:00-12:30, tarde 16:00-19:30. Sábado solo mañana. Sin jueves ni domingo.
 
 ────────────────────────────────────────────────
-3. ESTADO ACTUAL DEL CÓDIGO (leer antes de tocar archivos)
+3. ESTADO ACTUAL DEL CÓDIGO
 ────────────────────────────────────────────────
-  BACKEND (app/):
-    main.py      → entrypoint FastAPI, contiene rutas actuales
-    crud.py      → funciones de acceso a base de datos
-    database.py  → configuración SQLAlchemy y función get_db()
-    models.py    → modelos ORM (tablas de la DB)
-    schemas.py   → schemas Pydantic de validación
+  ✅ COMPLETADO — BACKEND (/backend):
+    main.py              → entrypoint FastAPI con routers registrados + /health
+    database.py          → get_db() con Depends, conectado a PostgreSQL
+    models.py            → modelos ORM con FKs, backref y relaciones explícitas
+    routers/             → pacientes.py · turnos.py · finanzas.py · doctores.py
+    schemas/             → separados por entidad (Create / Response / Update)
+    crud/                → separado por entidad
+    services/            → __init__.py (vacío, preparado para CHANGE-006/008)
 
-    ⚠ TAREA PENDIENTE: Revisar y refactorizar siguiendo HU-005.
-      El agente debe analizar cada archivo antes de proponer cambios.
-      No asumir que el código ya sigue buenas prácticas.
+    Base de datos: PostgreSQL (tablas creadas y operativas en producción).
 
-  FRONTEND (app/static/):
-    Actualmente en HTML + CSS + JS vanilla.
-    Vistas existentes: agenda · dashboard · pagos · perfil-paciente
-    
-    ⚠ TAREA PENDIENTE: Migrar a React + TypeScript (HU-006).
-      El agente NO debe modificar los HTML actuales.
-      Debe crear un proyecto frontend separado en /frontend.
+  ✅ COMPLETADO — FRONTEND (/frontend):
+    React 18 + TypeScript + Vite + Tailwind CSS + React Router v6
+    pages/               → AgendaPage · DashboardPage · PagosPage ·
+                           PerfilPacientePage · HistorialPacientePage
+    components/          → NavigationRail · KPICard · TurnoCard · Modal ·
+                           MultiCurrencyInput
+    services/api.ts      → todas las llamadas HTTP centralizadas
+    types/index.ts       → tipos compartidos (Turno, Paciente, Moneda, etc.)
+
+  🔲 PENDIENTE — POR IMPLEMENTAR (en orden):
+    CHANGE-009  backend/routers/auth.py          → autenticación JWT (admin + secretaria)
+    CHANGE-009  backend/core/security.py         → JWT, hashing bcrypt
+    CHANGE-009  backend/core/config.py           → vars de entorno centralizadas
+    CHANGE-009  backend/dependencies.py          → get_current_user, require_role
+    CHANGE-009  backend/schemas/auth.py          → schemas de login, token, usuario
+    CHANGE-009  backend/crud/auth.py             → funciones de autenticación
+    CHANGE-009  backend/routers/admin.py         → gestión de usuarios (solo admin)
+    CHANGE-009  frontend/src/pages/LoginPage.tsx → formulario de login
+    CHANGE-009  frontend/src/context/AuthContext.tsx → contexto global de auth
+    CHANGE-009  frontend/src/components/PrivateRoute.tsx → protección de rutas
+    CHANGE-011  backend/models.py                → +TratamientoCatalogo, +ObraSocial
+    CHANGE-011  backend/routers/catalogo.py      → CRUD de catálogo
+    CHANGE-011  frontend/src/pages/CatalogoPage.tsx → gestión de tratamientos
+    CHANGE-007  backend/models.py                → Turno: +uuid, +motivo_rechazo, +id_tratamiento, +obra_social
+    CHANGE-007  backend/routers/portal.py        → guest checkout, UUID, disponibilidad
+    CHANGE-007  backend/routers/turnos.py        → +solicitados, confirmar, rechazar, bloquear
+    CHANGE-007  frontend/src/pages/portal/       → stepper 4 pasos
+    CHANGE-007  frontend/src/pages/ConsultaTurnoPage.tsx → consulta por UUID
+    CHANGE-006  backend/services/notificaciones.py → email + WhatsApp
+    CHANGE-006  backend/services/whatsapp_service.py → bot conversacional
+    CHANGE-006  backend/services/scheduler.py    → recordatorios (APScheduler)
+    CHANGE-008  backend/services/reportes.py     → exportación Excel
+    CHANGE-008  backend/routers/reportes.py      → endpoints de descarga
+    CHANGE-010  Dockerfile + docker-compose.yml + .env.example → deploy
+    CHANGE-010  alembic/                         → migraciones de esquema
 
 ────────────────────────────────────────────────
-4. SKILLS DISPONIBLES PARA EL AGENTE
+4. ROLES DEL SISTEMA
+────────────────────────────────────────────────
+  admin       → gestión de configuración (doctores, tratamientos, precios base),
+                gestión de usuarios, acceso a reportes financieros globales.
+  secretaria  → gestión operativa total: agenda, pacientes, finanzas,
+                edición de tratamientos y precios, aprobación de turnos,
+                bloqueo de slots, creación de pacientes manual.
+  paciente    → SIN CUENTA. Accede al portal vía guest checkout con DNI.
+                Solo lectura y creación limitada: ver sus turnos por UUID,
+                solicitar nuevo turno según disponibilidad. Sin login.
+
+  Regla: el agente NUNCA debe exponer datos de otros pacientes al paciente anónimo.
+  Regla: endpoints de reportes y finanzas solo accesibles por admin y secretaria.
+  Regla: endpoints públicos (/portal/*, /consulta/*) protegidos solo por rate limit.
+
+────────────────────────────────────────────────
+5. SKILLS DISPONIBLES PARA EL AGENTE
 ────────────────────────────────────────────────
   Antes de generar cualquier código de UI, leer obligatoriamente:
 
@@ -56,25 +103,39 @@ cualquier tarea sobre el proyecto OdontoGest.
   Otras skills disponibles:
     /mnt/skills/public/docx/SKILL.md
     /mnt/skills/public/pdf/SKILL.md
-    /mnt/skills/public/pptx/SKILL.md
+    /mnt/skills/public/xlsx/SKILL.md   ← usar para CHANGE-008 (reportes Excel)
 
 ────────────────────────────────────────────────
-5. RESTRICCIONES TÉCNICAS ESTRICTAS
+6. RESTRICCIONES TÉCNICAS ESTRICTAS
 ────────────────────────────────────────────────
   Backend:
     - Separar rutas por dominio usando APIRouter de FastAPI.
-    - Usar inyección de dependencias con Depends(get_db).
+    - Usar inyección de dependencias con Depends(get_db) y Depends(get_current_user).
     - Schemas Pydantic separados: XxxCreate · XxxResponse · XxxUpdate.
-    - Habilitar CORS para que React pueda consumir la API.
-    - Status codes HTTP correctos: 201 para POST, 404 para not found, etc.
+    - CORS en producción restringido al dominio del frontend (no wildcard *).
+    - Status codes HTTP correctos: 201 POST · 404 not found · 401 no auth · 403 forbidden.
+    - Variables de entorno para SECRET_KEY, credenciales DB, API keys WhatsApp, SMTP.
+    - NUNCA hardcodear secrets en el código fuente.
+    - Rate limiting en todos los endpoints públicos (slowapi, 5-10 req/min por IP).
+    - Headers de seguridad: CSP, HSTS, X-Frame-Options: DENY, X-Content-Type-Options: nosniff.
+    - Nunca loguear DNI, email, teléfono ni historial clínico.
 
   Frontend (React + TS):
     - type Moneda = 'ARS' | 'USD'  →  NUNCA usar strings libres para moneda.
     - Toda llamada HTTP centralizada en /src/services/api.ts.
+    - Interceptor en api.ts que adjunta Bearer token y maneja refresh automático en 401.
     - Sin lógica de negocio en componentes: solo presentación + hooks.
-    - Usar React Query o useEffect + Axios para fetching de datos.
     - Tailwind para estilos, Material Design 3 como referencia visual.
     - Nunca mezclar CSS inline con clases Tailwind.
+    - Rutas internas protegidas con <PrivateRoute>. Rutas públicas: /portal, /consulta/:uuid.
+    - El portal usa stepper (4 pasos), sin recargar la página entre pasos.
+
+  Seguridad:
+    - Contraseñas hasheadas con bcrypt (passlib). Nunca en texto plano.
+    - JWT con expiración: access token 30 min, refresh token 7 días.
+    - Pacientes sin cuenta: acceso a turnos solo por UUID v4 (2^122 combinaciones).
+    - Datos clínicos nunca expuestos en logs ni mensajes de error.
+    - GET /pacientes/verificar/{dni} solo devuelve datos no sensibles (sin email, sin historial).
 
   General:
     - No duplicar lógica entre frontend y backend.
@@ -82,77 +143,238 @@ cualquier tarea sobre el proyecto OdontoGest.
     - Separación estricta: /backend y /frontend como proyectos independientes.
 
 ────────────────────────────────────────────────
-6. MÓDULOS Y ENDPOINTS ESPERADOS DEL BACKEND
+7. MÓDULOS Y ENDPOINTS DEL BACKEND
 ────────────────────────────────────────────────
-  /pacientes
-    GET    /pacientes            → listar pacientes
-    GET    /pacientes/{dni}      → obtener paciente por DNI
-    POST   /pacientes            → crear paciente
-    PUT    /pacientes/{dni}      → actualizar paciente
-    GET    /pacientes/deudores   → listar pacientes con saldo > 0
+  /auth                              (CHANGE-009 — pendiente)
+    POST   /auth/login               → devuelve access_token + refresh_token
+    POST   /auth/refresh             → renueva access_token
+    POST   /auth/logout              → invalida refresh_token
+    GET    /auth/me                  → datos del usuario autenticado
 
-  /turnos
-    GET    /turnos               → listar turnos (filtro por fecha/doctor)
-    POST   /turnos               → crear turno
-    PUT    /turnos/{id}          → actualizar estado / cerrar con cobro
-    DELETE /turnos/{id}          → cancelar turno
+  /admin                             (CHANGE-009 — pendiente, solo rol admin)
+    POST   /admin/usuarios           → crear usuario (secretaria)
+    GET    /admin/usuarios           → listar usuarios
+    GET    /admin/usuarios/{id}      → obtener usuario
+    PUT    /admin/usuarios/{id}/toggle-activo → activar/desactivar
 
-  /finanzas
-    POST   /pagos                → registrar pago/cobro
-    GET    /caja/hoy             → resumen del día (turnos + ingresos ARS/USD)
+  /pacientes                         (✅ operativo)
+    GET    /pacientes                → listar pacientes
+    GET    /pacientes/deudores       → listar pacientes con saldo > 0
+    GET    /pacientes/historial?dni=X&fecha_desde=&fecha_hasta= → historial con turnos, tratamientos y pagos
+    GET    /pacientes/verificar/{dni} → (CHANGE-007 — pendiente) público, verifica si DNI existe
+    GET    /pacientes/{dni}          → obtener paciente por DNI
+    POST   /pacientes                → crear paciente
+    PUT    /pacientes/{dni}          → actualizar paciente
+    GET    /pacientes/{dni}/cuenta   → detalle de movimientos de cuenta corriente
+
+  /turnos                            (✅ operativo, ampliar en CHANGE-007)
+    GET    /turnos?fecha=&id_doctor=&paciente_dni= → listar (filtros opcionales)
+    GET    /turnos/hoy               → turnos del día actual
+    GET    /turnos/solicitados       → (CHANGE-007 — pendiente) turnos en estado solicitado
+    GET    /turnos/paciente/{dni}    → turnos de un paciente específico
+    POST   /turnos                   → crear turno
+    POST   /turnos/bloquear          → (CHANGE-007 — pendiente) bloquear slot manualmente
+    PUT    /turnos/{turno_id}/cerrar → cerrar turno con cobro
+    PUT    /turnos/{id}/confirmar    → (CHANGE-007 — pendiente) aceptar solicitud
+    PUT    /turnos/{id}/rechazar     → (CHANGE-007 — pendiente) rechazar con motivo
+    PATCH  /turnos/{turno_id}/cancelar → cancelar turno
+    DELETE /turnos/{turno_id}        → eliminar turno
+    DELETE /turnos/{id}/desbloquear  → (CHANGE-007 — pendiente) liberar slot bloqueado
+
+  /finanzas                          (✅ operativo)
+    POST   /finanzas/pagos           → registrar pago/cobro
+    GET    /finanzas/pagos?fecha_desde=&fecha_hasta=&metodo_pago=&dni_paciente=&id_doctor=&solo_deudores=
+                                     → historial de pagos filtrable
+    GET    /finanzas/caja/hoy        → resumen del día (turnos + ingresos ARS/USD)
+
+  /doctores                          (✅ operativo)
+    GET    /doctores                 → listar doctores (solo activos)
+    GET    /doctores/{id}            → obtener doctor individual
+    POST   /doctores                 → crear doctor
+    PUT    /doctores/{id}            → (CHANGE-009 — pendiente) actualizar doctor (solo admin)
+    DELETE /doctores/{id}            → (CHANGE-009 — pendiente) desactivar doctor (solo admin)
+
+  /catalogo                          (CHANGE-011 — pendiente)
+    GET    /catalogo/tratamientos    → listar tratamientos (público)
+    GET    /catalogo/tratamientos/{id} → obtener tratamiento (público)
+    POST   /catalogo/tratamientos    → crear tratamiento (admin + secretaria)
+    PUT    /catalogo/tratamientos/{id} → actualizar tratamiento (admin + secretaria)
+    DELETE /catalogo/tratamientos/{id} → desactivar tratamiento (admin)
+    GET    /catalogo/obras-sociales  → listar obras sociales (público)
+    POST   /catalogo/obras-sociales  → crear obra social (admin)
+    PUT    /catalogo/obras-sociales/{id} → actualizar obra social (admin)
+    DELETE /catalogo/obras-sociales/{id} → eliminar obra social (admin)
+
+  /portal                            (CHANGE-007 — pendiente, público sin auth)
+    GET    /portal/disponibilidad?doctor_id=X&fecha=YYYY-MM-DD → slots libres
+    POST   /portal/reservar          → crea turno + shadow profile, devuelve UUID
+    GET    /portal/turno/{uuid}      → consulta pública de estado
+    PUT    /portal/turno/{uuid}/cancelar → cancelación pública
+
+  /reportes                          (CHANGE-008 — pendiente, solo admin/secretaria)
+    GET    /reportes/historia/{dni}  → descarga .xlsx historia clínica
+    GET    /reportes/deudores        → descarga .xlsx listado de deudores
+    GET    /reportes/ingresos        → descarga .xlsx resumen de ingresos
+
+  /webhook                           (CHANGE-006 — pendiente)
+    POST   /webhook/whatsapp         → recibe mensajes del bot de WhatsApp
+
+  /health                            (✅ operativo)
+    GET    /health                   → estado del servidor y versión
 
 ────────────────────────────────────────────────
-7. ESTRUCTURA DE CARPETAS OBJETIVO
+8. ESTRUCTURA DE CARPETAS OBJETIVO (estado real)
 ────────────────────────────────────────────────
   /backend
-    main.py
-    database.py
-    models.py
-    schemas.py
-    crud.py
+    main.py                       ✅
+    database.py                   ✅
+    models.py                     ✅ (ampliar en CHANGE-007, CHANGE-011)
+    dependencies.py              🔲 CHANGE-009
+    seed.py                      🔲 CHANGE-009 (admin inicial)
     /routers
-      pacientes.py
-      turnos.py
-      finanzas.py
-    requirements.txt
-    .env
+      pacientes.py               ✅ (+verificar en CHANGE-007)
+      turnos.py                  ✅ (+solicitados, confirmar, rechazar, bloquear en CHANGE-007)
+      finanzas.py                ✅
+      doctores.py                ✅
+      auth.py                    🔲 CHANGE-009
+      admin.py                   🔲 CHANGE-009
+      catalogo.py                🔲 CHANGE-011
+      portal.py                  🔲 CHANGE-007
+      reportes.py                🔲 CHANGE-008
+      webhook.py                 🔲 CHANGE-006
+    /schemas
+      pacientes.py               ✅
+      turnos.py                  ✅ (ampliar en CHANGE-007)
+      finanzas.py                ✅
+      doctores.py                ✅
+      auth.py                    🔲 CHANGE-009
+      catalogo.py                🔲 CHANGE-011
+      portal.py                  🔲 CHANGE-007
+    /crud
+      pacientes.py               ✅
+      turnos.py                  ✅ (ampliar en CHANGE-007)
+      finanzas.py                ✅
+      doctores.py                ✅
+      auth.py                    🔲 CHANGE-009
+      catalogo.py                🔲 CHANGE-011
+      portal.py                  🔲 CHANGE-007
+    /core
+      config.py                  🔲 CHANGE-009
+      security.py                🔲 CHANGE-009
+    /services
+      __init__.py                ✅ (vacío, preparado)
+      notificaciones.py          🔲 CHANGE-006
+      plantillas.py              🔲 CHANGE-006
+      email_service.py           🔲 CHANGE-006
+      whatsapp_service.py        🔲 CHANGE-006
+      scheduler.py               🔲 CHANGE-006
+      reportes.py                🔲 CHANGE-008
+    requirements.txt             ✅ (ampliar en CHANGE-006)
+    .env                         ✅ (ampliar en CHANGE-009)
+    .env.example                🔲 CHANGE-010
+    Dockerfile                   🔲 CHANGE-010
+    docker-compose.yml           🔲 CHANGE-010
+    alembic/                     🔲 CHANGE-010
 
   /frontend
     /src
       /pages
-        AgendaPage.tsx
-        DashboardPage.tsx
-        PagosPage.tsx
-        PerfilPacientePage.tsx
+        AgendaPage.tsx           ✅ (+panel solicitudes en CHANGE-007)
+        DashboardPage.tsx        ✅
+        PagosPage.tsx            ✅
+        PerfilPacientePage.tsx   ✅
+        HistorialPacientePage.tsx ✅
+        LoginPage.tsx            🔲 CHANGE-009
+        CatalogoPage.tsx         🔲 CHANGE-011
+        ConsultaTurnoPage.tsx    🔲 CHANGE-007
+        /portal
+          PortalPage.tsx         🔲 CHANGE-007 (stepper)
+          Step1Servicio.tsx      🔲 CHANGE-007
+          Step2Profesional.tsx   🔲 CHANGE-007
+          Step3Agenda.tsx        🔲 CHANGE-007
+          Step4Identificacion.tsx 🔲 CHANGE-007
+          ConfirmacionTurno.tsx  🔲 CHANGE-007
       /components
-        Modal.tsx
-        KPICard.tsx
-        TurnoRow.tsx
-        MultiCurrencyInput.tsx
+        NavigationRail.tsx       ✅
+        KPICard.tsx              ✅
+        TurnoCard.tsx            ✅
+        Modal.tsx                ✅
+        MultiCurrencyInput.tsx   ✅
+        PrivateRoute.tsx         🔲 CHANGE-009
+        CalendarioDisponibilidad.tsx 🔲 CHANGE-007
+      /context
+        AuthContext.tsx          🔲 CHANGE-009
       /services
-        api.ts
+        api.ts                   ✅ (ampliar interceptores en CHANGE-009)
       /types
-        index.ts
-      App.tsx
-      main.tsx
-    tailwind.config.ts
-    tsconfig.json
-    .env
-    package.json
+        index.ts                 ✅
+      App.tsx                    ✅ (ampliar en CHANGE-009, CHANGE-007)
+      main.tsx                   ✅
+    tailwind.config.ts           ✅
+    tsconfig.json                ✅
+    package.json                 ✅
+    .env.example                🔲 CHANGE-010
 
-  /docs                          ← esta carpeta
-  /openspec                      ← specs y cambios OpenSpec
+  /docs
+    Integrador.txt               ← este archivo
+    Descripcion.txt
+    Historias_de_usuario.txt
+    CHANGES.md
+
+  /openspec
+    /specs/                      ← especificaciones por módulo (pendiente crear)
+    /changes/
+      refactor-backend-buenas-practicas/     ✅ COMPLETADO
+      modulo-finanzas-caja/                  ✅ COMPLETADO
+      cuentas-corrientes-deudores/           ✅ COMPLETADO
+      fix-deudores-frontend/                 ✅ COMPLETADO
+      historial-pagos-backend/               ✅ COMPLETADO
+      navegacion-query-perfil/               ✅ COMPLETADO
+      rediseno-historial-paciente/           ✅ COMPLETADO
+      autenticacion-jwt-roles/               🔲 CHANGE-009 (PROPUESTO)
+      catalogo-tratamientos-obras-sociales/   🔲 CHANGE-011 (PROPUESTO)
+      portal-autogestion-paciente/           🔲 CHANGE-007 (REDISEÑADO)
+      notificaciones-whatsapp/               🔲 CHANGE-006 (EXPANDIDO)
+      reportes-exportables-excel/             🔲 CHANGE-008
+      deploy-produccion/                     🔲 CHANGE-010
 
 ────────────────────────────────────────────────
-8. CÓMO PROPONER CAMBIOS (OpenSpec)
+9. ESTADOS DEL TURNO
+────────────────────────────────────────────────
+  solicitado    → paciente envió solicitud desde el portal, espera aprobación
+  pendiente     → secretaria aceptó la solicitud (confirmado en agenda)
+  confirmado    → sinónimo de pendiente, por compatibilidad
+  bloqueado     → secretaria bloqueó el slot manualmente (sin paciente)
+  realizado     → atendido y cobrado (cierre de turno)
+  cancelado     → cancelado por paciente o secretaria
+  rechazado     → secretaria rechazó la solicitud (incluye motivo en motivo_rechazo)
+
+  Transiciones válidas:
+    solicitado    → pendiente   (secretaria acepta)
+    solicitado    → rechazado   (secretaria rechaza, con motivo)
+    solicitado    → cancelado   (paciente cancela vía UUID)
+    pendiente     → realizado   (secretaria cierra con cobro)
+    pendiente     → cancelado   (secretaria o paciente vía UUID)
+    bloqueado     → cancelado   (secretaria libera)
+
+  Nota: Actualmente models.py usa valores simplificados ("Pendiente", "Asistió",
+  "Canceló"). CHANGE-007 migrará a los estados completos definidos arriba.
+
+────────────────────────────────────────────────
+10. CÓMO PROPONER CAMBIOS (OpenSpec)
 ────────────────────────────────────────────────
   Al recibir un nuevo requerimiento:
-    1. Crear carpeta: openspec/changes/<nombre-en-kebab-case>/
-    2. Generar: proposal.md · design.md · tasks.md · specs/<modulo>/spec.md
-    3. Registrar el cambio en docs/CHANGES.md con estado: PROPUESTO
+    1. Leer este archivo y CHANGES.md primero.
+    2. Crear carpeta: openspec/changes/<nombre-en-kebab-case>/
+    3. Generar: proposal.md · design.md · tasks.md
+    4. Registrar el cambio en docs/CHANGES.md con estado: PROPUESTO
 
   Convenciones de naming:
-    Cambios:     kebab-case    (ej: refactor-backend-routers)
+    Cambios:     kebab-case    (ej: autenticacion-jwt-roles)
     Interfaces:  PascalCase    (ej: interface Turno)
-    Campos:      snake_case    (ej: paciente_dni)
+    Campos DB:   snake_case    (ej: paciente_dni)
     IDs de HU:   HU-001...
+    IDs change:  CHANGE-001...
+
+  Orden de ejecución:
+    CHANGE-009 → CHANGE-011 → CHANGE-007 → CHANGE-006 → CHANGE-008 → CHANGE-010

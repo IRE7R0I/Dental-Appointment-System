@@ -1,6 +1,6 @@
 ODONTOGEST - DESCRIPCIÓN DEL PROYECTO
 ======================================
-Versión actual: v1.x (Backend operativo · Frontend en migración a React/TS)
+Versión actual: v2.x (Backend operativo · Frontend React/TS operativo · PostgreSQL en producción)
 
 OdontoGest es una plataforma de gestión clínica para centralizar la
 administración de pacientes, turnos y finanzas en un consultorio odontológico.
@@ -9,60 +9,147 @@ control del flujo de caja y la agenda médica en tiempo real.
 
 ESTADO ACTUAL DEL PROYECTO
 ----------------------------
-  Backend:  OPERATIVO (FastAPI + SQLAlchemy + Pydantic)
-  Frontend: EN MIGRACIÓN (HTML/CSS/JS → React + TypeScript)
+  Backend:   OPERATIVO (FastAPI + SQLAlchemy + Pydantic + PostgreSQL)
+  Frontend:  OPERATIVO (React 18 + TypeScript + Vite + Tailwind CSS)
+  Base de datos: PostgreSQL (tablas creadas y operativas)
+  Autenticación: PENDIENTE (CHANGE-009)
+  Health check: OPERATIVO (GET /health en main.py)
+  Seguridad: En desarrollo (JWT + rate limiting + security headers planeados)
 
-SEPARACIÓN FRONTEND / BACKEND (Arquitectura objetivo)
-------------------------------------------------------
-  La arquitectura objetivo es un monorepo con dos proyectos bien separados:
+SEPARACIÓN FRONTEND / BACKEND (Arquitectura actual)
+----------------------------------------------------
+  Monorepo con dos proyectos bien separados:
 
-  /backend     → Python + FastAPI    [existente · pendiente refactor]
-  /frontend    → React + TypeScript  [migración desde HTML/JS vanilla]
+  /backend     → Python + FastAPI    [operativo · refactorizado]
+  /frontend    → React + TypeScript  [operativo · migración completada]
 
   La comunicación es exclusivamente por API REST (JSON).
-  No debe haber lógica de negocio en el frontend, solo presentación y
-  llamadas a la API.
+  No hay lógica de negocio en el frontend, solo presentación y llamadas a la API.
 
 STACK TECNOLÓGICO
 -----------------
-  Backend (actual y objetivo):
-    - Python + FastAPI
-    - SQLAlchemy (ORM, modelos relacionales)
-    - Pydantic (schemas de validación estricta)
-    - SQLite (dev) / PostgreSQL (producción)
-    Archivos actuales:
-      main.py      → entrypoint, definición de rutas
-      crud.py      → operaciones de base de datos (Create/Read/Update/Delete)
-      database.py  → configuración de la conexión y sesión
-      models.py    → modelos SQLAlchemy (tablas)
-      schemas.py   → schemas Pydantic (validación de entrada/salida)
+  Backend (actual):
+    - Python 3.11 + FastAPI (RESTful API, OpenAPI docs automáticos)
+    - SQLAlchemy 2.x (ORM, modelos relacionales con FKs y backref)
+    - Pydantic 2.x (schemas separados: Create / Response / Update por entidad)
+    - PostgreSQL (producción · SQLite solo para desarrollo local si necesario)
+    - Uvicorn (servidor ASGI)
+    Estructura actual:
+      backend/main.py              → entrypoint con routers registrados + /health
+      backend/database.py          → get_db() con Depends
+      backend/models.py            → modelos SQLAlchemy
+      backend/routers/             → pacientes.py, turnos.py, finanzas.py, doctores.py
+      backend/schemas/             → por entidad (pacientes, turnos, finanzas, doctores)
+      backend/crud/                → por entidad
+      backend/services/            → __init__.py (vacío, preparado para CHANGE-006/008)
+    Pendiente agregar:
+      backend/routers/auth.py      → autenticación JWT (CHANGE-009)
+      backend/routers/admin.py     → gestión de usuarios (CHANGE-009)
+      backend/routers/catalogo.py  → catálogo de tratamientos y obras sociales (CHANGE-011)
+      backend/routers/portal.py    → autogestión paciente guest checkout (CHANGE-007)
+      backend/routers/reportes.py  → exportación Excel (CHANGE-008)
+      backend/services/notificaciones.py → WhatsApp + email (CHANGE-006)
+      backend/services/reportes.py → generación Excel (CHANGE-008)
+      backend/core/security.py     → JWT y hashing de contraseñas (CHANGE-009)
+      backend/core/config.py       → variables de entorno centralizadas (CHANGE-009)
+      backend/dependencies.py      → middleware de autenticación (CHANGE-009)
 
-  Frontend (objetivo tras migración):
-    - React.js + TypeScript (arquitectura basada en componentes)
-    - Tailwind CSS (estética Material Design 3)
-    - React Router v6 (navegación SPA)
-    - Axios (consumo de la API REST del backend)
-    - Tipos estrictos: interface Turno · type Moneda = 'ARS' | 'USD'
+  Frontend (actual):
+    - React 18 + TypeScript
+    - Vite (bundler y dev server)
+    - Tailwind CSS (utility-first, diseño responsivo)
+    - React Router v6 (SPA, rutas anidadas)
+    - Fetch API centralizado en services/api.ts
+    Estructura actual:
+      frontend/src/pages/          → AgendaPage, DashboardPage, PagosPage,
+                                     PerfilPacientePage, HistorialPacientePage
+      frontend/src/components/     → NavigationRail, KPICard, TurnoCard, Modal, MultiCurrencyInput
+      frontend/src/services/       → api.ts
+      frontend/src/types/          → index.ts (Turno, Paciente, Moneda, etc.)
+    Pendiente agregar:
+      frontend/src/pages/LoginPage.tsx         → login (CHANGE-009)
+      frontend/src/context/AuthContext.tsx     → contexto global de auth (CHANGE-009)
+      frontend/src/components/PrivateRoute.tsx → protección de rutas (CHANGE-009)
+      frontend/src/pages/CatalogoPage.tsx      → gestión de catálogo (CHANGE-011)
+      frontend/src/pages/portal/               → portal del paciente (CHANGE-007)
+      frontend/src/pages/ConsultaTurnoPage.tsx → consulta por UUID (CHANGE-007)
 
-VISTAS ACTUALES → COMPONENTES REACT OBJETIVO
----------------------------------------------
-  agenda.html + agenda.js         →  pages/AgendaPage.tsx
-  dashboard.html + dashboard.js   →  pages/DashboardPage.tsx
-  pagos.html + pagos.js           →  pages/PagosPage.tsx
-  perfil-paciente.html + .js      →  pages/PerfilPacientePage.tsx
+ROLES DEL SISTEMA
+------------------
+  admin       → gestión de configuración (doctores, tratamientos, precios base),
+                gestión de usuarios, acceso a reportes financieros globales.
+  secretaria  → gestión operativa total: agenda, pacientes, finanzas,
+                edición de tratamientos y precios, aprobación de turnos,
+                bloqueo de slots, creación de pacientes manual.
+  paciente    → SIN CUENTA. Accede al portal vía guest checkout con DNI.
+                Solo lectura y creación limitada: ver sus turnos por UUID,
+                solicitar nuevo turno según disponibilidad. Sin login.
 
-COMPONENTES CRÍTICOS (UI)
+HORARIOS DE ATENCIÓN
+---------------------
+  Mañana: 09:00 a 12:30 (último turno 12:30)
+  Tarde:  16:00 a 19:30 (último turno 19:30)
+  Clínica cerrada: 13:00 a 16:00
+  Sábado: solo mañana 09:00-12:30
+  Sin atención: jueves y domingo
+  Slots: cada 30 minutos (09:00, 09:30, 10:00, ...)
+
+FUNCIONALIDADES IMPLEMENTADAS
+------------------------------
+  1. Gestión de pacientes: lista, perfil, edición, búsqueda y filtros.
+  2. Agenda: turnos por doctor, vista por fecha, asignación con validación de duplicados.
+  3. Historial clínico: por paciente, con tratamientos por turno, pagos y deuda.
+  4. Página de historial dedicada: /pacientes/:dni/historial con layout de dos columnas
+     (timeline de turnos + tabla de pagos con filtro por método).
+  5. Finanzas y caja: cierre de turno con cobro multimoneda (ARS/USD), resumen diario.
+  6. Cuentas corrientes: deudores, movimientos por paciente, saldo ARS y USD.
+  7. Dashboard KPI: turnos del día (realizados/pendientes), ingresos ARS y USD en tiempo real.
+  8. Health check: GET /health devuelve estado del servidor y versión.
+
+FUNCIONALIDADES PENDIENTES (por orden de implementación)
+---------------------------------------------------------
+  1. [CHANGE-009] Autenticación JWT para admin y secretaria. Rate limiting. Security headers.
+  2. [CHANGE-011] Catálogo de tratamientos y obras sociales. Integración en modal de turnos.
+  3. [CHANGE-007] Portal de autogestión: guest checkout con DNI, shadow profiles, UUID,
+     panel de aprobación, bloqueo de slots, consulta pública por UUID.
+  4. [CHANGE-006] Notificaciones: email (opcional) + WhatsApp + bot conversacional.
+  5. [CHANGE-008] Exportación de reportes a Excel (historia clínica, deudores, ingresos).
+  6. [CHANGE-010] Deploy a producción (Railway/Render + Vercel, HTTPS, backups).
+
+DOCTORES
+--------
+  La clínica tiene dos doctores (Darío y Fabiana). Ambos gestionados desde el
+  módulo de doctores. La agenda los muestra por separado con vista filtrada.
+
+MÉTODOS DE PAGO ACEPTADOS
 --------------------------
-  Dashboard KPI:
-    Tarjetas con contadores en tiempo real: turnos Realizados vs. Pendientes,
-    ingresos ARS e ingresos USD del día actual.
+  - Efectivo
+  - Transferencia / Mercado Pago
+  No se procesan tarjetas de crédito (reduce riesgo de filtraciones críticas).
 
-  Modal Multimoneda:
-    Componente de entrada que permite seleccionar divisa (ARS/USD) al cerrar
-    una práctica. Registra el movimiento en la cuenta corriente del paciente.
+MODELO DE NEGOCIO / COMERCIALIZACIÓN
+--------------------------------------
+  - Desarrollo a medida: USD 1.500 (pago en dos cuotas: 50% inicio / 50% entrega)
+  - Servicio mensual: USD 60/mes (hosting, backups, soporte, actualizaciones)
+  - Contrato mínimo recomendado: 6 meses
 
-ROADMAP DE FEATURES FUTUROS
-----------------------------
-  - Notificaciones automáticas (Mail / WhatsApp)
-  - Portal del paciente (autogestión de turnos)
-  - Reportes exportables (PDF / Excel)
+SEGURIDAD (en desarrollo)
+---------------------------
+  - Autenticación JWT con bcrypt para usuarios internos (CHANGE-009)
+  - Pacientes sin cuenta: acceso solo por UUID (no brute-forceable)
+  - Rate limiting en endpoints públicos (slowapi)
+  - HTTPS obligatorio en producción (Let's Encrypt)
+  - Headers de seguridad: CSP, HSTS, X-Frame-Options, X-Content-Type-Options
+  - CORS restrictivo en producción (solo dominio del frontend)
+  - Contraseñas hasheadas, nunca en texto plano
+  - Sin almacenamiento de datos de tarjetas de crédito
+  - Backups diarios de la base de datos
+
+NOTAS DE SEGURIDAD Y PRIVACIDAD
+---------------------------------
+  - El sistema maneja historias clínicas → cumplimiento Ley 25.326 (Habeas Data, Argentina)
+  - Datos en tránsito protegidos por HTTPS (obligatorio en producción)
+  - Backups diarios de la base de datos
+  - Acceso por roles: los datos del paciente solo son accesibles por personal autorizado
+  - Contraseñas hasheadas con bcrypt, nunca almacenadas en texto plano
+  - Sin almacenamiento de datos de tarjetas de crédito

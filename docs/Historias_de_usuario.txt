@@ -1,9 +1,13 @@
 ODONTOGEST - HISTORIAS DE USUARIO
 ==================================
-Rol Principal: Secretaria del consultorio odontológico
+
+Roles del sistema:
+  - Admin         → gestión de configuración, usuarios, reportes globales
+  - Secretaria    → gestión operativa total (agenda, pacientes, finanzas, aprobación de turnos)
+  - Paciente      → SIN cuenta. Guest checkout con DNI. Acceso solo por UUID.
 
 ──────────────────────────────────────────────────────
-HU-001 | CENTRALIZACIÓN DE TURNOS
+HU-001 | CENTRALIZACIÓN DE TURNOS                           ✅ COMPLETADA
 ──────────────────────────────────────────────────────
 Como secretaria,
 quiero asignar turnos buscando rápidamente al paciente por DNI,
@@ -15,10 +19,10 @@ Criterios de Aceptación:
   - El sistema valida que no existan turnos duplicados (mismo paciente,
     doctor, fecha y hora).
   - El turno queda asociado al doctor seleccionado.
-  - Vista correspondiente: AgendaPage.tsx (migrar desde agenda.html)
+  - Vista correspondiente: AgendaPage.tsx
 
 ──────────────────────────────────────────────────────
-HU-002 | CIERRE DE TURNO Y COBRO
+HU-002 | CIERRE DE TURNO Y COBRO                            ✅ COMPLETADA
 ──────────────────────────────────────────────────────
 Como secretaria,
 quiero marcar un turno como realizado e ingresar el costo (ARS o USD)
@@ -29,12 +33,15 @@ Criterios de Aceptación:
   - El turno puede marcarse como "Realizado" desde la vista de agenda.
   - Al marcarlo, se abre el Modal Multimoneda para ingresar el monto.
   - Se puede seleccionar divisa: ARS o USD.
+  - Se puede registrar el método de pago: efectivo o transferencia/Mercado Pago.
   - El monto se registra en la cuenta corriente del paciente de inmediato.
   - Si no paga en el momento, queda registrado como deuda pendiente.
-  - Vista correspondiente: PagosPage.tsx (migrar desde pagos.html)
+  - El modal permite elegir un servicio del catálogo (precarga precio editable)
+    o ingresar "Servicio Manual" con descripción y precio libre.
+  - Vista correspondiente: PagosPage.tsx, AgendaPage.tsx
 
 ──────────────────────────────────────────────────────
-HU-003 | CONTROL DE CAJA DIARIA
+HU-003 | CONTROL DE CAJA DIARIA                             ✅ COMPLETADA
 ──────────────────────────────────────────────────────
 Como secretaria,
 quiero visualizar en el dashboard cuántos pacientes fueron atendidos hoy
@@ -46,10 +53,10 @@ Criterios de Aceptación:
   - Se muestra el total de ingresos del día desglosado por moneda (ARS / USD).
   - Los datos se actualizan en tiempo real al completar cada turno.
   - La info es visible sin necesidad de generar reportes adicionales.
-  - Vista correspondiente: DashboardPage.tsx (migrar desde dashboard.html)
+  - Vista correspondiente: DashboardPage.tsx
 
 ──────────────────────────────────────────────────────
-HU-004 | GESTIÓN DE CUENTAS CORRIENTES Y DEUDORES
+HU-004 | GESTIÓN DE CUENTAS CORRIENTES Y DEUDORES          ✅ COMPLETADA
 ──────────────────────────────────────────────────────
 Como secretaria,
 quiero filtrar la lista de pacientes deudores,
@@ -60,48 +67,142 @@ Criterios de Aceptación:
   - Se muestra el saldo deudor de cada paciente (ARS y/o USD).
   - Se pueden ver los tratamientos asociados a cada deuda.
   - La lista es ordenable por monto de deuda o antigüedad.
-  - Vista correspondiente: PerfilPacientePage.tsx (migrar desde perfil-paciente.html)
+  - Vista correspondiente: PerfilPacientePage.tsx y sección de finanzas (PagosPage.tsx).
 
 ──────────────────────────────────────────────────────
-HU-005 | REVISIÓN Y REFACTOR DEL BACKEND
+HU-005 | REVISIÓN Y REFACTOR DEL BACKEND                    ✅ COMPLETADA
 ──────────────────────────────────────────────────────
-Como desarrollador/agente,
-quiero revisar el código existente en el backend (main.py, crud.py,
-database.py, models.py, schemas.py),
-para asegurarme de que sigue buenas prácticas antes de que el nuevo
-frontend React consuma la API.
+Como desarrollador,
+quiero que el backend siga buenas prácticas FastAPI,
+para que el frontend React pueda consumirlo de forma segura y ordenada.
 
 Criterios de Aceptación:
-  - main.py usa routers de FastAPI separados por dominio (pacientes,
-    turnos, finanzas) en lugar de tener todas las rutas en un solo archivo.
-  - crud.py tiene funciones tipadas y separadas por entidad.
+  - main.py usa routers separados por dominio (pacientes, turnos, finanzas, doctores).
+  - crud separado por entidad con funciones tipadas.
   - models.py define relaciones explícitas con FK y backref.
-  - schemas.py diferencia schemas de Request y Response por endpoint.
-  - database.py expone una función get_db() para inyección de dependencias.
+  - schemas diferencia Request y Response por endpoint.
+  - database.py expone get_db() para inyección de dependencias.
   - Todos los endpoints devuelven status codes HTTP correctos.
-  - CORS habilitado correctamente para que el frontend React lo consuma.
+  - CORS habilitado para el frontend React.
+  - Health check GET /health operativo.
 
 ──────────────────────────────────────────────────────
-HU-006 | MIGRACIÓN DEL FRONTEND A REACT + TYPESCRIPT
+HU-006 | MIGRACIÓN DEL FRONTEND A REACT + TYPESCRIPT        ✅ COMPLETADA
 ──────────────────────────────────────────────────────
-Como desarrollador/agente,
-quiero migrar las 4 vistas actuales (HTML/CSS/JS vanilla) a componentes
-React con TypeScript,
-para obtener un frontend mantenible, tipado y desacoplado del backend.
+Como desarrollador,
+quiero tener el frontend en React + TypeScript,
+para obtener una UI mantenible, tipada y desacoplada del backend.
 
 Criterios de Aceptación:
-  - Cada vista HTML se convierte en un Page component (*.tsx).
-  - Los estilos usan Tailwind CSS con estética Material Design 3.
-  - Toda llamada al backend pasa por un servicio centralizado (api/ o services/).
-  - Los tipos están definidos en un archivo types.ts compartido.
-  - El proyecto tiene estructura estándar:
-      /frontend
-        /src
-          /pages       → AgendaPage · DashboardPage · PagosPage · PerfilPacientePage
-          /components  → Modal · KPICard · TurnoRow · etc.
-          /services    → api.ts (Axios + endpoints)
-          /types       → index.ts (interfaces y types)
-        tailwind.config.ts
-        tsconfig.json
-  - La skill de frontend-design debe ser leída antes de generar cualquier
-    componente UI para garantizar diseño consistente y profesional.
+  - Vistas migradas: AgendaPage, DashboardPage, PagosPage, PerfilPacientePage,
+    HistorialPacientePage.
+  - Estilos con Tailwind CSS, diseño responsivo.
+  - Toda llamada al backend pasa por services/api.ts.
+  - Tipos definidos en types/index.ts.
+  - Compila sin errores TypeScript ni JSX.
+
+──────────────────────────────────────────────────────
+HU-007 | AUTENTICACIÓN Y CONTROL DE ACCESO (INTERNO)       🔲 PENDIENTE
+──────────────────────────────────────────────────────
+Como administrador,
+quiero que el sistema tenga login solo para el personal de la clínica,
+para proteger los datos clínicos y financieros de accesos no autorizados.
+
+Criterios de Aceptación:
+  - Existen dos roles: admin y secretaria.
+  - El paciente NO tiene cuenta. Accede al portal sin login (ver HU-008).
+  - El sistema expone un endpoint POST /auth/login que devuelve JWT.
+  - Las rutas del backend interno están protegidas: sin token válido → 401.
+  - Las rutas del frontend están protegidas: sin sesión → redirige a /login.
+  - La secretaria accede a agenda, pacientes, finanzas, catálogo y panel de aprobación.
+  - El admin puede crear y gestionar usuarios desde un panel.
+  - Los tokens tienen expiración y se renuevan automáticamente.
+  - Las contraseñas se almacenan hasheadas (bcrypt), nunca en texto plano.
+  - Rate limiting en endpoints públicos (slowapi).
+  - Headers de seguridad HTTP (CSP, HSTS, X-Frame-Options, X-Content-Type-Options).
+  - CHANGE correspondiente: CHANGE-009
+
+──────────────────────────────────────────────────────
+HU-008 | PORTAL DE AUTOGESTIÓN (GUEST CHECKOUT)             🔲 PENDIENTE
+──────────────────────────────────────────────────────
+Como paciente,
+quiero solicitar un turno desde mi celular sin tener que crear una cuenta,
+usando solo mi número de DNI para identificarme,
+y poder hacer seguimiento del estado de mi solicitud con un enlace único.
+
+Criterios de Aceptación:
+  - El portal es público: no requiere login ni contraseña.
+  - Flujo en 4 pasos: Elegir Tratamiento → Elegir Doctor → Elegir Horario → Identificación.
+  - Paso 1: cards del catálogo de tratamientos con nombre, precio, duración. Buscador + filtros.
+  - Paso 2: selección entre doctores (Darío / Fabiana).
+  - Paso 3: slots de 30 min como tarjetas, solo franjas mañana (9:00-12:30) y tarde (16:00-19:30).
+    Sin jueves ni domingo.
+  - Paso 4: ingresa DNI. El sistema verifica:
+    - Si el DNI existe → muestra datos en modo lectura (nombre, apellido, celular, obra social).
+    - Si el DNI no existe → formulario para cargar datos (shadow profile).
+  - Al confirmar, el turno se crea con estado "solicitado" y recibe un UUID único.
+  - El paciente recibe un enlace clickeable con el UUID para seguir su turno.
+  - Si el paciente ya existía, se vincula el turno a su perfil. Si no, se crea automáticamente.
+  - El email es opcional (personas mayores pueden no usarlo).
+  - Página /consulta/:uuid muestra estado del turno y permite cancelarlo.
+  - CHANGE correspondiente: CHANGE-007
+
+──────────────────────────────────────────────────────
+HU-008b | PANEL DE APROBACIÓN (SECRETARIA)                  🔲 PENDIENTE
+──────────────────────────────────────────────────────
+Como secretaria,
+quiero ver los turnos solicitados por los pacientes y poder aceptarlos o rechazarlos,
+para mantener el control de la agenda y evitar superposiciones.
+
+Criterios de Aceptación:
+  - Panel "Solicitudes" en AgendaPage: lista de turnos en estado "solicitado".
+  - Cada solicitud muestra: paciente, tratamiento, doctor, fecha/hora, obra social.
+  - Aceptar: cambia estado a "pendiente" (confirmado en agenda) y notifica al paciente.
+  - Rechazar: abre textarea para escribir motivo. Cambia estado a "rechazado".
+    Notifica al paciente con el motivo para que elija otro horario.
+  - La secretaria puede bloquear slots manualmente (tratamientos largos, pausas).
+  - Slot bloqueado aparece gris oscuro en disponibilidad del portal.
+  - La secretaria mantiene la potestad de crear pacientes y asignar turnos manualmente
+    por teléfono/WhatsApp (flujo tradicional).
+  - CHANGE correspondiente: CHANGE-007
+
+──────────────────────────────────────────────────────
+HU-009 | NOTIFICACIONES MULTICANAL + WHATSAPP BOT           🔲 PENDIENTE
+──────────────────────────────────────────────────────
+Como secretaria,
+quiero que el sistema envíe notificaciones automáticas a los pacientes
+por email y WhatsApp, incluyendo un bot conversacional,
+para reducir los olvidos de turno y llamados manuales.
+
+Criterios de Aceptación:
+  - Al aceptar un turno, el paciente recibe notificación con link UUID.
+    Prioridad: email (si tiene), WhatsApp (si tiene teléfono), sino solo UUID en pantalla.
+  - Al rechazar un turno, el paciente recibe el motivo y puede solicitar otro horario.
+  - Recordatorio 48h antes del turno.
+  - Recordatorio 2h antes del turno.
+  - WhatsApp Bot: el paciente escribe y el bot responde con opciones:
+    "turno" → link al portal de autogestión.
+    "secretaria" → deriva a la secretaria.
+    "llamar" → número de teléfono de la clínica.
+  - Los mensajes usan plantillas configurables.
+  - El sistema no requiere acción manual para recordatorios.
+  - CHANGE correspondiente: CHANGE-006
+
+──────────────────────────────────────────────────────
+HU-010 | EXPORTACIÓN DE REPORTES A EXCEL                    🔲 PENDIENTE
+──────────────────────────────────────────────────────
+Como secretaria o administrador,
+quiero poder exportar a Excel la información de pacientes y finanzas,
+para tener respaldo físico y poder compartir datos con el odontólogo o el contador.
+
+Criterios de Aceptación:
+  - Desde el perfil de un paciente, existe un botón "Exportar historia clínica"
+    que descarga un .xlsx con sus datos, turnos, tratamientos y pagos completos.
+  - Desde la sección de finanzas, existe un botón "Exportar deudores"
+    que descarga el listado de pacientes con saldo pendiente.
+  - Desde el dashboard, existe un botón "Exportar ingresos" que descarga un resumen
+    filtrado por mes, semana o rango de fechas, desglosado por moneda y método de pago.
+  - Los archivos tienen formato legible: encabezados en negrita, fechas formateadas.
+  - La descarga es directa desde el navegador, sin pasos intermedios.
+  - Solo disponible para los roles admin y secretaria.
+  - CHANGE correspondiente: CHANGE-008
