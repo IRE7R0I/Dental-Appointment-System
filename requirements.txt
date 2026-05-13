@@ -23,9 +23,15 @@ psycopg2-binary
 alembic
 # Migraciones de base de datos. Control de versiones sobre el schema SQL.
 
-# --- Utilidades ---
+# --- Autenticación y Seguridad (CHANGE-009) ---
+python-jose[cryptography]
+# JWT: creación y validación de tokens. Incluye cryptografía para HS256.
+
+slowapi
+# Rate limiting para endpoints públicos.
+
 passlib[bcrypt]
-# Hashing de contraseñas (para futura autenticación, CHANGE-007)
+# Hashing de contraseñas.
 
 # --- Notificaciones (CHANGE-006) ---
 twilio

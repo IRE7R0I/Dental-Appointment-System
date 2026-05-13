@@ -169,3 +169,19 @@ export interface PagoContextoResponse {
   paciente: { dni: string; nombre: string; apellido: string } | null;
   doctor: { id: number; nombre: string } | null;
 }
+
+export interface TratamientoCatalogo {
+  id: number;
+  nombre: string;
+  precio_ars?: number;
+  precio_usd?: number;
+  duracion_minutos: number;
+  categoria?: string;
+  activo: boolean;
+}
+
+export interface ObraSocial {
+  id: number;
+  nombre: string;
+  activo: boolean;
+}

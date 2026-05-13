@@ -3,10 +3,11 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import date
 from backend.database import get_db
+from backend.dependencies import require_role
 from backend.crud.finanzas import crear_pago, resumen_caja_hoy, listar_pagos_filtrados
 from backend.schemas.finanzas import PagoCreate, PagoResponse, ResumenCajaResponse, PagoContextoResponse
 
-router = APIRouter(prefix="/finanzas", tags=["Finanzas"])
+router = APIRouter(prefix="/finanzas", tags=["Finanzas"], dependencies=[Depends(require_role(["admin", "secretaria"]))])
 
 
 @router.post("/pagos", response_model=PagoResponse, status_code=201)

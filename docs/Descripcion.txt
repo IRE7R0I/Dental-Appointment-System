@@ -105,6 +105,9 @@ FUNCIONALIDADES IMPLEMENTADAS
   6. Cuentas corrientes: deudores, movimientos por paciente, saldo ARS y USD.
   7. Dashboard KPI: turnos del día (realizados/pendientes), ingresos ARS y USD en tiempo real.
   8. Health check: GET /health devuelve estado del servidor y versión.
+  9. Autenticación JWT: login para admin y secretaria con refresh automático.
+  10. Panel de administración: gestión de usuarios (crear, listar,
+     activar/desactivar, eliminar secretarias). Solo rol admin.
 
 FUNCIONALIDADES PENDIENTES (por orden de implementación)
 ---------------------------------------------------------

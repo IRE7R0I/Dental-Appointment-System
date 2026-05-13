@@ -2,10 +2,15 @@ import axios from 'axios';
 import type {
   Paciente, Turno, Doctor, ResumenCaja, Deudor,
   CerrarTurnoInput, CerrarTurnoResponse, CuentaCorrienteResponse,
-  HistorialPacienteResponse, PagoContextoResponse
+  HistorialPacienteResponse, PagoContextoResponse, TratamientoCatalogo, ObraSocial
 } from '../types';
+import { requestInterceptor, responseErrorInterceptor } from './interceptors';
 
 const api = axios.create({ baseURL: '/api' });
+
+// ── Interceptores JWT (CHANGE-009) ────────────────────────
+api.interceptors.request.use(requestInterceptor);
+api.interceptors.response.use(undefined, responseErrorInterceptor);
 
 export const getPacientes = () => api.get<Paciente[]>('/pacientes/').then(r => r.data);
 export const getPaciente = (dni: string) => api.get<Paciente>(`/pacientes/${dni}`).then(r => r.data);
@@ -53,5 +58,11 @@ export const getPagos = (params?: {
   id_doctor?: number;
   solo_deudores?: boolean;
 }) => api.get<PagoContextoResponse[]>('/finanzas/pagos', { params }).then(r => r.data);
+
+export const getTratamientosCatalogo = () =>
+  api.get<TratamientoCatalogo[]>('/catalogo/tratamientos').then(r => r.data);
+
+export const getObrasSociales = () =>
+  api.get<ObraSocial[]>('/catalogo/obras-sociales').then(r => r.data);
 
 export default api;

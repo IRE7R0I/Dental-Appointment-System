@@ -23,8 +23,8 @@ class Doctor(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(100), nullable=False)
-    #especialidad = Column(String(100))
-    color_agenda = Column(String(7)) # Guardamos el código Hexadecimal (ej: #FF5733)
+    color_agenda = Column(String(7))
+    activo = Column(Boolean, default=True)  # CHANGE-009: soft-delete
 
     # Relaciones
     turnos = relationship("Turno", back_populates="doctor")
@@ -45,6 +45,8 @@ class Turno(Base):
     # Llaves Foráneas (Los cables físicos)
     dni_paciente = Column(String(20), ForeignKey("pacientes.dni"))
     id_doctor = Column(Integer, ForeignKey("doctores.id"))
+    creado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)  # CHANGE-009
+    actualizado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)  # CHANGE-009
 
     # Relaciones (Los atajos de Python)
     paciente = relationship("Paciente", back_populates="turnos")
@@ -118,3 +120,39 @@ class HistoriaClinica(Base):
 
     dni_paciente = Column(String(20), ForeignKey("pacientes.dni"))
     paciente = relationship("Paciente", back_populates="historia_clinica")
+
+
+# ── CHANGE-009: Autenticación ─────────────────────────────────
+class Usuario(Base):
+    """Usuario interno del sistema: admin o secretaria."""
+    __tablename__ = "usuarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    rol = Column(String(20), nullable=False, default="secretaria")  # admin | secretaria
+    activo = Column(Boolean, default=True)
+    creado_en = Column(DateTime, default=datetime.now)
+
+
+# ── CHANGE-011: Catálogo ──────────────────────────────────
+class TratamientoCatalogo(Base):
+    """Tratamiento odontológico con precios base ARS/USD."""
+    __tablename__ = "tratamientos_catalogo"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(255), nullable=False)
+    precio_ars = Column(DECIMAL(10, 2), nullable=True)
+    precio_usd = Column(DECIMAL(10, 2), nullable=True)
+    duracion_minutos = Column(Integer, default=30)
+    categoria = Column(String(100), nullable=True)
+    activo = Column(Boolean, default=True)
+
+
+class ObraSocial(Base):
+    """Obra social o mutual para selector."""
+    __tablename__ = "obras_sociales"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), unique=True, nullable=False)
+    activo = Column(Boolean, default=True)

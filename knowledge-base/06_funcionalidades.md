@@ -60,7 +60,11 @@
 - JWT access (30 min) + refresh (7 días).
 - Rate limiting (slowapi).
 - Security headers (CSP, HSTS, X-Frame-Options).
-- Panel de gestión de usuarios (solo admin).
+- Panel de gestión de usuarios (solo admin): crear, listar,
+  activar/desactivar y eliminar secretarias. Frontend: `/admin/usuarios`
+  con tabla CRUD. Backend: `DELETE /admin/usuarios/{id}` para borrado físico.
+- LoginPage con diseño consistente (mismos colores, tipografía y
+  componentes que el resto del sistema).
 - CRUD completo de doctores: PUT y DELETE (soft-delete con `activo`). Solo admin.
 - Campo `creado_por_id` en Turno para auditoría multi-secretaria.
 - Frontend: LoginPage, AuthContext, PrivateRoute, interceptores JWT.

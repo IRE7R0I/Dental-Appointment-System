@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { getDoctores, getTurnos, getPaciente, crearTurno, cerrarTurno, cancelarTurno, crearPaciente } from '../services/api';
-import type { Doctor, Turno, Paciente, CerrarTurnoInput, TratamientoFormItem, PagoFormItem } from '../types';
+import { getDoctores, getTurnos, getPaciente, crearTurno, cerrarTurno, cancelarTurno, crearPaciente, getTratamientosCatalogo } from '../services/api';
+import type { Doctor, Turno, Paciente, CerrarTurnoInput, TratamientoFormItem, PagoFormItem, TratamientoCatalogo } from '../types';
 
 type Vista = 'dia' | 'semana';
 
@@ -91,6 +91,8 @@ export default function AgendaPage() {
   const [modalCerrar, setModalCerrar] = useState(false);
   const [modalCerrarForm, setModalCerrarForm] = useState(false);
   const [tratamientos, setTratamientos] = useState<TratamientoFormItem[]>([{ nombre: '', precio: 0, moneda: 'ARS' }]);
+  const [catalogo, setCatalogo] = useState<TratamientoCatalogo[]>([]);
+  const [catLoading, setCatLoading] = useState(false);
   const [pagos, setPagos] = useState<PagoFormItem[]>([{ monto: 0, moneda: 'ARS', metodo: 'efectivo' }]);
   const [cerrando, setCerrando] = useState(false);
 
@@ -991,6 +993,40 @@ export default function AgendaPage() {
               <button onClick={() => { setModalCerrarForm(false); setTratamientos([{ nombre: '', precio: 0, moneda: 'ARS' }]); setPagos([{ monto: 0, moneda: 'ARS', metodo: 'efectivo' }]); }} className="text-slate-400 hover:text-slate-600">
                 <span className="material-symbols-rounded">close</span>
               </button>
+            </div>
+
+            {/* Selector de catálogo */}
+            <div className="mb-4">
+              <button
+                onClick={() => { if (!catLoading && catalogo.length === 0) { setCatLoading(true); getTratamientosCatalogo().then(d => { setCatalogo(d); setCatLoading(false); }).catch(() => setCatLoading(false)); } }}
+                className="text-xs font-bold text-[#0061a4] hover:underline flex items-center gap-1 mb-2"
+              >
+                <span className="material-symbols-rounded text-sm">browse_gallery</span>
+                {catalogo.length > 0 ? 'Seleccionar del catálogo:' : 'Cargar tratamientos del catálogo'}
+              </button>
+              {catalogo.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  <button
+                    onClick={() => setTratamientos([...tratamientos, { nombre: '', precio: 0, moneda: 'ARS' }])}
+                    className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors font-medium border border-dashed border-slate-300"
+                  >
+                    ✏️ Servicio Manual
+                  </button>
+                  {catalogo.filter(c => c.activo !== false).map(c => {
+                    const defMoneda = c.precio_ars ? 'ARS' : 'USD';
+                    const defPrecio = c.precio_ars || c.precio_usd || 0;
+                    return (
+                      <button key={c.id}
+                        onClick={() => setTratamientos([...tratamientos, { nombre: c.nombre, precio: Number(defPrecio), moneda: defMoneda as 'ARS' | 'USD' }])}
+                        className="text-[11px] px-2.5 py-1 rounded-lg bg-[#eaf4fe] text-[#0061a4] hover:bg-[#c2e7ff] transition-colors font-medium"
+                        title={`${c.nombre} - ${c.precio_ars ? `ARS $${c.precio_ars}` : ''}${c.precio_ars && c.precio_usd ? ' / ' : ''}${c.precio_usd ? `USD $${c.precio_usd}` : ''}`}
+                      >
+                        {c.nombre}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
 <div className="mb-6 bg-slate-50 rounded-2xl p-4">

@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from backend.database import get_db
+from backend.dependencies import require_role
 from backend import models
 from backend.crud.turnos import (
     crear_turno,
@@ -16,7 +17,7 @@ from backend.crud.finanzas import cerrar_turno_con_pago
 from backend.schemas.turnos import TurnoCreate, TurnoResponse
 from backend.schemas.finanzas import CerrarTurnoInput, CerrarTurnoResponse
 
-router = APIRouter(prefix="/turnos", tags=["Turnos"])
+router = APIRouter(prefix="/turnos", tags=["Turnos"], dependencies=[Depends(require_role(["admin", "secretaria"]))])
 
 
 def _turno_to_response(turno) -> TurnoResponse:

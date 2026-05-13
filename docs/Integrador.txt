@@ -156,6 +156,7 @@ cualquier tarea sobre el proyecto OdontoGest.
     GET    /admin/usuarios           → listar usuarios
     GET    /admin/usuarios/{id}      → obtener usuario
     PUT    /admin/usuarios/{id}/toggle-activo → activar/desactivar
+    DELETE /admin/usuarios/{id}              → eliminar usuario (solo admin, no admin)
 
   /pacientes                         (✅ operativo)
     GET    /pacientes                → listar pacientes
@@ -284,7 +285,8 @@ cualquier tarea sobre el proyecto OdontoGest.
         PagosPage.tsx            ✅
         PerfilPacientePage.tsx   ✅
         HistorialPacientePage.tsx ✅
-        LoginPage.tsx            🔲 CHANGE-009
+        LoginPage.tsx            ✅ (CHANGE-009)
+        AdminPage.tsx            ✅ (CHANGE-009 — gestión de usuarios)
         CatalogoPage.tsx         🔲 CHANGE-011
         ConsultaTurnoPage.tsx    🔲 CHANGE-007
         /portal

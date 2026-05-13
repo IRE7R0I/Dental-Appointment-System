@@ -1,4 +1,4 @@
-# Roadmap de Implementación
+ # Roadmap de Implementación
 
 Mapa completo de changes para desarrollar **OdontoGest** de inicio a fin.
 Generado a partir de `knowledge-base/` el 2026-05-12.

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import date
 from backend.database import get_db
+from backend.dependencies import require_role
 from backend import models
 from backend.crud.pacientes import (
     crear_paciente,
@@ -21,7 +22,7 @@ from backend.schemas.pacientes import (
 )
 from backend.schemas.turnos import HistorialPacienteResponse
 
-router = APIRouter(prefix="/pacientes", tags=["Pacientes"])
+router = APIRouter(prefix="/pacientes", tags=["Pacientes"], dependencies=[Depends(require_role(["admin", "secretaria"]))])
 
 
 @router.get("/", response_model=list[PacienteResponse])

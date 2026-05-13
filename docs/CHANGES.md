@@ -21,8 +21,8 @@ INIT-003    Historial Pagos Backend                 ✅ COMPLETADO
 INIT-004    Navegación Query Perfil                 ✅ COMPLETADO
 INIT-005    Rediseño Historial Paciente             ✅ COMPLETADO
 ── Próximas fases ──────────────────────────────────────────────
-CHANGE-009  Autenticación JWT y Roles (admin + secretaria)
-   └── CHANGE-011  Catálogo de Tratamientos y Obras Sociales
+CHANGE-009  Autenticación JWT y Roles (admin + secretaria)  ✅ COMPLETADO
+   └── CHANGE-011  Catálogo de Tratamientos y Obras Sociales       ✅ COMPLETADO
          └── CHANGE-007  Portal Autogestión (guest checkout, UUID)
                └── CHANGE-006  Notificaciones (email + WhatsApp + bot)
 CHANGE-008  Reportes Exportables (Excel)
@@ -129,7 +129,7 @@ CHANGE-010  Deploy a Producción
 ---
 
 ### [CHANGE-009] Autenticación JWT y Roles (admin + secretaria)
-- **Estado:** PROPUESTO
+- **Estado:** COMPLETADO
 - **Prioridad:** CRÍTICA — bloqueante para CHANGE-011, CHANGE-007 y CHANGE-010
 - **HU relacionada:** HU-007
 - **Descripción:**
@@ -140,22 +140,31 @@ CHANGE-010  Deploy a Producción
   El paciente **no tiene cuenta**. Accede al portal vía guest checkout con DNI.
   Los turnos se protegen con UUID público, no con login.
 
-  Puntos clave backend:
-    - Modelo `Usuario`: `username`, `hashed_password`, `rol`, `activo`
-    - Endpoints: `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`
-    - `POST /admin/usuarios` y `GET /admin/usuarios` (solo admin)
-    - Middleware `get_current_user` con `Depends` en todos los routers internos
+   Puntos clave backend:
+     - Modelo `Usuario`: `username`, `hashed_password`, `rol`, `activo`
+     - Endpoints: `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`
+     - `POST /admin/usuarios` y `GET /admin/usuarios` (solo admin)
+   - `PUT /admin/usuarios/{id}` — editar username y/o contraseña (solo admin).
+     Requiere `current_password` solo si el admin se edita a sí mismo.
+     Al editar secretarias, el admin puede cambiar la contraseña sin conocer la actual.
+   - `DELETE /admin/usuarios/{id}` — eliminar secretaria (solo admin, no admin)
+     - Al cambiar contraseña: requiere `current_password`, si no coincide → 403
+     - Middleware `get_current_user` con `Depends` en todos los routers internos
     - Decorador `require_role(["admin", "secretaria"])`
     - Contraseñas hasheadas con `bcrypt` (passlib)
     - JWT: access 30 min, refresh 7 días
     - Rate limiting con `slowapi` en endpoints públicos (preparación para CHANGE-007)
     - Headers de seguridad HTTP (CSP, HSTS, X-Content-Type-Options, X-Frame-Options)
 
-  Puntos clave frontend:
-    - `LoginPage.tsx` — solo para admin y secretaria
-    - `AuthContext` con `useAuth()` hook
-    - `PrivateRoute` — redirige a `/login` si no autenticado
-    - Interceptores JWT en `api.ts` (Bearer + refresh automático en 401)
+   Puntos clave frontend:
+     - `LoginPage.tsx` — solo para admin y secretaria, diseño consistente con el sistema
+     - `AdminPage.tsx` — panel de gestión de usuarios (solo admin): crear, editar
+       (username + contraseña), listar, activar/desactivar y eliminar secretarias
+     - `AuthContext` con `useAuth()` hook
+     - `PrivateRoute` — redirige a `/login` si no autenticado
+     - Interceptores JWT en `api.ts` (Bearer + refresh automático en 401)
+     - Botón de cerrar sesión en NavigationRail con confirmación
+     - Show/hide contraseña con ícono ojo en todos los inputs de password
 
 - **Archivos afectados:**
     - `backend/models.py` (NUEVO: Usuario)
@@ -168,8 +177,9 @@ CHANGE-010  Deploy a Producción
     - `backend/dependencies.py` (NUEVO)
     - `backend/main.py` (registrar routers, agregar slowapi + security headers)
     - Todos los routers existentes → `Depends(get_current_user)`
-    - `frontend/src/pages/LoginPage.tsx` (NUEVO)
-    - `frontend/src/context/AuthContext.tsx` (NUEVO)
+     - `frontend/src/pages/LoginPage.tsx` (NUEVO)
+     - `frontend/src/pages/AdminPage.tsx` (NUEVO)
+     - `frontend/src/context/AuthContext.tsx` (NUEVO)
     - `frontend/src/components/PrivateRoute.tsx` (NUEVO)
     - `frontend/src/services/api.ts` (ampliar interceptores)
     - `frontend/src/App.tsx` (AuthProvider + PrivateRoute)
@@ -179,7 +189,7 @@ CHANGE-010  Deploy a Producción
 ---
 
 ### [CHANGE-011] Catálogo de Tratamientos y Obras Sociales
-- **Estado:** PROPUESTO — **NUEVO**
+- **Estado:** COMPLETADO
 - **Prioridad:** ALTA — prerrequisito para CHANGE-007 y mejora del dashboard
 - **HU relacionada:** HU-001 (ampliada), HU-008 (preparación)
 - **Descripción:**
@@ -188,11 +198,12 @@ CHANGE-010  Deploy a Producción
   sistema. El catálogo alimenta tanto el modal de turnos del dashboard interno
   como el paso 1 del portal de autogestión.
 
-  Puntos clave backend:
-    - Modelo `TratamientoCatalogo`: nombre, precio_ars, precio_usd, duracion_minutos, categoria, activo
-    - Modelo `ObraSocial`: nombre, activo
-    - Seed inicial: "Particular" + 6 mutuales (OSDE, Swiss Medical, Galeno, Medicus, Sancor Salud, OMINT)
-    - CRUD endpoints bajo `/catalogo/` (público para GET, admin/secretaria para POST/PUT/DELETE)
+   Puntos clave backend:
+     - Modelo `TratamientoCatalogo`: nombre, precio_ars, precio_usd, duracion_minutos, categoria, activo
+     - Modelo `ObraSocial`: nombre, activo
+     - Seed inicial: "Particular" + 6 mutuales (OSDE, Swiss Medical, Galeno, Medicus, Sancor Salud, OMINT)
+     - CRUD endpoints bajo `/catalogo/` (GET público, POST/PUT/DELETE admin+secretaria)
+     - Soft-delete: `activo=false` en vez de eliminar
     - Soft-delete: `activo=false` en vez de eliminar
 
   Puntos clave frontend:
