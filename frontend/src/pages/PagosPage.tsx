@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { getCajaHoy, getDeudores, getTurnos, registrarPago, getPagos } from '../services/api';
 import type { ResumenCaja, Deudor, Turno, PagoContextoResponse } from '../types';
 import KPICard from '../components/KPICard';
+import { motion, AnimatePresence } from 'motion/react';
+import { useToast } from '../context/ToastContext';
 
 type FiltroCuenta = 'todos' | 'deudores_ars' | 'deudores_usd' | 'aldia';
 type PeriodoTipo = 'mes' | 'semana';
 type MetodoFiltro = 'todos' | 'efectivo' | 'transferencia';
 
 export default function PagosPage() {
+  const toast = useToast();
   const [caja, setCaja] = useState<ResumenCaja | null>(null);
   const [deudores, setDeudores] = useState<Deudor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +22,6 @@ export default function PagosPage() {
   const [periodoTipo, setPeriodoTipo] = useState<PeriodoTipo>('mes');
   const [periodoValor, setPeriodoValor] = useState(''); // e.g. "2026-05"
   const [filtroMetodo, setFiltroMetodo] = useState<MetodoFiltro>('todos');
-  const [pagosExpandido, setPagosExpandido] = useState<number | null>(null);
   const [errorPagos, setErrorPagos] = useState('');
 
   const [sideSheetOpen, setSideSheetOpen] = useState(false);
@@ -178,7 +180,7 @@ export default function PagosPage() {
       : cobroPaciente.saldo_usd;
 
     if (cobroMonto > deudaActual) {
-      alert(`El monto no puede exceder la deuda (${cobroMoneda} ${deudaActual.toLocaleString()})`);
+      toast.error(`El monto no puede exceder la deuda (${cobroMoneda} ${deudaActual.toLocaleString()})`);
       return;
     }
 
@@ -211,7 +213,10 @@ export default function PagosPage() {
       } : null);
 
       setCobroExito(true);
-    } catch { /* ignore */ } finally {
+      toast.success(`¡Abono de ${cobroMoneda} $${cobroMonto.toLocaleString()} registrado con éxito!`);
+    } catch {
+      toast.error('Ocurrió un error al registrar el abono.');
+    } finally {
       setCobrando(false);
     }
   }
@@ -268,17 +273,21 @@ export default function PagosPage() {
             <span className="material-symbols-rounded text-slate-400">account_balance_wallet</span>
             Control de Cuentas
           </h3>
-          <div className="flex gap-2 overflow-x-auto pb-2 xl:pb-0 w-full xl:w-auto">
+          <div className="flex gap-1 bg-slate-100 rounded-2xl p-1 relative overflow-x-auto w-full xl:w-auto">
             {chips.map(chip => (
               <button
                 key={chip.key}
                 onClick={() => setFiltro(chip.key)}
-                className={`px-4 py-2 rounded-full border transition-colors whitespace-nowrap text-xs font-bold ${
-                  filtro === chip.key
-                    ? 'bg-[#0061a4] text-white border-[#0061a4]'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                }`}
+                className="relative px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer z-10 text-slate-500 hover:text-slate-700 whitespace-nowrap"
+                style={{ color: filtro === chip.key ? '#1e293b' : undefined }}
               >
+                {filtro === chip.key && (
+                  <motion.div
+                    layoutId="activeCuentasFilter"
+                    className="absolute inset-0 bg-white rounded-xl shadow-xs -z-10"
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
                 {chip.label}
               </button>
             ))}
@@ -377,7 +386,7 @@ export default function PagosPage() {
               Registro de Pagos
             </h3>
             {/* Period type toggle */}
-            <div className="flex gap-1 bg-slate-100 rounded-full p-1">
+            <div className="flex gap-1 bg-slate-100 rounded-2xl p-1 relative">
               {(['mes', 'semana'] as PeriodoTipo[]).map(pt => (
                 <button
                   key={pt}
@@ -385,12 +394,16 @@ export default function PagosPage() {
                     setPeriodoTipo(pt);
                     setPeriodoValor(''); // reset so effect re-runs
                   }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                    periodoTipo === pt
-                      ? 'bg-white text-[#0061a4] shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
+                  className="relative px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer z-10 text-slate-500 hover:text-slate-700"
+                  style={{ color: periodoTipo === pt ? '#1e293b' : undefined }}
                 >
+                  {periodoTipo === pt && (
+                    <motion.div
+                      layoutId="activePeriodoTipoFilter"
+                      className="absolute inset-0 bg-white rounded-xl shadow-xs -z-10"
+                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                    />
+                  )}
                   {pt === 'mes' ? 'Por Mes' : 'Por Semana'}
                 </button>
               ))}
@@ -444,17 +457,21 @@ export default function PagosPage() {
             )}
 
             {/* Metodo filter */}
-            <div className="flex gap-1 bg-slate-100 rounded-full p-1 ml-auto">
+            <div className="flex gap-1 bg-slate-100 rounded-2xl p-1 ml-auto relative">
               {(['todos', 'efectivo', 'transferencia'] as MetodoFiltro[]).map(m => (
                 <button
                   key={m}
                   onClick={() => setFiltroMetodo(m)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                    filtroMetodo === m
-                      ? 'bg-white text-[#0061a4] shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
+                  className="relative px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer z-10 text-slate-500 hover:text-slate-700"
+                  style={{ color: filtroMetodo === m ? '#1e293b' : undefined }}
                 >
+                  {filtroMetodo === m && (
+                    <motion.div
+                      layoutId="activeMetodoFilter"
+                      className="absolute inset-0 bg-white rounded-xl shadow-xs -z-10"
+                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                    />
+                  )}
                   {m === 'todos' ? 'Todos' : m === 'efectivo' ? 'Efectivo' : 'Transferencia'}
                 </button>
               ))}
@@ -563,185 +580,190 @@ export default function PagosPage() {
         )}
       </div>
 
-      {sideSheetOpen && cobroPaciente && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-end">
-          <div
-            className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-fade-slide-up"
-            style={{ animation: 'slideInRight 0.3s ease-out' }}
-          >
-            <style>{`
-              @keyframes slideInRight {
-                from { transform: translateX(100%); }
-                to { transform: translateX(0); }
-              }
-            `}</style>
-
-            <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-[#F8FAFC]">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <span className="material-symbols-rounded text-[#0061a4]">point_of_sale</span>
-                  Registrar Abono
-                </h2>
-                <p className="text-sm text-slate-500 font-medium mt-0.5">
-                  {cobroPaciente.apellido}, {cobroPaciente.nombre}
-                </p>
-              </div>
-              <button
-                onClick={() => setSideSheetOpen(false)}
-                className="w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"
-              >
-                <span className="material-symbols-rounded">close</span>
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8">
-              {cobroExito ? (
-                <div className="flex flex-col items-center justify-center py-12 gap-4">
-                  <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500">
-                    <span className="material-symbols-rounded text-5xl">check_circle</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-800">Abono Registrado</h3>
-                  <p className="text-sm text-slate-500 text-center">
-                    El pago se registró correctamente en el sistema.
+      <AnimatePresence>
+        {sideSheetOpen && cobroPaciente && (
+          <div className="fixed inset-0 z-50 flex justify-end">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSideSheetOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs cursor-pointer"
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 26, stiffness: 220 }}
+              className="relative bg-white w-full max-w-md h-full shadow-2xl flex flex-col z-10"
+            >
+              <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-[#F8FAFC]">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <span className="material-symbols-rounded text-[#0061a4]">point_of_sale</span>
+                    Registrar Abono
+                  </h2>
+                  <p className="text-sm text-slate-500 font-medium mt-0.5">
+                    {cobroPaciente.apellido}, {cobroPaciente.nombre}
                   </p>
-                  <button
-                    onClick={() => {
-                      setSideSheetOpen(false);
-                      setCobroExito(false);
-                    }}
-                    className="mt-4 px-6 py-3 rounded-2xl bg-[#0061a4] text-white font-bold hover:bg-[#00528c]"
-                  >
-                    Cerrar
-                  </button>
                 </div>
-              ) : (
-                <>
-                  <div className="bg-[#fce8e8] border border-[#f9dada] rounded-2xl p-4 flex justify-between items-center">
-                    <div>
-                      <p className="text-xs font-bold text-[#B3261E] uppercase tracking-wider mb-1">Deuda Pendiente</p>
-                      <p className="text-2xl font-bold text-[#B3261E]">
-                        {cobroMoneda === 'ARS'
-                          ? `$ ${cobroPaciente.saldo_ars.toLocaleString()} ARS`
-                          : `U$D ${cobroPaciente.saldo_usd.toLocaleString()}`}
-                      </p>
+                <button
+                  onClick={() => setSideSheetOpen(false)}
+                  className="w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"
+                >
+                  <span className="material-symbols-rounded">close</span>
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8">
+                {cobroExito ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-4">
+                    <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500">
+                      <span className="material-symbols-rounded text-5xl">check_circle</span>
                     </div>
-                    <span className="material-symbols-rounded text-4xl text-[#B3261E]/20">account_balance_wallet</span>
+                    <h3 className="text-xl font-bold text-slate-800">Abono Registrado</h3>
+                    <p className="text-sm text-slate-500 text-center">
+                      El pago se registró correctamente en el sistema.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setSideSheetOpen(false);
+                        setCobroExito(false);
+                      }}
+                      className="mt-4 px-6 py-3 rounded-2xl bg-[#0061a4] text-white font-bold hover:bg-[#00528c]"
+                    >
+                      Cerrar
+                    </button>
                   </div>
-
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 mb-4 flex items-center gap-2">
-                      <span className="material-symbols-rounded text-[18px] text-[#0061a4]">add_circle</span>
-                      Detalle del Pago
-                    </h3>
-
-                    <div className="space-y-4">
+                ) : (
+                  <>
+                    <div className="bg-[#fce8e8] border border-[#f9dada] rounded-2xl p-4 flex justify-between items-center">
                       <div>
-                        <label className="text-xs font-bold text-slate-500 ml-1">Moneda del Abono</label>
-                        <select
-                          value={cobroMoneda}
-                          onChange={e => {
-                            setCobroMoneda(e.target.value as 'ARS' | 'USD');
-                            setCobroMonto(0);
-                          }}
-                          className="w-full mt-1 px-4 py-3 rounded-[12px] border border-slate-200 focus:ring-2 focus:ring-[#0061a4] bg-slate-50 font-bold text-slate-800 outline-none"
-                        >
-                          <option value="ARS">Pesos Argentinos (ARS)</option>
-                          <option value="USD">Dólares (USD)</option>
-                        </select>
+                        <p className="text-xs font-bold text-[#B3261E] uppercase tracking-wider mb-1">Deuda Pendiente</p>
+                        <p className="text-2xl font-bold text-[#B3261E]">
+                          {cobroMoneda === 'ARS'
+                            ? `$ ${cobroPaciente.saldo_ars.toLocaleString()} ARS`
+                            : `U$D ${cobroPaciente.saldo_usd.toLocaleString()}`}
+                        </p>
                       </div>
+                      <span className="material-symbols-rounded text-4xl text-[#B3261E]/20">account_balance_wallet</span>
+                    </div>
 
-                      <div>
-                        <label className="text-xs font-bold text-slate-500 ml-1">Monto a entregar</label>
-                        <div className="relative">
-                          <span className="absolute left-4 top-3.5 text-slate-400 font-bold">
-                            {cobroMoneda === 'ARS' ? '$' : 'U$D'}
-                          </span>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 mb-4 flex items-center gap-2">
+                        <span className="material-symbols-rounded text-[18px] text-[#0061a4]">add_circle</span>
+                        Detalle del Pago
+                      </h3>
+
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 ml-1">Moneda del Abono</label>
+                          <select
+                            value={cobroMoneda}
+                            onChange={e => {
+                              setCobroMoneda(e.target.value as 'ARS' | 'USD');
+                              setCobroMonto(0);
+                            }}
+                            className="w-full mt-1 px-4 py-3 rounded-[12px] border border-slate-200 focus:ring-2 focus:ring-[#0061a4] bg-slate-50 font-bold text-slate-800 outline-none"
+                          >
+                            <option value="ARS">Pesos Argentinos (ARS)</option>
+                            <option value="USD">Dólares (USD)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 ml-1">Monto a entregar</label>
+                          <div className="relative">
+                            <span className="absolute left-4 top-3.5 text-slate-400 font-bold">
+                              {cobroMoneda === 'ARS' ? '$' : 'U$D'}
+                            </span>
+                            <input
+                              type="number"
+                              value={cobroMonto || ''}
+                              onChange={e => setCobroMonto(Number(e.target.value))}
+                              placeholder="Ej: 5000"
+                              className="w-full mt-1 pl-10 pr-4 py-3 rounded-[12px] border border-slate-200 focus:ring-2 focus:ring-[#0061a4] outline-none font-bold text-slate-800 text-lg"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 ml-1">Método de Pago</label>
+                          <select
+                            value={cobroMetodo}
+                            onChange={e => setCobroMetodo(e.target.value)}
+                            className="w-full mt-1 px-4 py-3 rounded-[12px] border border-slate-200 focus:ring-2 focus:ring-[#0061a4] bg-white font-medium text-slate-700 outline-none"
+                          >
+                            <option value="efectivo">Efectivo Billetes</option>
+                            <option value="transferencia">Transferencia (MercadoPago/Banco)</option>
+                            <option value="tarjeta">Tarjeta (Crédito/Débito)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 ml-1">Turno Relacionado</label>
+                          <select
+                            value={cobroTurnoId || ''}
+                            onChange={e => setCobroTurnoId(Number(e.target.value))}
+                            className="w-full mt-1 px-4 py-3 rounded-[12px] border border-slate-200 focus:ring-2 focus:ring-[#0061a4] bg-white font-medium text-slate-700 outline-none"
+                          >
+                            <option value="">Seleccionar turno pendiente</option>
+                            {turnosPaciente.map(t => (
+                              <option key={t.id} value={t.id}>
+                                #{t.id} - {t.motivo || 'Sin motivo'} ({new Date(t.fecha_hora).toLocaleDateString('es-AR')})
+                              </option>
+                            ))}
+                            {turnosPaciente.length === 0 && (
+                              <option value="" disabled>Sin turnos pendientes</option>
+                            )}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 ml-1">Notas / Concepto (Opcional)</label>
                           <input
-                            type="number"
-                            value={cobroMonto || ''}
-                            onChange={e => setCobroMonto(Number(e.target.value))}
-                            placeholder="Ej: 5000"
-                            className="w-full mt-1 pl-10 pr-4 py-3 rounded-[12px] border border-slate-200 focus:ring-2 focus:ring-[#0061a4] outline-none font-bold text-slate-800 text-lg"
+                            type="text"
+                            value={cobroNotas}
+                            onChange={e => setCobroNotas(e.target.value)}
+                            placeholder="Ej: Entrega por 2da sesión"
+                            className="w-full mt-1 px-4 py-3 rounded-[12px] border border-slate-200 focus:ring-2 focus:ring-[#0061a4] outline-none text-sm text-slate-700"
                           />
                         </div>
-                      </div>
 
-                      <div>
-                        <label className="text-xs font-bold text-slate-500 ml-1">Método de Pago</label>
-                        <select
-                          value={cobroMetodo}
-                          onChange={e => setCobroMetodo(e.target.value)}
-                          className="w-full mt-1 px-4 py-3 rounded-[12px] border border-slate-200 focus:ring-2 focus:ring-[#0061a4] bg-white font-medium text-slate-700 outline-none"
-                        >
-                          <option value="efectivo">Efectivo Billetes</option>
-                          <option value="transferencia">Transferencia (MercadoPago/Banco)</option>
-                          <option value="tarjeta">Tarjeta (Crédito/Débito)</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-xs font-bold text-slate-500 ml-1">Turno Relacionado</label>
-                        <select
-                          value={cobroTurnoId || ''}
-                          onChange={e => setCobroTurnoId(Number(e.target.value))}
-                          className="w-full mt-1 px-4 py-3 rounded-[12px] border border-slate-200 focus:ring-2 focus:ring-[#0061a4] bg-white font-medium text-slate-700 outline-none"
-                        >
-                          <option value="">Seleccionar turno pendiente</option>
-                          {turnosPaciente.map(t => (
-                            <option key={t.id} value={t.id}>
-                              #{t.id} - {t.motivo || 'Sin motivo'} ({new Date(t.fecha_hora).toLocaleDateString('es-AR')})
-                            </option>
-                          ))}
-                          {turnosPaciente.length === 0 && (
-                            <option value="" disabled>Sin turnos pendientes</option>
-                          )}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-xs font-bold text-slate-500 ml-1">Notas / Concepto (Opcional)</label>
-                        <input
-                          type="text"
-                          value={cobroNotas}
-                          onChange={e => setCobroNotas(e.target.value)}
-                          placeholder="Ej: Entrega por 2da sesión"
-                          className="w-full mt-1 px-4 py-3 rounded-[12px] border border-slate-200 focus:ring-2 focus:ring-[#0061a4] outline-none text-sm text-slate-700"
-                        />
-                      </div>
-
-                      <div className="pt-4">
-                        {(() => {
-                          const deudaMax = cobroMoneda === 'ARS'
-                            ? cobroPaciente.saldo_ars
-                            : cobroPaciente.saldo_usd;
-                          const excede = cobroMonto > deudaMax;
-                          return (
-                            <>
-                              {excede && cobroMonto > 0 && (
-                                <p className="text-xs text-[#B3261E] font-medium mb-2 text-center">
-                                  El monto no puede exceder los {cobroMoneda} {deudaMax.toLocaleString()}
-                                </p>
-                              )}
-                              <button
-                                onClick={handleRegistrarCobro}
-                                disabled={cobrando || cobroMonto <= 0 || excede}
-                                className="w-full bg-[#0061a4] hover:bg-[#00528c] text-white font-bold py-4 rounded-[16px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                <span className="material-symbols-rounded">receipt</span>
-                                {cobrando ? 'Procesando...' : 'Registrar Abono'}
-                              </button>
-                            </>
-                          );
-                        })()}
+                        <div className="pt-4">
+                          {(() => {
+                            const deudaMax = cobroMoneda === 'ARS'
+                              ? cobroPaciente.saldo_ars
+                              : cobroPaciente.saldo_usd;
+                            const excede = cobroMonto > deudaMax;
+                            return (
+                              <>
+                                {excede && cobroMonto > 0 && (
+                                  <p className="text-xs text-[#B3261E] font-medium mb-2 text-center">
+                                    El monto no puede exceder los {cobroMoneda} {deudaMax.toLocaleString()}
+                                  </p>
+                                )}
+                                <button
+                                  onClick={handleRegistrarCobro}
+                                  disabled={cobrando || cobroMonto <= 0 || excede}
+                                  className="w-full bg-[#0061a4] hover:bg-[#00528c] text-white font-bold py-4 rounded-[16px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                               >
+                                  <span className="material-symbols-rounded">receipt</span>
+                                  {cobrando ? 'Procesando...' : 'Registrar Abono'}
+                                </button>
+                              </>
+                            );
+                          })()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </>
-              )}
-            </div>
+                  </>
+                )}
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

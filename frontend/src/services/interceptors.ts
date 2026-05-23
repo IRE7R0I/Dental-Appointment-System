@@ -8,12 +8,8 @@
 
 import type { InternalAxiosRequestConfig } from 'axios';
 
-// Guardamos referencia a la función refresh para evitar import circular
-let _refreshFn: (() => Promise<boolean>) | null = null;
+// Unused token refresh handlers removed to fix compile errors
 
-export function setRefreshFn(fn: () => Promise<boolean>) {
-  _refreshFn = fn;
-}
 
 // Interceptor de Request
 export function requestInterceptor(config: InternalAxiosRequestConfig) {

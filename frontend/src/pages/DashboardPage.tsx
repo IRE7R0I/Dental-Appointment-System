@@ -1,12 +1,45 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCajaHoy, getTurnosHoy, getDoctores, getPaciente, crearPaciente, crearTurno, cerrarTurno, cancelarTurno } from '../services/api';
+import { getCajaHoy, getTurnosHoy, getDoctores, getPaciente, crearPaciente, crearTurno, cerrarTurno, cancelarTurno, getTurnos } from '../services/api';
 import type { ResumenCaja, Turno, Doctor, Paciente, CerrarTurnoInput, TratamientoFormItem, PagoFormItem } from '../types';
 import KPICard from '../components/KPICard';
+import { motion, AnimatePresence } from 'motion/react';
+import CustomSelect from '../components/CustomSelect';
+import { useToast } from '../context/ToastContext';
 
 function formatHour(iso: string) {
   const d = new Date(iso);
   return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function toISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getHorariosDisponibles(fecha: Date): string[] {
+  const d = new Date(fecha);
+  const dia = d.getDay();
+  if (dia === 4 || dia === 0) return []; // Jueves y Domingos no se trabaja
+  
+  const slots: string[] = [];
+  // Mañana (9:00 a 12:30)
+  for (let h = 9; h <= 12; h++) {
+    slots.push(`${String(h).padStart(2, '0')}:00`);
+    slots.push(`${String(h).padStart(2, '0')}:30`);
+  }
+  
+  // Tarde (16:00 a 19:30) - Solo Lunes, Martes, Miércoles, Viernes
+  if (dia !== 6) { // Sábados no hay tarde
+    for (let h = 16; h <= 19; h++) {
+      slots.push(`${String(h).padStart(2, '0')}:00`);
+      slots.push(`${String(h).padStart(2, '0')}:30`);
+    }
+  }
+  
+  return slots;
 }
 
 const estadoBadge: Record<string, string> = {
@@ -17,6 +50,7 @@ const estadoBadge: Record<string, string> = {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [caja, setCaja] = useState<ResumenCaja | null>(null);
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [doctores, setDoctores] = useState<Doctor[]>([]);
@@ -31,6 +65,50 @@ export default function DashboardPage() {
   const [pacienteError, setPacienteError] = useState('');
   const [nuevoTurno, setNuevoTurno] = useState({ fecha_hora: '', motivo: '', id_doctor: 0 });
   const [creando, setCreando] = useState(false);
+
+  // Selector personalizado de fecha y horarios
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [occupiedSlots, setOccupiedSlots] = useState<string[]>([]);
+  const [modalMesNavegacion, setModalMesNavegacion] = useState(() => new Date());
+
+  useEffect(() => {
+    if (!selectedDate || !nuevoTurno.id_doctor) {
+      setOccupiedSlots([]);
+      return;
+    }
+    let cancelled = false;
+    async function loadOccupied() {
+      setLoadingSlots(true);
+      try {
+        const res = await getTurnos({ fecha: selectedDate, id_doctor: nuevoTurno.id_doctor });
+        if (!cancelled) {
+          const occupied = res
+            .filter(t => t.estado !== 'Cancelado')
+            .map(t => {
+              const dt = new Date(t.fecha_hora);
+              return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+            });
+          setOccupiedSlots(occupied);
+        }
+      } catch {
+        // Ignorar
+      } finally {
+        if (!cancelled) setLoadingSlots(false);
+      }
+    }
+    loadOccupied();
+    return () => { cancelled = true; };
+  }, [selectedDate, nuevoTurno.id_doctor]);
+
+  useEffect(() => {
+    if (selectedDate && selectedTime) {
+      setNuevoTurno(prev => ({ ...prev, fecha_hora: `${selectedDate}T${selectedTime}` }));
+    } else {
+      setNuevoTurno(prev => ({ ...prev, fecha_hora: '' }));
+    }
+  }, [selectedDate, selectedTime]);
 
   // Modal crear paciente rápido
   const [modalNuevoPac, setModalNuevoPac] = useState(false);
@@ -94,6 +172,7 @@ export default function DashboardPage() {
     try {
       await crearPaciente(nuevoPac);
       setPacienteInfo({ dni: nuevoPac.dni, nombre: nuevoPac.nombre, apellido: nuevoPac.apellido });
+      toast.success(`¡Paciente ${nuevoPac.nombre} ${nuevoPac.apellido} creado!`);
       setModalNuevoPac(false);
       setPacienteError('');
       setNuevoPac({ dni: '', nombre: '', apellido: '', telefono: '' });
@@ -108,9 +187,29 @@ export default function DashboardPage() {
     const dt = new Date(fecha_hora);
     const dia = dt.getDay();
     const hora = dt.getHours() + dt.getMinutes() / 60;
-    if (dia === 4) return 'Los jueves no se atiende. Elegí otro día.';
-    if (dia === 0) return 'Los domingos no se atiende. Elegí otro día.';
-    if (hora < 9 || hora >= 19) return 'El horario de atención es de 9:00 a 19:00. Elegí otro horario.';
+
+    if (dia === 4) return 'Los jueves no se trabaja. Elegí otro día.';
+    if (dia === 0) return 'Los domingos no se trabaja. Elegí otro día.';
+
+    if (dia === 6) { // Sábado
+      // 9:00 a 13:00 (último turno a las 12:30)
+      if (hora < 9 || hora > 12.5) {
+        return 'Los sábados se atiende únicamente de mañana, de 9:00 a 13:00 (último turno a las 12:30).';
+      }
+    } else { // Lunes, Martes, Miércoles, Viernes
+      const isMorning = hora >= 9 && hora <= 12.5;
+      const isAfternoon = hora >= 16 && hora <= 19.5;
+      if (!isMorning && !isAfternoon) {
+        return 'El horario de atención es de 9:00 a 13:00 (último a las 12:30) y de 16:00 a 20:00 (último a las 19:30).';
+      }
+    }
+    
+    // Validar turnos de media hora
+    const mins = dt.getMinutes();
+    if (mins !== 0 && mins !== 30) {
+      return 'Los turnos deben agendarse en intervalos de media hora (ej: 09:00 o 09:30).';
+    }
+
     return null;
   }
 
@@ -130,6 +229,7 @@ export default function DashboardPage() {
         dni_paciente: pacienteInfo.dni,
         id_doctor: nuevoTurno.id_doctor,
       });
+      toast.success('¡Turno agendado con éxito!');
       setModalCrear(false);
       resetFormulario();
       refresh();
@@ -145,6 +245,9 @@ export default function DashboardPage() {
     setPacienteInfo(null);
     setPacienteError('');
     setNuevoTurno({ fecha_hora: '', motivo: '', id_doctor: 0 });
+    setSelectedDate('');
+    setSelectedTime('');
+    setOccupiedSlots([]);
   }
 
   // ── Cerrar turno ──
@@ -167,6 +270,7 @@ export default function DashboardPage() {
         })),
       };
       await cerrarTurno(turnoCerrar.id, body);
+      toast.success('¡El turno ha sido marcado como realizado y cerrado!');
       setModalCerrar(false);
       setTurnoCerrar(null);
       setTratamientos([{ nombre: '', precio: 0, moneda: 'ARS' }]);
@@ -182,6 +286,7 @@ export default function DashboardPage() {
   async function handleCancelarTurno(turnoId: number) {
     try {
       await cancelarTurno(turnoId);
+      toast.error('El turno ha sido cancelado con éxito.');
       refresh();
     } catch {
       setError('Error al cancelar el turno');
@@ -205,6 +310,13 @@ export default function DashboardPage() {
   const [filtroDoctor, setFiltroDoctor] = useState<number | null>(null);
   const [filtroEstado, setFiltroEstado] = useState<string | null>(null);
 
+  const doctorOptions = doctores.map(d => ({
+    value: d.id,
+    label: d.nombre,
+    color: d.id === 1 ? '#009BFF' : '#FF0088',
+    subtitle: d.id === 1 ? 'Odontología General' : 'Ortodoncia & Cirugía'
+  }));
+
   const turnosFiltrados = turnos.filter(t => {
     if (filtroDoctor && t.id_doctor !== filtroDoctor) return false;
     if (filtroEstado && t.estado !== filtroEstado) return false;
@@ -215,6 +327,44 @@ export default function DashboardPage() {
   const todayStr = today.toLocaleDateString('es-AR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
+
+  // Lógica de celdas del mes para el selector del modal
+  const modalYear = modalMesNavegacion.getFullYear();
+  const modalMonth = modalMesNavegacion.getMonth();
+  const modalFirstDay = new Date(modalYear, modalMonth, 1);
+  const modalLastDay = new Date(modalYear, modalMonth + 1, 0);
+  
+  let modalFirstIndex = modalFirstDay.getDay() - 1;
+  if (modalFirstIndex === -1) modalFirstIndex = 6;
+  
+  const modalTotalDays = modalLastDay.getDate();
+  const modalCells: { date: Date; isCurrentMonth: boolean }[] = [];
+  
+  // Prev month buffer
+  const modalPrevLastDay = new Date(modalYear, modalMonth, 0).getDate();
+  for (let i = modalFirstIndex - 1; i >= 0; i--) {
+    modalCells.push({
+      date: new Date(modalYear, modalMonth - 1, modalPrevLastDay - i),
+      isCurrentMonth: false,
+    });
+  }
+  
+  // Current month
+  for (let i = 1; i <= modalTotalDays; i++) {
+    modalCells.push({
+      date: new Date(modalYear, modalMonth, i),
+      isCurrentMonth: true,
+    });
+  }
+  
+  // Next month buffer to make 42 cells (6 rows)
+  const modalRemaining = 42 - modalCells.length;
+  for (let i = 1; i <= modalRemaining; i++) {
+    modalCells.push({
+      date: new Date(modalYear, modalMonth + 1, i),
+      isCurrentMonth: false,
+    });
+  }
 
   if (error) {
     return (
@@ -261,21 +411,61 @@ export default function DashboardPage() {
 
       {/* Filtros */}
       <div className="flex gap-2 flex-wrap mb-4 px-6">
-        <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
-          <button onClick={() => setFiltroDoctor(null)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${filtroDoctor === null ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Todos</button>
-          <button onClick={() => setFiltroDoctor(1)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${filtroDoctor === 1 ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Darío</button>
-          <button onClick={() => setFiltroDoctor(2)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${filtroDoctor === 2 ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Fabiana</button>
+        <div className="flex gap-1 bg-slate-100 rounded-2xl p-1 relative">
+          {[
+            { value: null, label: 'Todos' },
+            { value: 1, label: 'Darío' },
+            { value: 2, label: 'Fabiana' }
+          ].map(opt => (
+            <button
+              key={opt.label}
+              onClick={() => setFiltroDoctor(opt.value)}
+              className={`relative px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer z-10 ${
+                filtroDoctor === opt.value
+                  ? 'text-white'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {filtroDoctor === opt.value && (
+                <motion.div
+                  layoutId="activeDoctorFilter"
+                  className={`absolute inset-0 rounded-lg shadow-md -z-10 ${
+                    opt.value === null
+                      ? 'bg-gradient-to-r from-[#009BFF] to-[#FF0088]'
+                      : opt.value === 1
+                        ? 'bg-[#009BFF]'
+                        : 'bg-[#FF0088]'
+                  }`}
+                  transition={{ type: 'spring' as const, stiffness: 380, damping: 30 }}
+                />
+              )}
+              {opt.label}
+            </button>
+          ))}
         </div>
-        <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
-          <button onClick={() => setFiltroEstado(null)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${filtroEstado === null ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Todos</button>
-          <button onClick={() => setFiltroEstado('Pendiente')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${filtroEstado === 'Pendiente' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Pendientes</button>
-          <button onClick={() => setFiltroEstado('Realizado')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${filtroEstado === 'Realizado' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Realizados</button>
+        
+        <div className="flex gap-1 bg-slate-100 rounded-2xl p-1 relative">
+          {[
+            { value: null, label: 'Todos' },
+            { value: 'Pendiente', label: 'Pendientes' },
+            { value: 'Realizado', label: 'Realizados' }
+          ].map(opt => (
+            <button
+              key={opt.label}
+              onClick={() => setFiltroEstado(opt.value)}
+              className="relative px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer z-10 text-slate-500 hover:text-slate-700"
+              style={{ color: filtroEstado === opt.value ? '#1e293b' : undefined }}
+            >
+              {filtroEstado === opt.value && (
+                <motion.div
+                  layoutId="activeEstadoFilter"
+                  className="absolute inset-0 bg-white rounded-lg shadow-xs -z-10"
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                />
+              )}
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -362,223 +552,454 @@ export default function DashboardPage() {
       </div>
 
       {/* ════════════════ MODAL CREAR TURNO ════════════════ */}
-      {modalCrear && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm" onClick={() => setModalCrear(false)}>
-          <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 animate-fade-slide-up max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-900">Nuevo Turno</h2>
-              <button onClick={() => { setModalCrear(false); resetFormulario(); }} className="text-slate-400 hover:text-slate-600">
-                <span className="material-symbols-rounded">close</span>
-              </button>
-            </div>
+      <AnimatePresence>
+        {modalCrear && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setModalCrear(false)}>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/45 backdrop-blur-[3px] pointer-events-none"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: 'spring', duration: 0.35 }}
+              className="bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-slate-900">Nuevo Turno</h2>
+                <button onClick={() => { setModalCrear(false); resetFormulario(); }} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
+                  <span className="material-symbols-rounded">close</span>
+                </button>
+              </div>
 
-            <div className="space-y-5">
-              {/* Buscador paciente con botón crear */}
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Paciente (DNI)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text" value={dniPaciente}
-                    onChange={e => { setDniPaciente(e.target.value); setPacienteInfo(null); setPacienteError(''); }}
-                    placeholder="Ingresá el DNI"
-                    className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all"
-                    onKeyDown={e => { if (e.key === 'Enter') handleBuscarPaciente(); }}
-                  />
-                  <button onClick={handleBuscarPaciente} disabled={pacienteBuscando}
-                    className="px-4 py-3 rounded-2xl bg-[#0061a4] text-white text-sm font-bold hover:bg-[#00528c] transition-colors disabled:opacity-50">
-                    {pacienteBuscando ? <span className="material-symbols-rounded animate-spin text-lg">refresh</span> : 'Buscar'}
-                  </button>
+              <div className="space-y-5">
+                {/* Buscador paciente con botón crear */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Paciente (DNI)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text" value={dniPaciente}
+                      onChange={e => { setDniPaciente(e.target.value); setPacienteInfo(null); setPacienteError(''); }}
+                      placeholder="Ingresá el DNI"
+                      className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all"
+                      onKeyDown={e => { if (e.key === 'Enter') handleBuscarPaciente(); }}
+                    />
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleBuscarPaciente}
+                      disabled={pacienteBuscando}
+                      className="px-4 py-3 rounded-2xl bg-[#0061a4] text-white text-sm font-bold hover:bg-[#00528c] transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {pacienteBuscando ? <span className="material-symbols-rounded animate-spin text-lg">refresh</span> : 'Buscar'}
+                    </motion.button>
+                  </div>
+
+                  {pacienteBuscando && <p className="text-slate-400 text-xs mt-2 animate-pulse-soft">Buscando...</p>}
+
+                  {pacienteError && (
+                    <div className="mt-3">
+                      <p className="text-red-500 text-xs mb-2">{pacienteError}</p>
+                      <button onClick={() => {
+                        setModalNuevoPac(true);
+                        setNuevoPac(prev => ({ ...prev, dni: dniPaciente }));
+                      }}
+                        className="flex items-center gap-1 text-xs font-bold text-[#0061a4] hover:underline cursor-pointer">
+                        <span className="material-symbols-rounded text-sm">person_add</span>
+                        Crear paciente con DNI {dniPaciente}
+                      </button>
+                    </div>
+                  )}
+
+                  {pacienteInfo && (
+                    <div className="mt-3 bg-[#f0f9ff] rounded-2xl px-4 py-3 flex items-center gap-3 border border-[#c2e7ff]">
+                      <div className="w-10 h-10 rounded-full bg-[#c2e7ff] flex items-center justify-center text-[#0061a4]">
+                        <span className="material-symbols-rounded">person</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{pacienteInfo.apellido}, {pacienteInfo.nombre}</p>
+                        <p className="text-xs text-slate-500">DNI {pacienteInfo.dni}</p>
+                      </div>
+                      <span className="ml-auto text-emerald-600">
+                        <span className="material-symbols-rounded">check_circle</span>
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {pacienteBuscando && <p className="text-slate-400 text-xs mt-2 animate-pulse-soft">Buscando...</p>}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Doctor</label>
+                  <CustomSelect
+                    options={doctorOptions}
+                    value={nuevoTurno.id_doctor}
+                    onChange={val => setNuevoTurno(prev => ({ ...prev, id_doctor: val }))}
+                    placeholder="Seleccioná un doctor"
+                  />
+                </div>
 
-                {pacienteError && (
-                  <div className="mt-3">
-                    <p className="text-red-500 text-xs mb-2">{pacienteError}</p>
-                    <button onClick={() => {
-                      setModalNuevoPac(true);
-                      setNuevoPac(prev => ({ ...prev, dni: dniPaciente }));
-                    }}
-                      className="flex items-center gap-1 text-xs font-bold text-[#0061a4] hover:underline">
-                      <span className="material-symbols-rounded text-sm">person_add</span>
-                      Crear paciente con DNI {dniPaciente}
-                    </button>
+                {/* Custom Date Picker (Calendario Cuadricular Mini) */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha del Turno</label>
+                  
+                  <div className="bg-slate-50/50 rounded-3xl p-4 border border-slate-100/80 space-y-3">
+                    {/* Navegación del Mes */}
+                    <div className="flex items-center justify-between px-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date(modalMesNavegacion);
+                          d.setMonth(d.getMonth() - 1);
+                          setModalMesNavegacion(d);
+                        }}
+                        className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors"
+                      >
+                        <span className="material-symbols-rounded text-base">chevron_left</span>
+                      </button>
+                      <span className="text-sm font-bold text-slate-700 capitalize">
+                        {modalMesNavegacion.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date(modalMesNavegacion);
+                          d.setMonth(d.getMonth() + 1);
+                          setModalMesNavegacion(d);
+                        }}
+                        className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors"
+                      >
+                        <span className="material-symbols-rounded text-base">chevron_right</span>
+                      </button>
+                    </div>
+
+                    {/* Headers de días */}
+                    <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      <span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span><span>Do</span>
+                    </div>
+
+                    {/* Grilla de días */}
+                    <div className="grid grid-cols-7 gap-1">
+                      {modalCells.map((cell, idx) => {
+                        const cellStr = toISODate(cell.date);
+                        const active = selectedDate === cellStr;
+                        const isTodayCell = toISODate(cell.date) === toISODate(new Date());
+                        
+                        const diaSem = cell.date.getDay();
+                        const esNoLaboral = diaSem === 4 || diaSem === 0; // Jueves o Domingo
+                        
+                        // No permitir seleccionar fechas anteriores a hoy
+                        const isPast = toISODate(cell.date) < toISODate(new Date());
+
+                        return (
+                          <button
+                            key={`modal-cal-${cellStr}-${idx}`}
+                            type="button"
+                            disabled={isPast || !cell.isCurrentMonth}
+                            onClick={() => {
+                              setSelectedDate(cellStr);
+                              setSelectedTime('');
+                            }}
+                            className={`aspect-square rounded-xl flex items-center justify-center text-xs font-black transition-all ${
+                              active
+                                ? 'bg-[#0061a4] text-white shadow-xs font-black scale-105'
+                                : isPast || !cell.isCurrentMonth
+                                  ? 'opacity-20 text-slate-400 cursor-not-allowed'
+                                  : esNoLaboral
+                                    ? 'bg-slate-100/20 text-slate-400/70 cursor-not-allowed font-normal'
+                                    : isTodayCell
+                                      ? 'border border-[#0061a4]/50 text-[#0061a4] hover:bg-[#eaf4fe]'
+                                      : 'bg-white/40 text-slate-700 hover:bg-slate-100/50 hover:scale-[1.03] cursor-pointer'
+                            }`}
+                          >
+                            {cell.date.getDate()}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grid de Horarios Disponibles */}
+                {nuevoTurno.id_doctor > 0 && selectedDate && (
+                  <div className="bg-slate-50/50 rounded-3xl p-4 border border-slate-100">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+                      Horarios Disponibles
+                    </label>
+                    
+                    {loadingSlots ? (
+                      <div className="py-6 text-center text-xs text-slate-400 animate-pulse-soft">
+                        Cargando horarios disponibles...
+                      </div>
+                    ) : (() => {
+                      const slots = getHorariosDisponibles(new Date(selectedDate + 'T00:00:00'));
+                      if (slots.length === 0) {
+                        return (
+                          <div className="bg-slate-50 rounded-2xl p-4 text-center border border-slate-100 text-xs text-slate-500 font-medium">
+                            El consultorio está cerrado este día. Elegí otra fecha.
+                          </div>
+                        );
+                      }
+                      
+                      const morningSlots = slots.filter(s => Number(s.split(':')[0]) < 14);
+                      const afternoonSlots = slots.filter(s => Number(s.split(':')[0]) >= 14);
+                      
+                      return (
+                        <div className="space-y-4">
+                          {/* Turnos Mañana */}
+                          {morningSlots.length > 0 && (
+                            <div>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 pl-1">Mañana</p>
+                              <div className="grid grid-cols-4 gap-2">
+                                {morningSlots.map(time => {
+                                  const isOccupied = occupiedSlots.includes(time);
+                                  const isSelected = selectedTime === time;
+                                  return (
+                                    <button
+                                      key={time}
+                                      type="button"
+                                      disabled={isOccupied}
+                                      onClick={() => setSelectedTime(time)}
+                                      className={`py-2 px-1 text-xs font-bold rounded-xl border text-center transition-all duration-250 select-none ${
+                                        isOccupied
+                                          ? 'bg-slate-100/60 text-slate-350 border-slate-150 cursor-not-allowed line-through opacity-50'
+                                          : isSelected
+                                            ? 'bg-[#0061a4] text-white border-transparent shadow-sm'
+                                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:scale-[1.03] hover:shadow-xs active:scale-95 cursor-pointer'
+                                      }`}
+                                    >
+                                      {time}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Turnos Tarde */}
+                          {afternoonSlots.length > 0 && (
+                            <div>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 pl-1">Tarde</p>
+                              <div className="grid grid-cols-4 gap-2">
+                                {afternoonSlots.map(time => {
+                                  const isOccupied = occupiedSlots.includes(time);
+                                  const isSelected = selectedTime === time;
+                                  return (
+                                    <button
+                                      key={time}
+                                      type="button"
+                                      disabled={isOccupied}
+                                      onClick={() => setSelectedTime(time)}
+                                      className={`py-2 px-1 text-xs font-bold rounded-xl border text-center transition-all duration-250 select-none ${
+                                        isOccupied
+                                          ? 'bg-slate-100/60 text-slate-350 border-slate-150 cursor-not-allowed line-through opacity-50'
+                                          : isSelected
+                                            ? 'bg-[#0061a4] text-white border-transparent shadow-sm'
+                                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:scale-[1.03] hover:shadow-xs active:scale-95 cursor-pointer'
+                                      }`}
+                                    >
+                                      {time}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
-                {pacienteInfo && (
-                  <div className="mt-3 bg-[#f0f9ff] rounded-2xl px-4 py-3 flex items-center gap-3 border border-[#c2e7ff]">
-                    <div className="w-10 h-10 rounded-full bg-[#c2e7ff] flex items-center justify-center text-[#0061a4]">
-                      <span className="material-symbols-rounded">person</span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-800">{pacienteInfo.apellido}, {pacienteInfo.nombre}</p>
-                      <p className="text-xs text-slate-500">DNI {pacienteInfo.dni}</p>
-                    </div>
-                    <span className="ml-auto text-emerald-600">
-                      <span className="material-symbols-rounded">check_circle</span>
-                    </span>
-                  </div>
-                )}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Motivo / Tratamiento</label>
+                  <input type="text" value={nuevoTurno.motivo}
+                    onChange={e => setNuevoTurno(prev => ({ ...prev, motivo: e.target.value }))}
+                    placeholder="Ej: Limpieza, extracción..."
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Doctor</label>
-                <select value={nuevoTurno.id_doctor} onChange={e => setNuevoTurno(prev => ({ ...prev, id_doctor: Number(e.target.value) }))}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all bg-white">
-                  <option value={0}>Seleccioná un doctor</option>
-                  {doctores.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-                </select>
+              <div className="flex gap-3 mt-8">
+                <button onClick={() => { setModalCrear(false); resetFormulario(); }}
+                  className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors cursor-pointer">Cancelar</button>
+                <motion.button
+                  whileHover={{ scale: 1.015 }}
+                  whileTap={{ scale: 0.985 }}
+                  onClick={handleCrearTurno}
+                  disabled={creando || !pacienteInfo || !nuevoTurno.fecha_hora || !nuevoTurno.id_doctor}
+                  className="flex-1 px-5 py-3 rounded-2xl bg-[#0061a4] text-white font-bold text-sm hover:bg-[#00528c] transition-colors disabled:opacity-50 cursor-pointer shadow-sm hover:shadow"
+                >
+                  {creando ? 'Guardando...' : 'Guardar'}
+                </motion.button>
               </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha y Hora</label>
-                <input type="datetime-local" value={nuevoTurno.fecha_hora}
-                  onChange={e => setNuevoTurno(prev => ({ ...prev, fecha_hora: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Motivo / Tratamiento</label>
-                <input type="text" value={nuevoTurno.motivo}
-                  onChange={e => setNuevoTurno(prev => ({ ...prev, motivo: e.target.value }))}
-                  placeholder="Ej: Limpieza, extracción..."
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-8">
-              <button onClick={() => { setModalCrear(false); resetFormulario(); }}
-                className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors">Cancelar</button>
-              <button onClick={handleCrearTurno} disabled={creando || !pacienteInfo || !nuevoTurno.fecha_hora || !nuevoTurno.id_doctor}
-                className="flex-1 px-5 py-3 rounded-2xl bg-[#0061a4] text-white font-bold text-sm hover:bg-[#00528c] transition-colors disabled:opacity-50">
-                {creando ? 'Guardando...' : 'Guardar'}
-              </button>
-            </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* ════════════════ MODAL CREAR PACIENTE ════════════════ */}
-      {modalNuevoPac && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm" onClick={() => setModalNuevoPac(false)}>
-          <div className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 animate-fade-slide-up" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-900">Nuevo Paciente</h2>
-              <button onClick={() => setModalNuevoPac(false)} className="text-slate-400 hover:text-slate-600">
-                <span className="material-symbols-rounded">close</span>
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">DNI</label>
-                <input type="text" value={nuevoPac.dni} readOnly
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm bg-slate-50 text-slate-500 outline-none" />
+      <AnimatePresence>
+        {modalNuevoPac && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => setModalNuevoPac(false)}>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/45 backdrop-blur-[3px] pointer-events-none"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: 'spring', duration: 0.35 }}
+              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 font-[family-name:var(--font-sans)]"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-slate-900">Nuevo Paciente</h2>
+                <button onClick={() => setModalNuevoPac(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
+                  <span className="material-symbols-rounded">close</span>
+                </button>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre</label>
-                <input type="text" value={nuevoPac.nombre}
-                  onChange={e => setNuevoPac(prev => ({ ...prev, nombre: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] transition-all" />
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">DNI</label>
+                  <input type="text" value={nuevoPac.dni} readOnly
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm bg-slate-50 text-slate-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre</label>
+                  <input type="text" value={nuevoPac.nombre}
+                    onChange={e => setNuevoPac(prev => ({ ...prev, nombre: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] transition-all bg-white" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Apellido</label>
+                  <input type="text" value={nuevoPac.apellido}
+                    onChange={e => setNuevoPac(prev => ({ ...prev, apellido: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] transition-all bg-white" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Teléfono (opcional)</label>
+                  <input type="text" value={nuevoPac.telefono}
+                    onChange={e => setNuevoPac(prev => ({ ...prev, telefono: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] transition-all bg-white" />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Apellido</label>
-                <input type="text" value={nuevoPac.apellido}
-                  onChange={e => setNuevoPac(prev => ({ ...prev, apellido: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] transition-all" />
+              <div className="flex gap-3 mt-8">
+                <button onClick={() => setModalNuevoPac(false)}
+                  className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors cursor-pointer">Cancelar</button>
+                <motion.button
+                  whileHover={{ scale: 1.015 }}
+                  whileTap={{ scale: 0.985 }}
+                  onClick={handleCrearPaciente}
+                  disabled={creandoPac || !nuevoPac.nombre || !nuevoPac.apellido}
+                  className="flex-1 px-5 py-3 rounded-2xl bg-[#0061a4] text-white font-bold text-sm hover:bg-[#00528c] transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                >
+                  {creandoPac ? 'Creando...' : 'Crear Paciente'}
+                </motion.button>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Teléfono (opcional)</label>
-                <input type="text" value={nuevoPac.telefono}
-                  onChange={e => setNuevoPac(prev => ({ ...prev, telefono: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] transition-all" />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-8">
-              <button onClick={() => setModalNuevoPac(false)}
-                className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors">Cancelar</button>
-              <button onClick={handleCrearPaciente} disabled={creandoPac || !nuevoPac.nombre || !nuevoPac.apellido}
-                className="flex-1 px-5 py-3 rounded-2xl bg-[#0061a4] text-white font-bold text-sm hover:bg-[#00528c] transition-colors disabled:opacity-50">
-                {creandoPac ? 'Creando...' : 'Crear Paciente'}
-              </button>
-            </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* ════════════════ MODAL CERRAR TURNO ════════════════ */}
-      {modalCerrar && turnoCerrar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm overflow-y-auto" onClick={() => setModalCerrar(false)}>
-          <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 my-8 animate-fade-slide-up" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-900">Cerrar Turno</h2>
-              <button onClick={() => { setModalCerrar(false); setTurnoCerrar(null); }} className="text-slate-400 hover:text-slate-600">
-                <span className="material-symbols-rounded">close</span>
-              </button>
-            </div>
+      <AnimatePresence>
+        {modalCerrar && turnoCerrar && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto font-[family-name:var(--font-sans)]" onClick={() => setModalCerrar(false)}>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/45 backdrop-blur-[3px] pointer-events-none"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: 'spring', duration: 0.35 }}
+              className="bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 my-8 relative z-10"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-slate-900">Cerrar Turno</h2>
+                <button onClick={() => { setModalCerrar(false); setTurnoCerrar(null); }} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
+                  <span className="material-symbols-rounded">close</span>
+                </button>
+              </div>
 
-            <div className="mb-6 bg-slate-50 rounded-2xl p-4">
-              <p className="text-sm font-bold text-slate-800">{turnoCerrar.paciente?.apellido}, {turnoCerrar.paciente?.nombre}</p>
-              <p className="text-xs text-slate-500 mt-1">{getDoctorName(turnoCerrar.id_doctor)} &middot; {formatHour(turnoCerrar.fecha_hora)}</p>
-            </div>
+              <div className="mb-6 bg-slate-50 rounded-2xl p-4 border border-slate-100/60 font-[family-name:var(--font-sans)]">
+                <p className="text-sm font-bold text-slate-800">{turnoCerrar.paciente?.apellido}, {turnoCerrar.paciente?.nombre}</p>
+                <p className="text-xs text-slate-500 mt-1">{getDoctorName(turnoCerrar.id_doctor)} &middot; {formatHour(turnoCerrar.fecha_hora)} hs</p>
+              </div>
 
-            {/* Tratamientos */}
-            <div className="mb-6">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Tratamientos</label>
-              {tratamientos.map((t, i) => (
-                <div key={i} className="flex gap-2 mb-2 items-start">
-                  <input type="text" value={t.nombre} onChange={e => { const a = [...tratamientos]; a[i] = { ...a[i], nombre: e.target.value }; setTratamientos(a); }}
-                    placeholder="Nombre" className="flex-1 px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#0061a4] transition-all" />
-                  <input type="number" value={t.precio || ''} onChange={e => { const a = [...tratamientos]; a[i] = { ...a[i], precio: Number(e.target.value) }; setTratamientos(a); }}
-                    placeholder="Precio" className="w-24 px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#0061a4] transition-all" />
-                  <select value={t.moneda} onChange={e => { const a = [...tratamientos]; a[i] = { ...a[i], moneda: e.target.value as 'ARS' | 'USD' }; setTratamientos(a); }}
-                    className="w-16 px-2 py-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white transition-all">
-                    <option value="ARS">$</option><option value="USD">USD</option>
-                  </select>
-                  {tratamientos.length > 1 && <button onClick={() => setTratamientos(tratamientos.filter((_, idx) => idx !== i))} className="p-2.5 text-red-400 hover:text-red-600"><span className="material-symbols-rounded text-lg">remove_circle</span></button>}
-                </div>
-              ))}
-              <button onClick={() => setTratamientos([...tratamientos, { nombre: '', precio: 0, moneda: 'ARS' }])}
-                className="text-xs font-bold text-[#0061a4] hover:underline mt-1 flex items-center gap-1">
-                <span className="material-symbols-rounded text-sm">add_circle</span> Agregar tratamiento
-              </button>
-            </div>
+              {/* Tratamientos */}
+              <div className="mb-6">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Tratamientos</label>
+                {tratamientos.map((t, i) => (
+                  <div key={i} className="flex gap-2 mb-2 items-start">
+                    <input type="text" value={t.nombre} onChange={e => { const a = [...tratamientos]; a[i] = { ...a[i], nombre: e.target.value }; setTratamientos(a); }}
+                      placeholder="Nombre" className="flex-1 px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#0061a4] transition-all bg-white" />
+                    <input type="number" value={t.precio || ''} onChange={e => { const a = [...tratamientos]; a[i] = { ...a[i], precio: Number(e.target.value) }; setTratamientos(a); }}
+                      placeholder="Precio" className="w-24 px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#0061a4] transition-all bg-white" />
+                    <select value={t.moneda} onChange={e => { const a = [...tratamientos]; a[i] = { ...a[i], moneda: e.target.value as 'ARS' | 'USD' }; setTratamientos(a); }}
+                      className="w-16 px-2 py-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white transition-all cursor-pointer">
+                      <option value="ARS">$</option><option value="USD">USD</option>
+                    </select>
+                    {tratamientos.length > 1 && <button onClick={() => setTratamientos(tratamientos.filter((_, idx) => idx !== i))} className="p-2.5 text-red-400 hover:text-red-650 cursor-pointer"><span className="material-symbols-rounded text-lg">remove_circle</span></button>}
+                  </div>
+                ))}
+                <button onClick={() => setTratamientos([...tratamientos, { nombre: '', precio: 0, moneda: 'ARS' }])}
+                  className="text-xs font-bold text-[#0061a4] hover:underline mt-1 flex items-center gap-1 cursor-pointer">
+                  <span className="material-symbols-rounded text-sm">add_circle</span> Agregar tratamiento
+                </button>
+              </div>
 
-            {/* Pagos */}
-            <div className="mb-6">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Pagos</label>
-              {pagos.map((p, i) => (
-                <div key={i} className="flex gap-2 mb-2 items-start">
-                  <input type="number" value={p.monto || ''} onChange={e => { const a = [...pagos]; a[i] = { ...a[i], monto: Number(e.target.value) }; setPagos(a); }}
-                    placeholder="Monto" className="w-28 px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#0061a4] transition-all" />
-                  <select value={p.moneda} onChange={e => { const a = [...pagos]; a[i] = { ...a[i], moneda: e.target.value as 'ARS' | 'USD' }; setPagos(a); }}
-                    className="w-16 px-2 py-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white">
-                    <option value="ARS">$</option><option value="USD">USD</option>
-                  </select>
-                  <select value={p.metodo} onChange={e => { const a = [...pagos]; a[i] = { ...a[i], metodo: e.target.value }; setPagos(a); }}
-                    className="flex-1 px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white">
-                    <option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="tarjeta">Tarjeta</option>
-                  </select>
-                  {pagos.length > 1 && <button onClick={() => setPagos(pagos.filter((_, idx) => idx !== i))} className="p-2.5 text-red-400 hover:text-red-600"><span className="material-symbols-rounded text-lg">remove_circle</span></button>}
-                </div>
-              ))}
-              <button onClick={() => setPagos([...pagos, { monto: 0, moneda: 'ARS', metodo: 'efectivo' }])}
-                className="text-xs font-bold text-[#0061a4] hover:underline mt-1 flex items-center gap-1">
-                <span className="material-symbols-rounded text-sm">add_circle</span> Agregar pago
-              </button>
-            </div>
+              {/* Pagos */}
+              <div className="mb-6">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Pagos</label>
+                {pagos.map((p, i) => (
+                  <div key={i} className="flex gap-2 mb-2 items-start">
+                    <input type="number" value={p.monto || ''} onChange={e => { const a = [...pagos]; a[i] = { ...a[i], monto: Number(e.target.value) }; setPagos(a); }}
+                      placeholder="Monto" className="w-28 px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#0061a4] transition-all bg-white" />
+                    <select value={p.moneda} onChange={e => { const a = [...pagos]; a[i] = { ...a[i], moneda: e.target.value as 'ARS' | 'USD' }; setPagos(a); }}
+                      className="w-16 px-2 py-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white cursor-pointer">
+                      <option value="ARS">$</option><option value="USD">USD</option>
+                    </select>
+                    <select value={p.metodo} onChange={e => { const a = [...pagos]; a[i] = { ...a[i], metodo: e.target.value }; setPagos(a); }}
+                      className="flex-1 px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white cursor-pointer">
+                      <option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="tarjeta">Tarjeta</option>
+                    </select>
+                    {pagos.length > 1 && <button onClick={() => setPagos(pagos.filter((_, idx) => idx !== i))} className="p-2.5 text-red-400 hover:text-red-650 cursor-pointer"><span className="material-symbols-rounded text-lg">remove_circle</span></button>}
+                  </div>
+                ))}
+                <button onClick={() => setPagos([...pagos, { monto: 0, moneda: 'ARS', metodo: 'efectivo' }])}
+                  className="text-xs font-bold text-[#0061a4] hover:underline mt-1 flex items-center gap-1 cursor-pointer">
+                  <span className="material-symbols-rounded text-sm">add_circle</span> Agregar pago
+                </button>
+              </div>
 
-            <div className="flex gap-3 mt-8">
-              <button onClick={() => { setModalCerrar(false); setTurnoCerrar(null); }}
-                className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors">Cancelar</button>
-              <button onClick={handleCerrarTurno} disabled={cerrando}
-                className="flex-1 px-5 py-3 rounded-2xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 transition-colors disabled:opacity-50">
-                {cerrando ? 'Cerrando...' : 'Confirmar'}
-              </button>
-            </div>
+              <div className="flex gap-3 mt-8">
+                <button onClick={() => { setModalCerrar(false); setTurnoCerrar(null); }}
+                  className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors cursor-pointer">Cancelar</button>
+                <motion.button
+                  whileHover={{ scale: 1.015 }}
+                  whileTap={{ scale: 0.985 }}
+                  onClick={handleCerrarTurno}
+                  disabled={cerrando}
+                  className="flex-1 px-5 py-3 rounded-2xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                >
+                  {cerrando ? 'Cerrando...' : 'Confirmar'}
+                </motion.button>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,0 +1,6 @@
+{
+  "name": "OdontoGest",
+  "description": "Sistema de gestión y reserva de turnos odontológicos de OdontoGest.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

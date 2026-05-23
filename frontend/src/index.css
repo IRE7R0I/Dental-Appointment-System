@@ -1,27 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
-  --color-primary: #0061a4;
-  --color-primary-light: #c2e7ff;
-  --color-primary-dark: #001d35;
-  --color-surface: #F1F5F9;
-  --color-surface-alt: #f1f5f9;
-  --color-border: #e2e8f0;
+  --color-primary: #2563eb;
+  --color-primary-light: rgba(37, 99, 235, 0.15);
+  --color-primary-dark: #1e3a8a;
+  --color-surface: transparent;
+  --color-surface-alt: rgba(255, 255, 255, 0.35);
+  --color-border: rgba(255, 255, 255, 0.4);
   --radius-card: 24px;
   --radius-input: 16px;
   --radius-pill: 12px;
-  --font-display: "Cabinet Grotesk", sans-serif;
-  --font-body: "Satoshi", sans-serif;
+  --font-display: "DM Sans", "Inter", sans-serif;
+  --font-body: "Inter", sans-serif;
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "DM Sans", "Inter", sans-serif;
 }
 
 body {
   margin: 0;
   font-family: var(--font-body);
-  background-color: var(--color-surface);
+  background-image: linear-gradient(135deg, #e2e8f0 0%, #f0f9ff 50%, #e0e7ff 100%);
+  background-attachment: fixed;
   color: #1e293b;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-size: 16px;
+  min-height: 100vh;
 }
 
 /* Desktop: 25% más grande */
@@ -43,6 +51,141 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.02em;
 }
 
+/* Glassmorphism Overrides - Excluyendo inputs, selects, textareas y botones interactivos */
+.bg-white:not(input):not(select):not(textarea):not(button):not(option),
+[class*="bg-white"]:not(input):not(select):not(textarea):not(button):not(option) {
+  background-color: rgba(255, 255, 255, 0.55) !important;
+  backdrop-filter: blur(16px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(120%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Modals should have fully solid background for maximum readability and high contrast, just like FRONTEND PROTOTIPO */
+.fixed .bg-white:not(input):not(select):not(textarea):not(button):not(option),
+.fixed [class*="bg-white"]:not(input):not(select):not(textarea):not(button):not(option) {
+  background-color: #ffffff !important; /* Totalmente sólido */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: 0 25px 50px -12px rgba(30, 41, 59, 0.25) !important;
+}
+
+/* Slate 50 cards / containers - Excluyendo inputs y elementos de formulario */
+.bg-slate-50:not(input):not(select):not(textarea):not(button):not(option),
+[class*="bg-slate-50"]:not(input):not(select):not(textarea):not(button):not(option) {
+  background-color: rgba(255, 255, 255, 0.35) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Overriding parent page default container bg */
+.bg-\[\#F1F5F9\] {
+  background: transparent !important;
+}
+
+/* Overriding solid slate borders - Excluyendo inputs y selects para mantener su contraste e identidad visual */
+.border-slate-100:not(input):not(select):not(textarea),
+.border-slate-200:not(input):not(select):not(textarea),
+.border-slate-200\/50:not(input):not(select):not(textarea),
+.border-slate-300:not(input):not(select):not(textarea) {
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.border-slate-50:not(input):not(select):not(textarea) {
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.bg-slate-50\/30:not(input):not(select):not(textarea) {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* ==========================================================================
+   ESTILOS PREMIUM DE ALTO CONTRASTE PARA ENTRADAS DE FORMULARIOS (UX PROTOTIPO)
+   ========================================================================== */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="datetime-local"],
+select,
+textarea {
+  background-color: #ffffff !important; /* Fondo blanco 100% sólido y limpio */
+  border: 1px solid #cbd5e1 !important; /* Borde visible y de alto contraste (slate-300) */
+  color: #0f172a !important; /* Texto oscuro de altísima legibilidad (slate-900) */
+  font-weight: 500 !important;
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Asegurar que las opciones de select sean sólidas y legibles */
+select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Estilo premium del Placeholder */
+input::placeholder,
+textarea::placeholder {
+  color: #64748b !important; /* Slate 500 para fácil legibilidad */
+  opacity: 1 !important;
+}
+
+/* Foco premium dinámico (Anillo de brillo azul de alta visibilidad) */
+input:focus,
+select:focus,
+textarea:focus {
+  background-color: #ffffff !important;
+  border-color: #2563eb !important; /* Blue 600 */
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18) !important; /* Anillo brillante suave */
+  outline: none !important;
+}
+
+/* Estados deshabilitados limpios */
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background-color: #f1f5f9 !important; /* Slate 100 */
+  border-color: #e2e8f0 !important; /* Slate 200 */
+  color: #94a3b8 !important; /* Slate 400 */
+  cursor: not-allowed !important;
+  opacity: 0.8 !important;
+}
+
+/* Premium Highlight / Hex Color replacements */
+.bg-\[\#0061a4\] {
+  background-color: #2563eb !important;
+  box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.4) !important;
+}
+.hover\:bg-\[\#00528c\]:hover,
+.hover\:bg-\[\#004d8a\]:hover {
+  background-color: #1d4ed8 !important;
+}
+.text-\[\#0061a4\] {
+  color: #2563eb !important;
+}
+.bg-\[\#c2e7ff\] {
+  background-color: rgba(37, 99, 235, 0.12) !important;
+  color: #2563eb !important;
+  border: 1px solid rgba(37, 99, 235, 0.2) !important;
+}
+.text-\[\#001d35\] {
+  color: #1e3a8a !important;
+}
+.bg-\[\#eaf4fe\] {
+  background-color: rgba(37, 99, 235, 0.08) !important;
+  border: 1px solid rgba(37, 99, 235, 0.15) !important;
+}
+.focus\:ring-\[\#0061a4\]:focus,
+.focus\:ring-2:focus {
+  --tw-ring-color: rgba(37, 99, 235, 0.3) !important;
+  border-color: #2563eb !important;
+}
+
 .material-symbols-rounded {
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
 }
@@ -61,12 +204,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgba(37, 99, 235, 0.15);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgba(37, 99, 235, 0.35);
 }
 
 @keyframes shimmer {
@@ -85,7 +228,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background: linear-gradient(90deg, rgba(255,255,255,0.2) 25%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }

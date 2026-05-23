@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { motion } from 'motion/react';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -9,6 +11,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+  const { success } = useToast();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -17,6 +20,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await login(username, password);
+      success(`¡Bienvenido, ${username}!`);
       navigate('/');
     } catch (err: any) {
       setError(err.message || 'Credenciales inválidas');
@@ -27,9 +31,14 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#F1F5F9] flex items-center justify-center p-4">
-      <div className="w-full max-w-sm animate-fade-slide-up" style={{ animationDelay: '0ms' }}>
+      <motion.div 
+        initial={{ opacity: 0, y: 35, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 25 }}
+        className="w-full max-w-sm"
+      >
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-[#eaf4fe] rounded-[20px] flex items-center justify-center mx-auto mb-4 shadow-sm">
+          <div className="w-16 h-16 bg-[#eaf4fe] rounded-[20px] flex items-center justify-center mx-auto mb-4 shadow-sm border border-white/50">
             <span className="material-symbols-rounded text-4xl text-[#0061a4] filled">dentistry</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-800 font-[family-name:var(--font-display)]">
@@ -75,7 +84,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                   tabIndex={-1}
                 >
                   <span className="material-symbols-rounded text-xl">
@@ -86,25 +95,27 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">
+              <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl animate-pulse-soft">
                 {error}
               </div>
             )}
 
-            <button
+            <motion.button
+              whileHover={{ scale: 1.015, y: -0.5 }}
+              whileTap={{ scale: 0.985 }}
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#0061a4] hover:bg-[#004d8a] text-white font-medium py-2.5 px-4 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              className="w-full bg-[#0061a4] hover:bg-[#004d8a] text-white font-medium py-2.5 px-4 rounded-xl transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow cursor-pointer"
             >
               {isLoading ? 'Ingresando...' : 'Iniciar sesión'}
-            </button>
+            </motion.button>
           </form>
         </div>
 
         <p className="text-center text-xs text-slate-400 mt-6">
           OdontoGest v2.x &mdash; Gestión de consultorio odontológico
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 }
