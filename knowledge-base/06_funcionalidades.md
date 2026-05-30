@@ -1,112 +1,49 @@
 # 06 — Funcionalidades
 
-## Completadas (v2.x actual)
+## Completadas (v2.x)
 
 ### Gestión de pacientes
-- Lista de pacientes con búsqueda por DNI.
-- Perfil individual con datos personales.
-- Edición de datos.
-- Vista de pacientes deudores (saldo > 0).
-- Historial clínico: turnos con tratamientos y pagos por paciente.
-- Página dedicada `/pacientes/:dni/historial` con layout de dos columnas:
-  - Timeline de turnos + tratamientos y deudas.
-  - Tabla de pagos con filtro por método.
+Lista, perfil, edición, búsqueda por DNI. Página dedicada con historial clínico (turnos + tratamientos + pagos). Layout de dos columnas.
 
 ### Agenda
-- Turnos por doctor (Darío / Fabiana) con vista por fecha.
-- Asignación de turnos con validación de duplicados (mismo doctor, misma hora).
-- Búsqueda de paciente por DNI al asignar.
-- Filtro de turnos por fecha, doctor y paciente.
-- Cancelación de turnos.
+Turnos por doctor con vista por fecha. Asignación con validación de duplicados. Cancelación. Cierre de turno con cobro multimoneda (integración con catálogo). Modal con selector de tratamientos del catálogo (precarga precio editable) o "Servicio Manual".
 
 ### Finanzas y Caja
-- Cierre de turno con cobro multimoneda ARS/USD.
-- Registro de tratamientos realizados (nombre + precio).
-- Registro de pagos (múltiples, distintas monedas).
-- Resumen de caja del día: turnos realizados/pendientes/cancelados, ingresos ARS y USD.
-- Historial de pagos filtrable por fecha, método, paciente, doctor, deudores.
+Cierre de turno con tratamientos + pagos. Resumen diario (turnos realizados/pendientes, ingresos ARS/USD). Historial de pagos con filtros avanzados.
 
 ### Cuentas Corrientes
-- Saldo ARS y USD por paciente.
-- Movimientos: tipo "cargo" o "pago", con descripción.
-- Lista de pacientes deudores.
-- Detalle de movimientos por paciente: `GET /pacientes/{dni}/cuenta`.
+Saldo ARS/USD por paciente. Movimientos tipo "cargo" o "pago". Lista de deudores. Detalle por paciente.
 
 ### Doctores
-- Listado y creación de doctores.
-- Cada doctor con nombre y color de agenda (hex).
+CRUD completo con soft-delete. Color de agenda por doctor. Filtro en agenda.
 
 ### Dashboard
-- KPI de turnos del día (realizados, pendientes, cancelados).
-- Ingresos ARS y USD en tiempo real, separados por origen:
-  - **Particulares** (obra_social = "Particular").
-  - **Obras Sociales / Coseguros** (resto de obras sociales).
+KPIs de turnos del día e ingresos ARS/USD en tiempo real.
+
+### Autenticación (CHANGE-009)
+Login JWT con roles admin/secretaria. Refresh automático. Rate limiting + security headers. Panel de administración de usuarios (AdminPage): crear, editar, listar, activar/desactivar, eliminar secretarias. Admin self-edit con current_password. Logout con confirmación en NavigationRail.
+
+### Catálogo (CHANGE-011)
+Tratamientos odontológicos con precios ARS/USD, duración y categoría. Catálogo de obras sociales (7 seed). CRUD completo (admin + secretaria). Página CatalogoPage con tabla, filtros y modales. Soft-delete en ambos.
 
 ### Health check
-- `GET /health` → estado del servidor y versión.
+GET /health operativo.
 
-### Frontend
-- React 18 + TypeScript + Vite + Tailwind CSS.
-- 5 páginas: Agenda, Dashboard, Pagos, PerfilPaciente, HistorialPaciente.
-- Componentes: NavigationRail, KPICard, TurnoCard, Modal, MultiCurrencyInput.
-- Llamadas HTTP centralizadas en `services/api.ts`.
+### Frontend completo
+9 páginas (Agenda, Dashboard, Pagos, PerfilPaciente, HistorialPaciente, Login, Admin, Catalogo). 6 componentes (NavigationRail con logout, KPICard, TurnoCard, Modal, MultiCurrencyInput, PrivateRoute). AuthContext + interceptores JWT con refresh automático.
 
 ---
 
 ## Pendientes (planificadas)
 
-### CHANGE-009: Autenticación JWT (admin + secretaria)
-- Login con usuario + contraseña.
-- JWT access (30 min) + refresh (7 días).
-- Rate limiting (slowapi).
-- Security headers (CSP, HSTS, X-Frame-Options).
-- Panel de gestión de usuarios (solo admin): crear, listar,
-  activar/desactivar y eliminar secretarias. Frontend: `/admin/usuarios`
-  con tabla CRUD. Backend: `DELETE /admin/usuarios/{id}` para borrado físico.
-- LoginPage con diseño consistente (mismos colores, tipografía y
-  componentes que el resto del sistema).
-- CRUD completo de doctores: PUT y DELETE (soft-delete con `activo`). Solo admin.
-- Campo `creado_por_id` en Turno para auditoría multi-secretaria.
-- Frontend: LoginPage, AuthContext, PrivateRoute, interceptores JWT.
+### portal-autogestion (CHANGE-007)
+Guest checkout 4 pasos: tratamiento → doctor → horario → DNI. Shadow profiles. UUID público. Panel de aprobación. Bloqueo de slots. Validación horaria por día. Dashboard con ingresos separados por origen. Polling sync multi-secretaria.
 
-### CHANGE-011: Catálogo de Tratamientos y Obras Sociales
-- CRUD de tratamientos con precios ARS/USD, duración, categoría.
-- CRUD de obras sociales (Particular + 6 mutuales).
-- Integración en modal de cierre de turno:
-  - Elegir del catálogo (precarga precio editable).
-  - O "Servicio Manual" con texto libre.
-- Frontend: CatalogoPage.tsx (tabla CRUD).
+### notificaciones (CHANGE-006)
+Email + WhatsApp + bot conversacional. Scheduler recordatorios 48h/2h. Templates configurables. Mock inicial sin APIs externas.
 
-### CHANGE-007: Portal de Autogestión (Guest Checkout)
-- Flujo 4 pasos sin login:
-  1. Elegir tratamiento (cards del catálogo con buscador y filtros).
-  2. Elegir doctor.
-  3. Elegir horario (slots 30 min como tarjetas, solo franjas mañana/tarde).
-  4. Identificación: DNI → verificar → shadow profile si nuevo.
-- Turno creado con estado "solicitado" + UUID.
-- Página pública `/consulta/:uuid` para seguimiento.
-- Panel de aprobación en AgendaPage (secretaria):
-  - Aceptar → estado "pendiente".
-  - Rechazar → motivo → estado "rechazado".
-- Bloqueo manual de slots por secretaria.
+### reportes-excel (CHANGE-008)
+Exportación .xlsx: historia clínica, deudores, ingresos. Solo admin/secretaria.
 
-### CHANGE-006: Notificaciones (Email + WhatsApp + Bot)
-- Notificaciones por email (si tiene) y WhatsApp (si tiene teléfono).
-- Templates: turno confirmado, rechazado (con motivo), recordatorios.
-- Scheduler APScheduler para recordatorios 48h y 2h.
-- WhatsApp Bot: responde keywords ("turno" → link portal, "secretaria" → deriva, "llamar" → teléfono).
-- Mock inicial sin API externa.
-
-### CHANGE-008: Reportes Exportables (Excel)
-- Historia clínica del paciente: datos + turnos + tratamientos + pagos.
-- Listado de deudores: saldo ARS/USD.
-- Resumen de ingresos filtrable por fecha, desglose por moneda y método.
-- Descarga directa desde botón en frontend.
-- Solo admin y secretaria.
-
-### CHANGE-010: Deploy a Producción
-- Dockerfile + docker-compose.yml.
-- Alembic para migraciones.
-- .env.example.
-- CI/CD con GitHub Actions (opcional).
-- HTTPS, dominio propio, backups diarios.
+### polish-y-deploy (CHANGE-010)
+Docker, Alembic, HTTPS, backups, CI/CD. Integración real de APIs (Twilio, SMTP).

@@ -102,7 +102,7 @@ Criterios de Aceptación:
   - Compila sin errores TypeScript ni JSX.
 
 ──────────────────────────────────────────────────────
-HU-007 | AUTENTICACIÓN Y CONTROL DE ACCESO (INTERNO)       🔲 PENDIENTE
+HU-007 | AUTENTICACIÓN Y CONTROL DE ACCESO (INTERNO)       ✅ COMPLETADA
 ──────────────────────────────────────────────────────
 Como administrador,
 quiero que el sistema tenga login solo para el personal de la clínica,

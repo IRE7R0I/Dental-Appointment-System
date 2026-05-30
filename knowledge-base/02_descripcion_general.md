@@ -3,121 +3,99 @@
 ## Stack tecnológico
 
 ### Backend
-| Componente | Tecnología | Versión |
-|-----------|-----------|---------|
-| Lenguaje | Python | 3.11+ |
-| Framework | FastAPI | latest |
-| ORM | SQLAlchemy | 2.x |
-| Validación | Pydantic | 2.x |
-| Base de datos | PostgreSQL | producción |
-| DB alternativa | SQLite | solo desarrollo local |
-| Servidor | Uvicorn | ASGI |
-| Auth | JWT (python-jose) + bcrypt (passlib) | pendiente CHANGE-009 |
-| Rate limiting | slowapi | pendiente CHANGE-009 |
-| Scheduler | APScheduler | pendiente CHANGE-006 |
-| Migraciones | Alembic | pendiente CHANGE-010 |
+| Componente | Tecnología | Estado |
+|-----------|-----------|--------|
+| Lenguaje | Python 3.11+ | ✅ |
+| Framework | FastAPI | ✅ |
+| ORM | SQLAlchemy 2.x | ✅ |
+| Validación | Pydantic 2.x | ✅ |
+| Base de datos | PostgreSQL (prod) / SQLite (dev) | ✅ |
+| Servidor | Uvicorn | ✅ |
+| Auth | JWT (python-jose) + bcrypt (passlib) | ✅ |
+| Rate limiting | slowapi | ✅ |
+| Scheduler | APScheduler | 🔲 CHANGE-006 |
+| Migraciones | Alembic | 🔲 CHANGE-010 |
+| Reportes | openpyxl | 🔲 CHANGE-008 |
 
 ### Frontend
-| Componente | Tecnología | Versión |
-|-----------|-----------|---------|
-| Lenguaje | TypeScript | 6.x |
-| Framework | React | 19.x |
-| Bundler | Vite | 8.x |
-| Estilos | Tailwind CSS | 4.x |
-| Router | React Router | v6 |
-| HTTP | Fetch API (centralizado en api.ts) | — |
-| Diseño | Material Design 3 | referencia visual |
+| Componente | Tecnología | Estado |
+|-----------|-----------|--------|
+| Lenguaje | TypeScript 6.x | ✅ |
+| Framework | React 19.x | ✅ |
+| Bundler | Vite 8.x | ✅ |
+| Estilos | Tailwind CSS 4.x | ✅ |
+| Router | React Router v6 | ✅ |
+| HTTP | Fetch API (api.ts con interceptores JWT) | ✅ |
+| Auth | React Context (AuthContext + useAuth hook) | ✅ |
 
-### Infraestructura (planificada CHANGE-010)
-| Componente | Opciones |
-|-----------|---------|
-| Backend hosting | Railway o Render |
-| Frontend hosting | Vercel (build estático) |
-| DB hosting | Railway PostgreSQL o Supabase free tier |
-| HTTPS | Let's Encrypt |
-| CI/CD | GitHub Actions (opcional) |
+### Infraestructura (CHANGE-010)
+| Componente | Opciones | Estado |
+|-----------|---------|--------|
+| Backend | Railway o Render | 🔲 |
+| Frontend | Vercel | 🔲 |
+| DB | Railway PostgreSQL o Supabase free tier | 🔲 |
+| HTTPS | Let's Encrypt | 🔲 |
 
 ## Arquitectura general
 
 ```
-┌─────────────────────────────┐
-│     Frontend (Vercel)       │
-│   React + Vite SPA          │
-│   /login  /agenda  /portal  │
-└──────────┬──────────────────┘
-           │ HTTPS + JWT Bearer (rutas internas)
-           │ Sin auth (rutas públicas: /portal, /consulta/:uuid)
-┌──────────▼──────────────────┐
-│   Backend (Railway/Render)  │
-│   FastAPI + Uvicorn          │
-│   ┌──────────┐ ┌──────────┐ │
-│   │ JWT Auth │ │ slowapi  │ │
-│   │ bcrypt   │ │ rate lim │ │
-│   └──────────┘ └──────────┘ │
-│   ┌──────────────────────┐  │
-│   │ Security Headers     │  │
-│   │ CSP, HSTS, X-Frame   │  │
-│   └──────────────────────┘  │
-└──────────┬──────────────────┘
-           │ SSL connection
-┌──────────▼──────────────────┐
-│  PostgreSQL (Railway/       │
-│  Supabase free tier)         │
-│  Backups diarios            │
-└─────────────────────────────┘
+┌─────────────────────────────────┐
+│     Frontend (Vercel)           │
+│   React + Vite SPA               │
+│   /login /agenda /catalogo ...  │
+└──────────────┬──────────────────┘
+               │ HTTPS + JWT (interno) / público (portal)
+┌──────────────▼──────────────────┐
+│   Backend (Railway/Render)      │
+│   FastAPI + Uvicorn              │
+│   JWT + slowapi + sec headers   │
+│   Routers: auth, admin,         │
+│   pacientes, turnos, finanzas,  │
+│   doctores, catalogo            │
+└──────────────┬──────────────────┘
+               │ SSL
+┌──────────────▼──────────────────┐
+│  PostgreSQL + backups diarios   │
+└─────────────────────────────────┘
 ```
 
-## Estructura del proyecto
+## Estructura actual
 
 ```
 /
-├── backend/               # API REST Python
-│   ├── main.py           # entrypoint + CORS + routers
-│   ├── database.py       # get_db() con Depends
-│   ├── models.py         # SQLAlchemy ORM
-│   ├── dependencies.py   # get_current_user, require_role (CHANGE-009)
-│   ├── seed.py           # datos iniciales (admin, obras sociales)
-│   ├── routers/          # APIRouter por dominio
-│   ├── schemas/          # Pydantic (Create / Response / Update)
-│   ├── crud/             # lógica de acceso a datos
-│   ├── core/             # config, security (CHANGE-009)
-│   └── services/         # notificaciones, reportes, scheduler
-├── frontend/              # SPA React
-│   └── src/
-│       ├── pages/        # vistas (Agenda, Dashboard, Portal, etc.)
-│       ├── components/   # reutilizables (Modal, KPICard, PrivateRoute)
-│       ├── context/      # AuthContext (CHANGE-009)
-│       ├── services/     # api.ts (llamadas HTTP)
-│       └── types/        # TypeScript interfaces
-├── docs/                  # documentación fuente
-├── knowledge-base/        # base de conocimiento (esta carpeta)
-└── openspec/              # especificaciones por módulo
-    ├── specs/
-    └── changes/           # uno por CHANGE con proposal/design/tasks
+├── backend/
+│   ├── main.py, database.py, models.py, dependencies.py
+│   ├── routers/  (auth, admin, pacientes, turnos, finanzas, doctores, catalogo)
+│   ├── schemas/  (auth, pacientes, turnos, finanzas, doctores, catalogo)
+│   ├── crud/     (auth, pacientes, turnos, finanzas, doctores, catalogo)
+│   ├── core/     (config.py, security.py)
+│   └── services/ (preparado para CHANGE-006/008)
+├── frontend/src/
+│   ├── pages/    (9: Agenda, Dashboard, Pagos, PerfilPaciente, HistorialPaciente, Login, Admin, Catalogo)
+│   ├── components/ (6: NavigationRail, KPICard, TurnoCard, Modal, MultiCurrencyInput, PrivateRoute)
+│   ├── context/  (AuthContext)
+│   ├── services/ (api.ts, interceptors.ts)
+│   └── types/    (index.ts)
+├── docs/         (4 archivos fundacionales)
+├── knowledge-base/ (11 archivos canónicos)
+└── openspec/     (changes por módulo + roadmap)
 ```
-
-## Comunicación
-
-- **Frontend ↔ Backend**: exclusivamente REST API (JSON).
-- **Sin lógica de negocio en frontend**: solo presentación + hooks.
-- **Toda llamada HTTP centralizada** en `frontend/src/services/api.ts`.
-- **Interceptores JWT**: Bearer token en request, refresh automático en 401.
 
 ## Variables de entorno principales
 
 ```bash
-# CHANGE-009
+# Auth (CHANGE-009)
 SECRET_KEY=xxx
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
-REFRESH_TOKEN_EXPIRE_DAYS=7
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=xxx
 
-# CHANGE-006
+# DB
+DATABASE_URL=postgresql://postgres:root@localhost:5432/odontogest
+
+# Notificaciones (CHANGE-006)
 SMTP_HOST=smtp.mailtrap.io
-SMTP_PORT=587
 WHATSAPP_API_KEY=xxx
 PORTAL_URL=http://localhost:5173/portal
-CLINICA_TELEFONO=11-xxxx-xxxx
 ```

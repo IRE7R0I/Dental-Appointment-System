@@ -27,40 +27,35 @@ cualquier tarea sobre el proyecto OdontoGest.
 3. ESTADO ACTUAL DEL CÓDIGO
 ────────────────────────────────────────────────
   ✅ COMPLETADO — BACKEND (/backend):
-    main.py              → entrypoint FastAPI con routers registrados + /health
+    main.py              → entrypoint FastAPI con slowapi + security headers + /health
     database.py          → get_db() con Depends, conectado a PostgreSQL
-    models.py            → modelos ORM con FKs, backref y relaciones explícitas
-    routers/             → pacientes.py · turnos.py · finanzas.py · doctores.py
-    schemas/             → separados por entidad (Create / Response / Update)
-    crud/                → separado por entidad
+    models.py            → 10 modelos ORM (Paciente, Doctor, Turno, Pago,
+                           CuentaCorriente, MovimientoCuenta, HistoriaClinica,
+                           TurnoTratamiento, Usuario, TratamientoCatalogo, ObraSocial)
+    dependencies.py      → get_current_user, require_role
+    routers/             → pacientes · turnos · finanzas · doctores · auth · admin · catalogo
+    schemas/             → separados por entidad (pacientes, turnos, finanzas,
+                           doctores, auth, catalogo)
+    crud/                → separado por entidad (pacientes, turnos, finanzas,
+                           doctores, auth, catalogo)
+    core/                → config.py (Settings desde .env), security.py (JWT + bcrypt)
     services/            → __init__.py (vacío, preparado para CHANGE-006/008)
 
     Base de datos: PostgreSQL (tablas creadas y operativas en producción).
+    Seguridad: JWT + bcrypt + slowapi rate limiting + security headers (completo).
 
   ✅ COMPLETADO — FRONTEND (/frontend):
     React 18 + TypeScript + Vite + Tailwind CSS + React Router v6
     pages/               → AgendaPage · DashboardPage · PagosPage ·
-                           PerfilPacientePage · HistorialPacientePage
+                           PerfilPacientePage · HistorialPacientePage ·
+                           LoginPage · AdminPage · CatalogoPage
     components/          → NavigationRail · KPICard · TurnoCard · Modal ·
-                           MultiCurrencyInput
-    services/api.ts      → todas las llamadas HTTP centralizadas
+                           MultiCurrencyInput · PrivateRoute
+    context/             → AuthContext (useAuth hook)
+    services/            → api.ts con interceptores JWT + refresh automático
     types/index.ts       → tipos compartidos (Turno, Paciente, Moneda, etc.)
 
   🔲 PENDIENTE — POR IMPLEMENTAR (en orden):
-    CHANGE-009  backend/routers/auth.py          → autenticación JWT (admin + secretaria)
-    CHANGE-009  backend/core/security.py         → JWT, hashing bcrypt
-    CHANGE-009  backend/core/config.py           → vars de entorno centralizadas
-    CHANGE-009  backend/dependencies.py          → get_current_user, require_role
-    CHANGE-009  backend/schemas/auth.py          → schemas de login, token, usuario
-    CHANGE-009  backend/crud/auth.py             → funciones de autenticación
-    CHANGE-009  backend/routers/admin.py         → gestión de usuarios (solo admin)
-    CHANGE-009  frontend/src/pages/LoginPage.tsx → formulario de login
-    CHANGE-009  frontend/src/context/AuthContext.tsx → contexto global de auth
-    CHANGE-009  frontend/src/components/PrivateRoute.tsx → protección de rutas
-    CHANGE-011  backend/models.py                → +TratamientoCatalogo, +ObraSocial
-    CHANGE-011  backend/routers/catalogo.py      → CRUD de catálogo
-    CHANGE-011  frontend/src/pages/CatalogoPage.tsx → gestión de tratamientos
-    CHANGE-007  backend/models.py                → Turno: +uuid, +motivo_rechazo, +id_tratamiento, +obra_social
     CHANGE-007  backend/routers/portal.py        → guest checkout, UUID, disponibilidad
     CHANGE-007  backend/routers/turnos.py        → +solicitados, confirmar, rechazar, bloquear
     CHANGE-007  frontend/src/pages/portal/       → stepper 4 pasos
@@ -77,10 +72,11 @@ cualquier tarea sobre el proyecto OdontoGest.
 4. ROLES DEL SISTEMA
 ────────────────────────────────────────────────
   admin       → gestión de configuración (doctores, tratamientos, precios base),
-                gestión de usuarios, acceso a reportes financieros globales.
+                gestión de usuarios (crear, editar, activar/desactivar, eliminar
+                secretarias), acceso a reportes financieros globales.
   secretaria  → gestión operativa total: agenda, pacientes, finanzas,
-                edición de tratamientos y precios, aprobación de turnos,
-                bloqueo de slots, creación de pacientes manual.
+                edición de tratamientos y precios, catálogo completo,
+                aprobación de turnos, bloqueo de slots, creación de pacientes manual.
   paciente    → SIN CUENTA. Accede al portal vía guest checkout con DNI.
                 Solo lectura y creación limitada: ver sus turnos por UUID,
                 solicitar nuevo turno según disponibilidad. Sin login.
@@ -145,24 +141,24 @@ cualquier tarea sobre el proyecto OdontoGest.
 ────────────────────────────────────────────────
 7. MÓDULOS Y ENDPOINTS DEL BACKEND
 ────────────────────────────────────────────────
-  /auth                              (CHANGE-009 — pendiente)
+  /auth                              (✅ operativo)
     POST   /auth/login               → devuelve access_token + refresh_token
     POST   /auth/refresh             → renueva access_token
     POST   /auth/logout              → invalida refresh_token
     GET    /auth/me                  → datos del usuario autenticado
 
-  /admin                             (CHANGE-009 — pendiente, solo rol admin)
+  /admin                             (✅ operativo, solo rol admin)
     POST   /admin/usuarios           → crear usuario (secretaria)
     GET    /admin/usuarios           → listar usuarios
-    GET    /admin/usuarios/{id}      → obtener usuario
+    PUT    /admin/usuarios/{id}      → editar username y/o contraseña
     PUT    /admin/usuarios/{id}/toggle-activo → activar/desactivar
-    DELETE /admin/usuarios/{id}              → eliminar usuario (solo admin, no admin)
+    DELETE /admin/usuarios/{id}      → eliminar usuario (no admin)
 
   /pacientes                         (✅ operativo)
     GET    /pacientes                → listar pacientes
     GET    /pacientes/deudores       → listar pacientes con saldo > 0
-    GET    /pacientes/historial?dni=X&fecha_desde=&fecha_hasta= → historial con turnos, tratamientos y pagos
-    GET    /pacientes/verificar/{dni} → (CHANGE-007 — pendiente) público, verifica si DNI existe
+    GET    /pacientes/historial?dni=X&fecha_desde=&fecha_hasta= → historial completo
+    GET    /pacientes/verificar/{dni} → (CHANGE-007 — pendiente) público, verifica DNI
     GET    /pacientes/{dni}          → obtener paciente por DNI
     POST   /pacientes                → crear paciente
     PUT    /pacientes/{dni}          → actualizar paciente
@@ -171,16 +167,16 @@ cualquier tarea sobre el proyecto OdontoGest.
   /turnos                            (✅ operativo, ampliar en CHANGE-007)
     GET    /turnos?fecha=&id_doctor=&paciente_dni= → listar (filtros opcionales)
     GET    /turnos/hoy               → turnos del día actual
-    GET    /turnos/solicitados       → (CHANGE-007 — pendiente) turnos en estado solicitado
+    GET    /turnos/solicitados       → (CHANGE-007 — pendiente) solicitudes pendientes
     GET    /turnos/paciente/{dni}    → turnos de un paciente específico
     POST   /turnos                   → crear turno
-    POST   /turnos/bloquear          → (CHANGE-007 — pendiente) bloquear slot manualmente
+    POST   /turnos/bloquear          → (CHANGE-007 — pendiente) bloquear slot
     PUT    /turnos/{turno_id}/cerrar → cerrar turno con cobro
     PUT    /turnos/{id}/confirmar    → (CHANGE-007 — pendiente) aceptar solicitud
     PUT    /turnos/{id}/rechazar     → (CHANGE-007 — pendiente) rechazar con motivo
     PATCH  /turnos/{turno_id}/cancelar → cancelar turno
     DELETE /turnos/{turno_id}        → eliminar turno
-    DELETE /turnos/{id}/desbloquear  → (CHANGE-007 — pendiente) liberar slot bloqueado
+    DELETE /turnos/{id}/desbloquear  → (CHANGE-007 — pendiente) liberar slot
 
   /finanzas                          (✅ operativo)
     POST   /finanzas/pagos           → registrar pago/cobro
@@ -192,19 +188,18 @@ cualquier tarea sobre el proyecto OdontoGest.
     GET    /doctores                 → listar doctores (solo activos)
     GET    /doctores/{id}            → obtener doctor individual
     POST   /doctores                 → crear doctor
-    PUT    /doctores/{id}            → (CHANGE-009 — pendiente) actualizar doctor (solo admin)
-    DELETE /doctores/{id}            → (CHANGE-009 — pendiente) desactivar doctor (solo admin)
+    PUT    /doctores/{id}            → actualizar doctor
+    DELETE /doctores/{id}            → desactivar doctor (soft-delete)
 
-  /catalogo                          (CHANGE-011 — pendiente)
+  /catalogo                          (✅ operativo)
     GET    /catalogo/tratamientos    → listar tratamientos (público)
     GET    /catalogo/tratamientos/{id} → obtener tratamiento (público)
     POST   /catalogo/tratamientos    → crear tratamiento (admin + secretaria)
     PUT    /catalogo/tratamientos/{id} → actualizar tratamiento (admin + secretaria)
-    DELETE /catalogo/tratamientos/{id} → desactivar tratamiento (admin)
+    DELETE /catalogo/tratamientos/{id} → desactivar tratamiento (admin + secretaria)
     GET    /catalogo/obras-sociales  → listar obras sociales (público)
-    POST   /catalogo/obras-sociales  → crear obra social (admin)
-    PUT    /catalogo/obras-sociales/{id} → actualizar obra social (admin)
-    DELETE /catalogo/obras-sociales/{id} → eliminar obra social (admin)
+    POST   /catalogo/obras-sociales  → crear obra social (admin + secretaria)
+    DELETE /catalogo/obras-sociales/{id} → eliminar obra social (admin + secretaria)
 
   /portal                            (CHANGE-007 — pendiente, público sin auth)
     GET    /portal/disponibilidad?doctor_id=X&fecha=YYYY-MM-DD → slots libres
@@ -229,17 +224,16 @@ cualquier tarea sobre el proyecto OdontoGest.
   /backend
     main.py                       ✅
     database.py                   ✅
-    models.py                     ✅ (ampliar en CHANGE-007, CHANGE-011)
-    dependencies.py              🔲 CHANGE-009
-    seed.py                      🔲 CHANGE-009 (admin inicial)
+    models.py                     ✅ (ampliar en CHANGE-007)
+    dependencies.py               ✅
     /routers
       pacientes.py               ✅ (+verificar en CHANGE-007)
       turnos.py                  ✅ (+solicitados, confirmar, rechazar, bloquear en CHANGE-007)
       finanzas.py                ✅
       doctores.py                ✅
-      auth.py                    🔲 CHANGE-009
-      admin.py                   🔲 CHANGE-009
-      catalogo.py                🔲 CHANGE-011
+      auth.py                    ✅
+      admin.py                   ✅
+      catalogo.py                ✅
       portal.py                  🔲 CHANGE-007
       reportes.py                🔲 CHANGE-008
       webhook.py                 🔲 CHANGE-006
@@ -248,20 +242,20 @@ cualquier tarea sobre el proyecto OdontoGest.
       turnos.py                  ✅ (ampliar en CHANGE-007)
       finanzas.py                ✅
       doctores.py                ✅
-      auth.py                    🔲 CHANGE-009
-      catalogo.py                🔲 CHANGE-011
+      auth.py                    ✅
+      catalogo.py                ✅
       portal.py                  🔲 CHANGE-007
     /crud
       pacientes.py               ✅
       turnos.py                  ✅ (ampliar en CHANGE-007)
       finanzas.py                ✅
       doctores.py                ✅
-      auth.py                    🔲 CHANGE-009
-      catalogo.py                🔲 CHANGE-011
+      auth.py                    ✅
+      catalogo.py                ✅
       portal.py                  🔲 CHANGE-007
     /core
-      config.py                  🔲 CHANGE-009
-      security.py                🔲 CHANGE-009
+      config.py                  ✅
+      security.py                ✅
     /services
       __init__.py                ✅ (vacío, preparado)
       notificaciones.py          🔲 CHANGE-006
@@ -271,7 +265,7 @@ cualquier tarea sobre el proyecto OdontoGest.
       scheduler.py               🔲 CHANGE-006
       reportes.py                🔲 CHANGE-008
     requirements.txt             ✅ (ampliar en CHANGE-006)
-    .env                         ✅ (ampliar en CHANGE-009)
+    .env                         ✅
     .env.example                🔲 CHANGE-010
     Dockerfile                   🔲 CHANGE-010
     docker-compose.yml           🔲 CHANGE-010
@@ -285,9 +279,9 @@ cualquier tarea sobre el proyecto OdontoGest.
         PagosPage.tsx            ✅
         PerfilPacientePage.tsx   ✅
         HistorialPacientePage.tsx ✅
-        LoginPage.tsx            ✅ (CHANGE-009)
-        AdminPage.tsx            ✅ (CHANGE-009 — gestión de usuarios)
-        CatalogoPage.tsx         🔲 CHANGE-011
+        LoginPage.tsx            ✅
+        AdminPage.tsx            ✅ (gestión de usuarios)
+        CatalogoPage.tsx         ✅
         ConsultaTurnoPage.tsx    🔲 CHANGE-007
         /portal
           PortalPage.tsx         🔲 CHANGE-007 (stepper)
@@ -302,15 +296,16 @@ cualquier tarea sobre el proyecto OdontoGest.
         TurnoCard.tsx            ✅
         Modal.tsx                ✅
         MultiCurrencyInput.tsx   ✅
-        PrivateRoute.tsx         🔲 CHANGE-009
+        PrivateRoute.tsx         ✅
         CalendarioDisponibilidad.tsx 🔲 CHANGE-007
       /context
-        AuthContext.tsx          🔲 CHANGE-009
+        AuthContext.tsx          ✅
       /services
-        api.ts                   ✅ (ampliar interceptores en CHANGE-009)
+        api.ts                   ✅
+        interceptors.ts          ✅
       /types
         index.ts                 ✅
-      App.tsx                    ✅ (ampliar en CHANGE-009, CHANGE-007)
+      App.tsx                    ✅ (ampliar en CHANGE-007)
       main.tsx                   ✅
     tailwind.config.ts           ✅
     tsconfig.json                ✅
@@ -333,8 +328,8 @@ cualquier tarea sobre el proyecto OdontoGest.
       historial-pagos-backend/               ✅ COMPLETADO
       navegacion-query-perfil/               ✅ COMPLETADO
       rediseno-historial-paciente/           ✅ COMPLETADO
-      autenticacion-jwt-roles/               🔲 CHANGE-009 (PROPUESTO)
-      catalogo-tratamientos-obras-sociales/   🔲 CHANGE-011 (PROPUESTO)
+      autenticacion-jwt-roles/               ✅ COMPLETADO
+      catalogo-tratamientos-obras-sociales/   ✅ COMPLETADO
       portal-autogestion-paciente/           🔲 CHANGE-007 (REDISEÑADO)
       notificaciones-whatsapp/               🔲 CHANGE-006 (EXPANDIDO)
       reportes-exportables-excel/             🔲 CHANGE-008

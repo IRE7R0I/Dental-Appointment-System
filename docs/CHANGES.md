@@ -2,7 +2,7 @@
 
 Flujo de estados:
 ```
-PROPUESTO → EN REVISIÓN → APROBADO → EN DESARROLLO → COMPLETADO
+PROPUESTO → EN DESARROLLO → COMPLETADO
 ```
 
 ---
@@ -10,409 +10,308 @@ PROPUESTO → EN REVISIÓN → APROBADO → EN DESARROLLO → COMPLETADO
 ## Mapa de Dependencias
 
 ```
-CHANGE-001  Refactor Backend                        ✅ COMPLETADO
-CHANGE-002  Migración Frontend React+TS             ✅ COMPLETADO
-CHANGE-003  Módulo Finanzas / Caja                  ✅ COMPLETADO
-CHANGE-004  Cuentas Corrientes / Deudores           ✅ COMPLETADO
-CHANGE-005  Rest API Complementos                   ✅ COMPLETADO
-── Mejoras post-migración ─────────────────────────────────────
-INIT-002    Fix Deudores Frontend                   ✅ COMPLETADO
-INIT-003    Historial Pagos Backend                 ✅ COMPLETADO
-INIT-004    Navegación Query Perfil                 ✅ COMPLETADO
-INIT-005    Rediseño Historial Paciente             ✅ COMPLETADO
-── Próximas fases ──────────────────────────────────────────────
-CHANGE-009  Autenticación JWT y Roles (admin + secretaria)  ✅ COMPLETADO
-   └── CHANGE-011  Catálogo de Tratamientos y Obras Sociales       ✅ COMPLETADO
-         └── CHANGE-007  Portal Autogestión (guest checkout, UUID)
-               └── CHANGE-006  Notificaciones (email + WhatsApp + bot)
-CHANGE-008  Reportes Exportables (Excel)
-CHANGE-010  Deploy a Producción
+project-setup ──┬── gestion-pacientes-y-turnos ── finanzas-y-caja-diaria ── cuentas-corrientes-y-deudores ── historial-y-mejoras-frontend
+                │
+                └── auth-y-autorizacion ──┬── catalogo-tratamientos ── portal-autogestion ── notificaciones
+                                          │
+                                          └── reportes-excel ──────────────────────────────────────────┐
+                                                                                                        │
+                        todos ────────────────────────────────────────────────────────────────── polish-y-deploy
 ```
 
-> Orden de ejecución: 009 → 011 → 007 → 006 → 008 → 010
+> **Leyenda**: ✅ COMPLETADO | 🔲 PENDIENTE
+>
+> Orden de ejecución pendiente: 8 → 9 → 10 → 11
+
+---
+
+## Estimación de Sprints
+
+| Sprint | Changes | Estado |
+|--------|---------|--------|
+| Sprint 1-3 | 1 `project-setup` → 5 `historial-y-mejoras-frontend` | ✅ COMPLETADO |
+| Sprint 4-5 | 6 `auth-y-autorizacion` → 7 `catalogo-tratamientos` | ✅ COMPLETADO |
+| Sprint 6 | 8 `portal-autogestion` | 🔲 PENDIENTE |
+| Sprint 7 | 9 `notificaciones` | 🔲 PENDIENTE |
+| Sprint 8 | 10 `reportes-excel` | 🔲 PENDIENTE |
+| Sprint 9 | 11 `polish-y-deploy` | 🔲 PENDIENTE |
+
+---
+
+## ⚠️ Riesgos y Advertencias
+
+1. **`portal-autogestion`** (change 8): el más complejo. Stepper 4 pasos, shadow profiles, UUID público, panel de aprobación, bloqueo de slots, validación horaria por día de semana. 22+ tareas planificadas. Riesgo de scope creep.
+
+2. **Estados del turno**: models.py usa valores simplificados (`"Pendiente"`, `"Asistió"`, `"Canceló"`). `portal-autogestion` migra a 7 estados (`solicitado`, `pendiente`, `bloqueado`, `realizado`, `cancelado`, `rechazado` + compatibilidad). La migración debe preservar datos existentes.
+
+3. **`notificaciones`** (change 9): mock inicial sin APIs externas. La integración real (Twilio/WhatsApp Cloud API + SMTP) en `polish-y-deploy` requiere verificación de negocio y costos de API.
+
+4. **`polish-y-deploy`**: bloqueado hasta que todos los changes anteriores estén completos. Sin auth + portal + notificaciones, no se puede exponer a internet.
 
 ---
 
 ## ✅ Cambios Completados
 
-### [CHANGE-001] Refactor del Backend — Buenas Prácticas FastAPI
-- **Estado:** COMPLETADO
-- **HU relacionada:** HU-005
-- **Descripción:** Separación de rutas con `APIRouter` por dominio, refactor de
-  `crud.py`, `models.py`, `schemas.py` y `database.py`. CORS habilitado.
-  Estructura movida de `app/` a `backend/`.
-- **Carpeta OpenSpec:** `openspec/changes/refactor-backend-buenas-practicas/`
+---
+
+### [1]. `project-setup`
+
+**Funcionalidad**: Scaffolding inicial del proyecto. Estructura de carpetas backend (FastAPI) y frontend (React+TS+Vite+Tailwind). Modelos ORM base con relaciones. Configuración de entorno (.env, database.py). Migraciones iniciales y seed data de tablas. CORS habilitado.
+
+**Historias**: HU-005, HU-006
+
+**Reglas de negocio**: —
+
+**Depende de**: — (punto de partida)
+
+**Complejidad**: Media
+
+**Archivos principales**:
+
+| Backend | Frontend |
+|---------|----------|
+| `main.py`, `database.py`, `models.py` | `App.tsx`, `main.tsx`, `vite.config.ts` |
+| `routers/`, `schemas/`, `crud/` base | `tailwind.config.ts`, `tsconfig.json`, `package.json` |
+| `requirements.txt`, `.env` | `types/index.ts` base |
 
 ---
 
-### [CHANGE-002] Migración del Frontend a React + TypeScript
-- **Estado:** COMPLETADO
-- **HU relacionada:** HU-006
-- **Descripción:** Las 4 vistas HTML/JS vanilla migradas a React 18 + TypeScript
-  con Vite, Tailwind CSS y React Router v6. Servicios centralizados en `api.ts`.
-- **Carpeta OpenSpec:** `openspec/changes/migracion-frontend-react-ts/`
+### [2]. `gestion-pacientes-y-turnos`
+
+**Funcionalidad**: Gestión completa de pacientes (CRUD con búsqueda por DNI) y turnos (asignación por doctor, vista por fecha, validación de duplicados, cancelación). AgendaPage funcional con doctores y filtros. PerfilPacientePage con búsqueda y edición.
+
+**Historias**: HU-001
+
+**Reglas de negocio**: RN-01 (horarios), RN-02 (estados), RN-03 (prevención duplicados)
+
+**Depende de**: `project-setup` (necesita modelos ORM y estructura base)
+
+**Complejidad**: Media
+
+**Archivos principales**:
+
+| Backend | Frontend |
+|---------|----------|
+| `routers/pacientes.py`, `routers/turnos.py` | `AgendaPage.tsx`, `PerfilPacientePage.tsx` |
+| `crud/pacientes.py`, `crud/turnos.py` | `Modal.tsx`, `MultiCurrencyInput.tsx` |
+| `schemas/pacientes.py`, `schemas/turnos.py` | `api.ts` |
 
 ---
 
-### [CHANGE-003] Módulo Finanzas y Caja Diaria
-- **Estado:** COMPLETADO
-- **HU relacionada:** HU-002, HU-003
-- **Descripción:** Modelo de caja diaria, cobro de turnos con multimoneda ARS/USD,
-  endpoint de cierre de turno, resumen de caja del día, registro en cuenta corriente.
-- **Carpeta OpenSpec:** `openspec/changes/modulo-finanzas-caja/`
+### [3]. `finanzas-y-caja-diaria`
+
+**Funcionalidad**: Módulo de pagos y caja diaria. Cierre de turno con cobro multimoneda (ARS/USD). Registro de tratamientos realizados y pagos recibidos. Resumen de caja del día (turnos realizados/pendientes, ingresos ARS y USD). Dashboard KPI en tiempo real.
+
+**Historias**: HU-002, HU-003
+
+**Reglas de negocio**: RN-04 (monedas), RN-05 (pagos), RN-11 (cierre de turno)
+
+**Depende de**: `gestion-pacientes-y-turnos` (necesita modelo Turno y paciente para cobrar)
+
+**Complejidad**: Alta
+
+**Archivos principales**:
+
+| Backend | Frontend |
+|---------|----------|
+| `routers/finanzas.py` | `DashboardPage.tsx`, `PagosPage.tsx` |
+| `crud/finanzas.py` | `KPICard.tsx` |
+| `schemas/finanzas.py` | `api.ts` (cerrarTurno, getCajaHoy) |
 
 ---
 
-### [CHANGE-004] Cuentas Corrientes y Gestión de Deudores
-- **Estado:** COMPLETADO
-- **HU relacionada:** HU-004
-- **Descripción:** Modelo `CuentaCorriente` y `MovimientoCuenta`, endpoints de
-  deudores y detalle de cuenta por paciente, auditoría de movimientos ARS/USD.
-- **Carpeta OpenSpec:** `openspec/changes/cuentas-corrientes-deudores/`
+### [4]. `cuentas-corrientes-y-deudores`
+
+**Funcionalidad**: Modelo CuentaCorriente y MovimientoCuenta. Saldo ARS y USD por paciente. Endpoint de deudores (pacientes con saldo > 0). Detalle de movimientos por paciente. Auditoría de cargos y pagos.
+
+**Historias**: HU-004
+
+**Reglas de negocio**: —
+
+**Depende de**: `finanzas-y-caja-diaria` (necesita modelo Pago para los movimientos)
+
+**Complejidad**: Media
+
+**Archivos principales**:
+
+| Backend | Frontend |
+|---------|----------|
+| `models.py` (+CuentaCorriente, +MovimientoCuenta) | `PerfilPacientePage.tsx` (sección deuda) |
+| `routers/pacientes.py` (+deudores, +/{dni}/cuenta) | `PagosPage.tsx` (tabla deudores) |
+| `crud/pacientes.py` | `api.ts` (getCuentaCorriente, getDeudores) |
 
 ---
 
-### [CHANGE-005] Rest API Complementos
-- **Estado:** COMPLETADO
-- **HU relacionada:** HU-001, HU-005
-- **Descripción:** Endpoints faltantes: filtrado de turnos por fecha/doctor,
-  `PUT /pacientes/{dni}`, `GET /turnos/hoy`, CRUD de doctores, indexación y
-  validación de duplicados.
-- **Carpeta OpenSpec:** `openspec/changes/rest-api-complementos/`
+### [5]. `historial-y-mejoras-frontend`
+
+**Funcionalidad**: Endpoint de historial de paciente (GET /pacientes/historial?dni=X con filtros de fecha). Página dedicada HistorialPacientePage con layout de dos columnas (timeline de turnos con tratamientos + tabla de pagos). Rediseño del resumen de cuenta en PerfilPacientePage. Corrección de navegación entre perfil e historial. Listado de pagos completo en finanzas con filtros avanzados.
+
+**Historias**: HU-004 (ampliada)
+
+**Reglas de negocio**: —
+
+**Depende de**: `cuentas-corrientes-y-deudores` (necesita endpoints de cuenta y deudores para el historial)
+
+**Complejidad**: Media
+
+**Archivos principales**:
+
+| Backend | Frontend |
+|---------|----------|
+| `routers/pacientes.py` (+historial) | `HistorialPacientePage.tsx` |
+| `routers/finanzas.py` (+pagos filtrables) | `PerfilPacientePage.tsx` (rediseño resumen) |
+| `schemas/turnos.py` (HistorialPacienteResponse) | `NavigationRail.tsx` (navegación query param) |
 
 ---
 
-### [INIT-001] Scaffold inicial de documentación
-- **Estado:** COMPLETADO
-- **Descripción:** Creación de la estructura base de documentación y specs OpenSpec.
-- **Módulos afectados:** documentación general, todos los specs
+### [6]. `auth-y-autorizacion`
+
+**Funcionalidad**: Autenticación JWT con dos roles (admin y secretaria). Login, refresh automático, logout. Panel de administración de usuarios: crear, editar (username y contraseña con verificación de contraseña actual para self-edit), listar, activar/desactivar, eliminar secretarias. Rate limiting con slowapi. Security headers HTTP (CSP, HSTS, X-Frame-Options, X-Content-Type-Options). CRUD completo de doctores con soft-delete. Protección de todos los routers existentes con middleware require_role.
+
+**Historias**: HU-007
+
+**Reglas de negocio**: RN-10 (rate limiting), RN-12 (seguridad de datos)
+
+**Depende de**: `project-setup` (necesita estructura base y modelos)
+
+**Complejidad**: Alta
+
+**Archivos principales**:
+
+| Backend | Frontend |
+|---------|----------|
+| `models.py` (+Usuario, Doctor.activo, Turno.creado_por_id) | `LoginPage.tsx`, `AdminPage.tsx` |
+| `routers/auth.py`, `routers/admin.py`, `dependencies.py` | `AuthContext.tsx`, `PrivateRoute.tsx` |
+| `core/config.py`, `core/security.py` | `interceptors.ts`, `NavigationRail.tsx` |
+| `schemas/auth.py`, `crud/auth.py` | `api.ts` (interceptores JWT) |
+| `routers/doctores.py` (completar CRUD) | `App.tsx` (AuthProvider + PrivateRoute) |
 
 ---
 
-### [INIT-002] Fix Deudores Frontend
-- **Estado:** COMPLETADO | **Fecha:** 2026-05-05
-- **Descripción:** Corrección de visualización de deudores en PagosPage.
-  El KPI "Saldo en la Calle" no mostraba valores correctos; la tabla de pagos
-  no cargaba deudores correctamente.
-- **Carpeta OpenSpec:** `openspec/changes/fix-deudores-frontend/`
+### [7]. `catalogo-tratamientos`
+
+**Funcionalidad**: Catálogo centralizado de tratamientos odontológicos con precios base en ARS y USD (modelo TratamientoCatalogo). Catálogo de obras sociales (modelo ObraSocial) con seed de 7 mutuales argentinas. CRUD endpoints bajo /catalogo/ — GET públicos, POST/PUT/DELETE para admin y secretaria. Soft-delete en ambos. Página CatalogoPage con tabla CRUD, filtros por categoría y modales. Integración en modal de cierre de turno: selector del catálogo (precarga precio editable) o "Servicio Manual" con texto libre.
+
+**Historias**: HU-001 (ampliada — el modal de turno ahora usa catálogo)
+
+**Reglas de negocio**: RN-04 (precios ARS/USD), RN-07 (obra social como texto libre con selector)
+
+**Depende de**: `auth-y-autorizacion` (endpoints de escritura requieren roles, GET públicos usan rate limiting)
+
+**Complejidad**: Media
+
+**Archivos principales**:
+
+| Backend | Frontend |
+|---------|----------|
+| `models.py` (+TratamientoCatalogo, +ObraSocial) | `CatalogoPage.tsx` |
+| `schemas/catalogo.py`, `crud/catalogo.py` | `AgendaPage.tsx` (modal con catálogo) |
+| `routers/catalogo.py` | `types/index.ts` (+tipos) |
+| `crear_tablas.py` (seed obras sociales) | `NavigationRail.tsx` (+link Catálogo) |
 
 ---
 
-### [INIT-003] Historial de Pagos y Tratamientos — Backend
-- **Estado:** COMPLETADO | **Fecha:** 2026-05-06
-- **Descripción:** Nuevos endpoints `GET /pacientes/historial?dni=X` y
-  `GET /finanzas/pagos` con filtros. Ambos usan `joinedload` para evitar N+1.
-- **Carpeta OpenSpec:** `openspec/changes/historial-pagos-backend/`
+## 🔄 Cambios Pendientes
 
 ---
 
-### [INIT-004] Navegación Query Perfil
-- **Estado:** COMPLETADO | **Fecha:** 2026-05-07
-- **Descripción:** Corrección de navegación: botón retroceso desde
-  HistorialPacientePage navega a `/pacientes?dni=<dni>`. PerfilPacientePage
-  lee query-param y abre perfil correspondiente.
-- **Carpeta OpenSpec:** `openspec/changes/navegacion-query-perfil/`
+### [8]. `portal-autogestion`
+
+**Funcionalidad**: Portal público de autogestión del paciente sin login (guest checkout). Flujo en 4 pasos: (1) elegir tratamiento del catálogo con buscador y filtros, (2) elegir doctor, (3) elegir horario con slots de 30 min como tarjetas rectangulares en franjas mañana (9:00-12:30) y tarde (16:00-19:30), sábado solo mañana, sin jueves ni domingo, (4) identificación por DNI con verificación y shadow profile automático (si el DNI no existe, se crea el paciente). Turno creado con estado "solicitado" + UUID v4. Página pública de consulta por UUID (/consulta/:uuid) con cancelación. Panel de aprobación en AgendaPage: secretaria ve solicitudes pendientes, acepta (→ estado "pendiente") o rechaza con textarea de motivo (→ estado "rechazado"). Bloqueo manual de slots por secretaria. Dashboard con ingresos separados por origen (Particulares vs Obras Sociales). Polling sync multi-secretaria (refetch cada 15s).
+
+**Historias**: HU-008, HU-008b
+
+**Reglas de negocio**: RN-01 (horarios por día incluyendo sábado), RN-02 (estados del turno ampliados), RN-06 (shadow profiles), RN-08 (UUID público), RN-13 (clasificación de ingresos por origen)
+
+**Depende de**: `catalogo-tratamientos` (el paso 1 muestra tratamientos del catálogo, paso 4 usa selector de obras sociales). `auth-y-autorizacion` (panel de aprobación requiere auth, rate limiting protege endpoints públicos).
+
+**Complejidad**: Alta
+
+**Archivos principales**:
+
+| Backend | Frontend |
+|---------|----------|
+| `models.py` (Turno: +uuid, +motivo_rechazo, +id_tratamiento, +obra_social) | `portal/PortalPage.tsx` (stepper container) |
+| `schemas/portal.py`, `crud/portal.py` | `portal/Step1Servicio.tsx`, `Step2Profesional.tsx` |
+| `routers/portal.py` (público: /reservar, /disponibilidad, /turno/{uuid}, /cancelar) | `portal/Step3Agenda.tsx`, `Step4Identificacion.tsx`, `ConfirmacionTurno.tsx` |
+| `routers/turnos.py` (+solicitados, +confirmar, +rechazar, +bloquear, validación horaria) | `ConsultaTurnoPage.tsx` (/consulta/:uuid) |
+| `routers/pacientes.py` (+verificar/{dni}) | `AgendaPage.tsx` (+panel solicitudes, +bloqueo slots, +polling sync) |
+| `schemas/finanzas.py` (ResumenCajaResponse ampliado) | `DashboardPage.tsx` (+KPIs separados por origen) |
+| `crud/finanzas.py` (separación ingresos por origen) | `App.tsx` (+rutas públicas /portal y /consulta/:uuid) |
 
 ---
 
-### [INIT-005] Rediseño Historial del Paciente
-- **Estado:** COMPLETADO | **Fecha:** 2026-05-07
-- **Descripción:** Página dedicada `HistorialPacientePage.tsx` en ruta
-  `/pacientes/:dni/historial`. Layout dos columnas: timeline de turnos +
-  tabla de pagos. Rediseño del Resumen de Cuenta en PerfilPacientePage.
-- **Carpeta OpenSpec:** `openspec/changes/rediseno-historial-paciente/`
+### [9]. `notificaciones`
+
+**Funcionalidad**: Sistema de notificaciones multicanal: email (opcional, vía SMTP) y WhatsApp (prioritario en Argentina). Templates para: turno confirmado (con link UUID), turno rechazado (con motivo), recordatorio 48h, recordatorio 2h. WhatsApp bot conversacional con keywords: "turno" → link al portal, "secretaria" → deriva a persona, "llamar" → teléfono clínica, fallback con las 3 opciones. Scheduler APScheduler cada 10 min para recordatorios automáticos con campos de tracking (notificado_48h, notificado_2h) en Turno. Mock inicial (loguea en consola) sin dependencia de APIs externas. Integración real en polish-y-deploy.
+
+**Historias**: HU-009
+
+**Reglas de negocio**: RN-09 (prioridad de canales: email → WhatsApp → solo pantalla)
+
+**Depende de**: `portal-autogestion` (los triggers de notificación se ejecutan al confirmar/rechazar turnos. El scheduler busca turnos "pendientes". El bot envía link al portal.)
+
+**Complejidad**: Media
+
+**Archivos principales**:
+
+| Backend | Frontend |
+|---------|----------|
+| `services/notificaciones.py` (orquestador) | Sin cambios (backend-only) |
+| `services/email_service.py` (mock SMTP) | |
+| `services/whatsapp_service.py` (mock API) | |
+| `services/plantillas.py` (templates configurables) | |
+| `services/scheduler.py` (APScheduler) | |
+| `routers/webhook.py` (POST /webhook/whatsapp) | |
+| `routers/turnos.py` (+triggers confirmar/rechazar) | |
+| `models.py` (Turno: +notificado_48h, +notificado_2h) | |
+| `core/config.py` (+vars SMTP + WhatsApp) | |
+| `requirements.txt` (+apscheduler, +httpx) | |
 
 ---
 
-## 🔄 Cambios Pendientes (por orden de ejecución)
+### [10]. `reportes-excel`
+
+**Funcionalidad**: Generación de reportes en formato .xlsx con openpyxl. Tres reportes: (1) historia clínica completa del paciente (datos + turnos + tratamientos + pagos), (2) listado de deudores con saldo ARS/USD, (3) resumen de ingresos filtrable por fecha con desglose por moneda y método de pago. Descarga directa desde botón en frontend (PerfilPacientePage, DashboardPage, PagosPage). Solo accesible para roles admin y secretaria.
+
+**Historias**: HU-010
+
+**Reglas de negocio**: —
+
+**Depende de**: `auth-y-autorizacion` (endpoints protegidos por rol). Los datos ya existen (pacientes, turnos, finanzas completados en changes anteriores). Puede ejecutarse en paralelo con `portal-autogestion` y `notificaciones`.
+
+**Complejidad**: Baja
+
+**Archivos principales**:
+
+| Backend | Frontend |
+|---------|----------|
+| `services/reportes.py` (openpyxl) | `PerfilPacientePage.tsx` (+botón exportar) |
+| `routers/reportes.py` | `DashboardPage.tsx` (+botón exportar ingresos) |
+| `requirements.txt` (+openpyxl) | `PagosPage.tsx` (+botón exportar deudores) |
 
 ---
 
-### [CHANGE-009] Autenticación JWT y Roles (admin + secretaria)
-- **Estado:** COMPLETADO
-- **Prioridad:** CRÍTICA — bloqueante para CHANGE-011, CHANGE-007 y CHANGE-010
-- **HU relacionada:** HU-007
-- **Descripción:**
-  Implementar autenticación JWT para usuarios internos. Solo dos roles:
-  `admin` (gestión total + configuración + usuarios) y `secretaria`
-  (gestión operativa completa: agenda, pacientes, finanzas, aprobación de turnos).
+### [11]. `polish-y-deploy`
 
-  El paciente **no tiene cuenta**. Accede al portal vía guest checkout con DNI.
-  Los turnos se protegen con UUID público, no con login.
+**Funcionalidad**: Despliegue completo en producción. Dockerfile + docker-compose.yml para backend e infraestructura local. Migraciones Alembic para control de versiones de esquema. .env.example con template de variables de entorno (sin valores reales). HTTPS con Let's Encrypt. HSTS, CORS restrictivo (solo dominio del frontend). Backups automáticos diarios de PostgreSQL. CI/CD con GitHub Actions (opcional). Hosting: backend en Railway/Render, frontend en Vercel, PostgreSQL en Railway o Supabase free tier. Dominio propio. Health check /health ya operativo. Integración real de APIs de notificaciones (Twilio/WhatsApp Cloud API + SMTP SendGrid/Mailtrap).
 
-   Puntos clave backend:
-     - Modelo `Usuario`: `username`, `hashed_password`, `rol`, `activo`
-     - Endpoints: `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`
-     - `POST /admin/usuarios` y `GET /admin/usuarios` (solo admin)
-   - `PUT /admin/usuarios/{id}` — editar username y/o contraseña (solo admin).
-     Requiere `current_password` solo si el admin se edita a sí mismo.
-     Al editar secretarias, el admin puede cambiar la contraseña sin conocer la actual.
-   - `DELETE /admin/usuarios/{id}` — eliminar secretaria (solo admin, no admin)
-     - Al cambiar contraseña: requiere `current_password`, si no coincide → 403
-     - Middleware `get_current_user` con `Depends` en todos los routers internos
-    - Decorador `require_role(["admin", "secretaria"])`
-    - Contraseñas hasheadas con `bcrypt` (passlib)
-    - JWT: access 30 min, refresh 7 días
-    - Rate limiting con `slowapi` en endpoints públicos (preparación para CHANGE-007)
-    - Headers de seguridad HTTP (CSP, HSTS, X-Content-Type-Options, X-Frame-Options)
+**Historias**: — (transversal)
 
-   Puntos clave frontend:
-     - `LoginPage.tsx` — solo para admin y secretaria, diseño consistente con el sistema
-     - `AdminPage.tsx` — panel de gestión de usuarios (solo admin): crear, editar
-       (username + contraseña), listar, activar/desactivar y eliminar secretarias
-     - `AuthContext` con `useAuth()` hook
-     - `PrivateRoute` — redirige a `/login` si no autenticado
-     - Interceptores JWT en `api.ts` (Bearer + refresh automático en 401)
-     - Botón de cerrar sesión en NavigationRail con confirmación
-     - Show/hide contraseña con ícono ojo en todos los inputs de password
+**Reglas de negocio**: —
 
-- **Archivos afectados:**
-    - `backend/models.py` (NUEVO: Usuario)
-    - `backend/schemas/auth.py` (NUEVO)
-    - `backend/crud/auth.py` (NUEVO)
-    - `backend/routers/auth.py` (NUEVO)
-    - `backend/routers/admin.py` (NUEVO)
-    - `backend/core/security.py` (NUEVO)
-    - `backend/core/config.py` (NUEVO o ampliar)
-    - `backend/dependencies.py` (NUEVO)
-    - `backend/main.py` (registrar routers, agregar slowapi + security headers)
-    - Todos los routers existentes → `Depends(get_current_user)`
-     - `frontend/src/pages/LoginPage.tsx` (NUEVO)
-     - `frontend/src/pages/AdminPage.tsx` (NUEVO)
-     - `frontend/src/context/AuthContext.tsx` (NUEVO)
-    - `frontend/src/components/PrivateRoute.tsx` (NUEVO)
-    - `frontend/src/services/api.ts` (ampliar interceptores)
-    - `frontend/src/App.tsx` (AuthProvider + PrivateRoute)
-- **Carpeta OpenSpec:** `openspec/changes/autenticacion-jwt-roles/`
-- **Depende de:** —
+**Depende de**: todos los changes anteriores. No exponer a internet sin auth. Portal, notificaciones y reportes deben estar completos.
 
----
+**Complejidad**: Alta
 
-### [CHANGE-011] Catálogo de Tratamientos y Obras Sociales
-- **Estado:** COMPLETADO
-- **Prioridad:** ALTA — prerrequisito para CHANGE-007 y mejora del dashboard
-- **HU relacionada:** HU-001 (ampliada), HU-008 (preparación)
-- **Descripción:**
-  Crear un catálogo centralizado de tratamientos odontológicos con precios base
-  en ARS y USD, y un catálogo de obras sociales para usar en selectores del
-  sistema. El catálogo alimenta tanto el modal de turnos del dashboard interno
-  como el paso 1 del portal de autogestión.
+**Archivos principales**:
 
-   Puntos clave backend:
-     - Modelo `TratamientoCatalogo`: nombre, precio_ars, precio_usd, duracion_minutos, categoria, activo
-     - Modelo `ObraSocial`: nombre, activo
-     - Seed inicial: "Particular" + 6 mutuales (OSDE, Swiss Medical, Galeno, Medicus, Sancor Salud, OMINT)
-     - CRUD endpoints bajo `/catalogo/` (GET público, POST/PUT/DELETE admin+secretaria)
-     - Soft-delete: `activo=false` en vez de eliminar
-    - Soft-delete: `activo=false` en vez de eliminar
-
-  Puntos clave frontend:
-    - `CatalogoPage.tsx` — tabla CRUD de tratamientos (admin/secretaria)
-    - Integración en modal de cierre de turno: elegir del catálogo (precarga precio **editable**) o "Servicio Manual" con texto libre
-    - Selector de obra social reutilizable (usa GET /catalogo/obras-sociales)
-
-- **Archivos afectados:**
-    - `backend/models.py` (+TratamientoCatalogo, +ObraSocial)
-    - `backend/schemas/catalogo.py` (NUEVO)
-    - `backend/crud/catalogo.py` (NUEVO)
-    - `backend/routers/catalogo.py` (NUEVO)
-    - `backend/main.py` (registrar router catalogo)
-    - `backend/seed.py` (ampliar: seed obras sociales)
-    - `frontend/src/pages/CatalogoPage.tsx` (NUEVO)
-    - `frontend/src/pages/AgendaPage.tsx` (modal usa catálogo)
-- **Carpeta OpenSpec:** `openspec/changes/catalogo-tratamientos-obras-sociales/`
-- **Depende de:**
-    - CHANGE-009 (auth para endpoints de escritura del catálogo)
-
----
-
-### [CHANGE-007] Portal de Autogestión del Paciente (Guest Checkout)
-- **Estado:** PROPUESTO — **REDISEÑADO**
-- **Prioridad:** ALTA
-- **HU relacionada:** HU-008
-- **Descripción:**
-  Portal público donde el paciente solicita turnos **sin crear cuenta ni login**.
-  Flujo guest checkout en 4 pasos con verificación por DNI. Shadow profiles:
-  si el DNI no existe, el sistema crea el paciente automáticamente.
-
-  Flujo completo del paciente:
-    1. **Elegir Tratamiento**: cards del catálogo con nombre, precio, duración. Buscador + filtros.
-    2. **Elegir Profesional**: cards de doctores (Darío / Fabiana).
-    3. **Elegir Horario**: slots de 30 min como tarjetas rectangulares. Solo franjas
-       mañana (09:00-12:30) y tarde (16:00-19:30). Sin jueves ni domingo.
-    4. **Identificación**: ingresa DNI → backend verifica:
-       - DNI existe → muestra datos en modo lectura (nombre, apellido, celular, obra social)
-       - DNI no existe → formulario para cargar nombre, apellido, celular, email (opcional), obra social (selector)
-    5. **Confirmación**: se crea turno con estado `solicitado` + UUID único.
-       Si DNI no existía → shadow profile (INSERT paciente). Muestra UUID y link de seguimiento.
-
-  Flujo de aprobación (secretaria):
-    - Panel "Solicitudes" en AgendaPage: lista de turnos `solicitados`
-    - **Aceptar** → cambia estado a `pendiente` (confirmado), dispara notificación
-    - **Rechazar** → modal con textarea para motivo → estado `rechazado`, notifica al paciente con la razón
-
-  Consulta pública por UUID:
-    - Ruta `/consulta/:uuid` — página pública sin auth
-    - Muestra: estado, fecha, hora, doctor, tratamiento, motivo de rechazo (si aplica)
-    - Botón "Cancelar turno" si estado es `solicitado` o `pendiente`
-
-  Bloqueo manual de slots (secretaria):
-    - Puede bloquear un slot (ej: tratamiento largo de 1 hora)
-    - Endpoint `POST /turnos/bloquear` crea turno con estado `bloqueado`, sin paciente
-    - Slot bloqueado aparece gris oscuro/rojo en disponibilidad
-
-  Horarios de atención:
-    - Mañana: 09:00 a 12:30 (último turno 12:30)
-    - Tarde: 16:00 a 19:30 (último turno 19:30)
-    - Clínica cerrada: 13:00 a 16:00
-    - Sin atención jueves ni domingo
-
-  Puntos clave backend:
-    - `GET /pacientes/verificar/{dni}` → público, solo datos no sensibles
-    - `GET /portal/disponibilidad?doctor_id=&fecha=` → slots libres con franjas
-    - `POST /portal/reservar` → crea turno + shadow profile si necesario, devuelve UUID
-    - `GET /portal/turno/{uuid}` → consulta pública de estado
-    - `PUT /portal/turno/{uuid}/cancelar` → cancelación pública
-    - `GET /turnos/solicitados` → listado para secretaria
-    - `PUT /turnos/{id}/confirmar` → aceptar solicitud
-    - `PUT /turnos/{id}/rechazar` → rechazar con motivo
-    - `POST /turnos/bloquear` → bloquear slot
-    - `DELETE /turnos/{id}/desbloquear` → liberar slot bloqueado
-    - Rate limiting en todos los endpoints públicos (slowapi)
-
-  Estados del turno:
-    - `solicitado` → paciente envió solicitud, espera aprobación
-    - `pendiente` → secretaria aceptó, confirmado en agenda
-    - `confirmado` → turno firme (sinónimo de pendiente para mantener compatibilidad)
-    - `bloqueado` → secretaria bloqueó el slot manualmente
-    - `realizado` → atendido y cobrado
-    - `cancelado` → cancelado por paciente o secretaria
-    - `rechazado` → secretaria rechazó la solicitud (incluye motivo)
-
-  Transiciones válidas:
-    - solicitado → pendiente (secretaria acepta)
-    - solicitado → rechazado (secretaria rechaza)
-    - solicitado → cancelado (paciente cancela vía UUID)
-    - pendiente → realizado (secretaria cierra con cobro)
-    - pendiente → cancelado (secretaria o paciente)
-    - bloqueado → cancelado (secretaria libera)
-
-- **Archivos afectados:**
-    - `backend/models.py` (Turno: +uuid, +motivo_rechazo, +id_tratamiento, +obra_social)
-    - `backend/schemas/portal.py` (NUEVO)
-    - `backend/schemas/turnos.py` (ampliar)
-    - `backend/schemas/pacientes.py` (VerificacionDNIResponse)
-    - `backend/crud/portal.py` (NUEVO)
-    - `backend/routers/portal.py` (NUEVO)
-    - `backend/routers/pacientes.py` (+verificar)
-    - `backend/routers/turnos.py` (+solicitados, confirmar, rechazar, bloquear, validar horarios)
-    - `frontend/src/pages/portal/PortalPage.tsx` (NUEVO — stepper)
-    - `frontend/src/pages/portal/Step1Servicio.tsx` (NUEVO)
-    - `frontend/src/pages/portal/Step2Profesional.tsx` (NUEVO)
-    - `frontend/src/pages/portal/Step3Agenda.tsx` (NUEVO)
-    - `frontend/src/pages/portal/Step4Identificacion.tsx` (NUEVO)
-    - `frontend/src/pages/portal/ConfirmacionTurno.tsx` (NUEVO)
-    - `frontend/src/pages/ConsultaTurnoPage.tsx` (NUEVO)
-    - `frontend/src/pages/AgendaPage.tsx` (+panel solicitudes, +bloqueo)
-    - `frontend/src/App.tsx` (+rutas públicas portal y consulta)
-- **Carpeta OpenSpec:** `openspec/changes/portal-autogestion-paciente/`
-- **Depende de:**
-    - CHANGE-009 (auth para panel de aprobación, slowapi para rate limiting)
-    - CHANGE-011 (catálogo de tratamientos y obras sociales)
-
----
-
-### [CHANGE-006] Notificaciones (Email + WhatsApp + Bot)
-- **Estado:** PROPUESTO — **EXPANDIDO**
-- **Prioridad:** MEDIA
-- **HU relacionada:** HU-009
-- **Descripción:**
-  Sistema de notificaciones multicanal: email y WhatsApp. El email es opcional
-  (personas mayores pueden no usarlo). WhatsApp incluye un bot conversacional
-  con opciones: auto-asignarse turno, hablar con secretaria, o llamar a la clínica.
-
-  Canales y prioridad:
-    1. Si paciente tiene email → envía email con link UUID
-    2. Si paciente tiene teléfono → envía WhatsApp con link UUID
-    3. Si no tiene ninguno → UUID solo en pantalla de confirmación
-
-  Eventos que disparan notificación:
-    - Turno aceptado → "Tu turno fue confirmado para [fecha] a las [hora]. Link: /consulta/{uuid}"
-    - Turno rechazado → "Tu solicitud fue rechazada. Motivo: [razón]. Solicitá otro turno en: /portal"
-    - Recordatorio 48h antes → "Te recordamos tu turno de mañana a las [hora]"
-    - Recordatorio 2h antes → "Tu turno es hoy a las [hora] con el Dr. [nombre]"
-
-  WhatsApp Bot (webhook):
-    - El paciente escribe al WhatsApp de la clínica
-    - Keyword "turno" / "reservar" → envía link al portal
-    - Keyword "secretaria" / "hablar" / "humano" → notifica a secretaria
-    - Keyword "llamar" / "teléfono" → responde con número de la clínica
-    - Fallback → "Escribí 'turno' para reservar, 'secretaria' para hablar con nosotros, o 'llamar' para el teléfono"
-
-  Puntos clave:
-    - Servicios desacoplados: `notificaciones.py`, `email_service.py`, `whatsapp_service.py`
-    - Plantillas en `plantillas.py` (texto configurable)
-    - Scheduler APScheduler para recordatorios
-    - Webhook `POST /webhook/whatsapp` para recibir mensajes del bot
-    - Mock inicial (sin API externa): responde con mensajes predefinidos
-    - Variables de entorno: `WHATSAPP_API_KEY`, `WHATSAPP_PHONE_ID`, `SMTP_*`, `EMAIL_FROM`
-
-- **Archivos afectados:**
-    - `backend/services/notificaciones.py` (NUEVO)
-    - `backend/services/email_service.py` (NUEVO)
-    - `backend/services/whatsapp_service.py` (NUEVO)
-    - `backend/services/plantillas.py` (NUEVO)
-    - `backend/services/scheduler.py` (NUEVO)
-    - `backend/routers/webhook.py` (NUEVO: POST /webhook/whatsapp)
-    - `backend/routers/turnos.py` (triggers al confirmar/rechazar)
-    - `backend/routers/portal.py` (trigger al reservar)
-    - `backend/core/config.py` (ampliar: vars email + WhatsApp)
-    - `requirements.txt` (ampliar: apscheduler, httpx)
-- **Carpeta OpenSpec:** `openspec/changes/notificaciones-whatsapp/`
-- **Depende de:**
-    - CHANGE-007 (portal: flujo de confirmación/rechazo es el trigger principal)
-
----
-
-### [CHANGE-008] Reportes Exportables (Excel)
-- **Estado:** PROPUESTO
-- **Prioridad:** MEDIA
-- **HU relacionada:** HU-010
-- **Descripción:**
-  Generación y descarga de reportes en `.xlsx` desde el panel interno.
-  - Historia clínica del paciente (datos, turnos, tratamientos, pagos)
-  - Listado de deudores (saldo pendiente ARS/USD)
-  - Resumen de ingresos (filtrable por fecha, desglose por moneda y método)
-  - Solo accesible para roles `admin` y `secretaria`
-- **Archivos afectados:** `backend/services/reportes.py` (NUEVO), `backend/routers/reportes.py` (NUEVO),
-  `frontend/src/pages/HistorialPacientePage.tsx`, `DashboardPage.tsx`, `PagosPage.tsx`
-- **Carpeta OpenSpec:** `openspec/changes/reportes-exportables-excel/`
-- **Depende de:**
-    - CHANGE-009 (auth: endpoints protegidos por rol)
-
----
-
-### [CHANGE-010] Deploy a Producción
-- **Estado:** PROPUESTO
-- **Prioridad:** ALTA — último paso
-- **HU relacionada:** —
-- **Descripción:**
-  Despliegue completo en producción con HTTPS, PostgreSQL, backups y monitoreo.
-  - Backend: Railway o Render (FastAPI + Uvicorn)
-  - Frontend: Vercel (build estático Vite)
-  - PostgreSQL: Railway o Supabase free tier
-  - Dockerfile, docker-compose.yml, Alembic, .env.example
-  - HTTPS con Let's Encrypt, HSTS, CORS restrictivo
-  - Security headers (CSP, X-Frame-Options, X-Content-Type-Options)
-  - Backup automático diario
-- **Archivos afectados:** `Dockerfile` (NUEVO), `docker-compose.yml` (NUEVO), `.env.example` (NUEVO),
-  `alembic/` (NUEVO), `backend/core/config.py` (ampliar), `frontend/vite.config.ts`
-- **Carpeta OpenSpec:** `openspec/changes/deploy-produccion/`
-- **Depende de:**
-    - CHANGE-009 (auth antes de exponer a internet)
-    - CHANGE-007 (portal completo)
-    - CHANGE-006 (notificaciones con vars de entorno reales)
-    - CHANGE-008 (reportes funcionando)
+| Backend | Infraestructura |
+|---------|-----------------|
+| `core/config.py` (ampliar vars producción) | `Dockerfile`, `docker-compose.yml` |
+| `routers/health.py` (evaluar separar de main.py) | `alembic/` (init + migraciones) |
+| `requirements.txt` (finalizar) | `.env.example` |
+| | `.github/workflows/deploy.yml` (opcional) |
 
 ---
 
@@ -420,14 +319,13 @@ CHANGE-010  Deploy a Producción
 
 Para proponer un nuevo cambio:
 ```
-/openspec:proposal <descripción del cambio>
+/opsx:propose <descripción del cambio>
 ```
 
 El agente debe:
-1. Leer los specs relevantes en `openspec/specs/`
-2. Crear `openspec/changes/<nombre-del-cambio>/`
-3. Generar `proposal.md`, `design.md`, `tasks.md`
-4. Actualizar este archivo con el nuevo cambio en estado PROPUESTO
+1. Leer este archivo y los 3 docs fundacionales primero.
+2. Crear carpeta: `openspec/changes/<nombre-en-kebab-case>/`
+3. Generar: `proposal.md` · `design.md` · `tasks.md`
+4. Actualizar este archivo con el nuevo change en estado PROPUESTO.
 
-⚠ Orden de ejecución:
-   CHANGE-009 → CHANGE-011 → CHANGE-007 → CHANGE-006 → CHANGE-008 → CHANGE-010
+⚠ **Siguiente cambio a ejecutar**: `portal-autogestion` (change 8).

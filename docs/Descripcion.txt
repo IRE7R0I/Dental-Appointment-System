@@ -9,12 +9,12 @@ control del flujo de caja y la agenda médica en tiempo real.
 
 ESTADO ACTUAL DEL PROYECTO
 ----------------------------
-  Backend:   OPERATIVO (FastAPI + SQLAlchemy + Pydantic + PostgreSQL)
-  Frontend:  OPERATIVO (React 18 + TypeScript + Vite + Tailwind CSS)
-  Base de datos: PostgreSQL (tablas creadas y operativas)
-  Autenticación: PENDIENTE (CHANGE-009)
-  Health check: OPERATIVO (GET /health en main.py)
-  Seguridad: En desarrollo (JWT + rate limiting + security headers planeados)
+  Backend:         OPERATIVO (FastAPI + SQLAlchemy + Pydantic + PostgreSQL)
+  Frontend:        OPERATIVO (React 18 + TypeScript + Vite + Tailwind CSS)
+  Base de datos:   PostgreSQL (tablas creadas y operativas)
+  Autenticación:   OPERATIVO (JWT + bcrypt + roles admin y secretaria)
+  Health check:    OPERATIVO (GET /health en main.py)
+  Seguridad:       OPERATIVO (JWT + rate limiting slowapi + security headers)
 
 SEPARACIÓN FRONTEND / BACKEND (Arquitectura actual)
 ----------------------------------------------------
@@ -35,52 +35,54 @@ STACK TECNOLÓGICO
     - PostgreSQL (producción · SQLite solo para desarrollo local si necesario)
     - Uvicorn (servidor ASGI)
     Estructura actual:
-      backend/main.py              → entrypoint con routers registrados + /health
+      backend/main.py              → entrypoint con routers registrados + /health + slowapi
       backend/database.py          → get_db() con Depends
-      backend/models.py            → modelos SQLAlchemy
-      backend/routers/             → pacientes.py, turnos.py, finanzas.py, doctores.py
-      backend/schemas/             → por entidad (pacientes, turnos, finanzas, doctores)
+      backend/models.py            → modelos SQLAlchemy (Paciente, Doctor, Turno, Pago,
+                                     CuentaCorriente, HistoriaClinica, Usuario,
+                                     TratamientoCatalogo, ObraSocial)
+      backend/routers/             → pacientes, turnos, finanzas, doctores,
+                                     auth, admin, catalogo
+      backend/schemas/             → por entidad (pacientes, turnos, finanzas,
+                                     doctores, auth, catalogo)
       backend/crud/                → por entidad
+      backend/core/                → config (Settings desde .env), security (JWT + bcrypt)
+      backend/dependencies.py      → get_current_user, require_role
       backend/services/            → __init__.py (vacío, preparado para CHANGE-006/008)
     Pendiente agregar:
-      backend/routers/auth.py      → autenticación JWT (CHANGE-009)
-      backend/routers/admin.py     → gestión de usuarios (CHANGE-009)
-      backend/routers/catalogo.py  → catálogo de tratamientos y obras sociales (CHANGE-011)
       backend/routers/portal.py    → autogestión paciente guest checkout (CHANGE-007)
       backend/routers/reportes.py  → exportación Excel (CHANGE-008)
       backend/services/notificaciones.py → WhatsApp + email (CHANGE-006)
       backend/services/reportes.py → generación Excel (CHANGE-008)
-      backend/core/security.py     → JWT y hashing de contraseñas (CHANGE-009)
-      backend/core/config.py       → variables de entorno centralizadas (CHANGE-009)
-      backend/dependencies.py      → middleware de autenticación (CHANGE-009)
 
   Frontend (actual):
     - React 18 + TypeScript
     - Vite (bundler y dev server)
     - Tailwind CSS (utility-first, diseño responsivo)
     - React Router v6 (SPA, rutas anidadas)
-    - Fetch API centralizado en services/api.ts
+    - Fetch API centralizado en services/api.ts con interceptores JWT
     Estructura actual:
       frontend/src/pages/          → AgendaPage, DashboardPage, PagosPage,
-                                     PerfilPacientePage, HistorialPacientePage
-      frontend/src/components/     → NavigationRail, KPICard, TurnoCard, Modal, MultiCurrencyInput
-      frontend/src/services/       → api.ts
+                                     PerfilPacientePage, HistorialPacientePage,
+                                     LoginPage, AdminPage, CatalogoPage
+      frontend/src/components/     → NavigationRail (con logout), KPICard,
+                                     TurnoCard, Modal, MultiCurrencyInput,
+                                     PrivateRoute
+      frontend/src/context/        → AuthContext (useAuth hook)
+      frontend/src/services/       → api.ts con interceptores JWT + refresh automático
       frontend/src/types/          → index.ts (Turno, Paciente, Moneda, etc.)
     Pendiente agregar:
-      frontend/src/pages/LoginPage.tsx         → login (CHANGE-009)
-      frontend/src/context/AuthContext.tsx     → contexto global de auth (CHANGE-009)
-      frontend/src/components/PrivateRoute.tsx → protección de rutas (CHANGE-009)
-      frontend/src/pages/CatalogoPage.tsx      → gestión de catálogo (CHANGE-011)
       frontend/src/pages/portal/               → portal del paciente (CHANGE-007)
       frontend/src/pages/ConsultaTurnoPage.tsx → consulta por UUID (CHANGE-007)
 
 ROLES DEL SISTEMA
 ------------------
   admin       → gestión de configuración (doctores, tratamientos, precios base),
-                gestión de usuarios, acceso a reportes financieros globales.
+                gestión de usuarios (crear, editar, activar/desactivar, eliminar
+                secretarias), acceso a reportes financieros globales.
+                Puede editar su propio usuario/contraseña (requiere contraseña actual).
   secretaria  → gestión operativa total: agenda, pacientes, finanzas,
-                edición de tratamientos y precios, aprobación de turnos,
-                bloqueo de slots, creación de pacientes manual.
+                edición de tratamientos y precios, catálogo completo,
+                aprobación de turnos, bloqueo de slots, creación de pacientes manual.
   paciente    → SIN CUENTA. Accede al portal vía guest checkout con DNI.
                 Solo lectura y creación limitada: ver sus turnos por UUID,
                 solicitar nuevo turno según disponibilidad. Sin login.
@@ -99,30 +101,31 @@ FUNCIONALIDADES IMPLEMENTADAS
   1. Gestión de pacientes: lista, perfil, edición, búsqueda y filtros.
   2. Agenda: turnos por doctor, vista por fecha, asignación con validación de duplicados.
   3. Historial clínico: por paciente, con tratamientos por turno, pagos y deuda.
-  4. Página de historial dedicada: /pacientes/:dni/historial con layout de dos columnas
-     (timeline de turnos + tabla de pagos con filtro por método).
+  4. Página de historial dedicada: /pacientes/:dni/historial con layout de dos columnas.
   5. Finanzas y caja: cierre de turno con cobro multimoneda (ARS/USD), resumen diario.
   6. Cuentas corrientes: deudores, movimientos por paciente, saldo ARS y USD.
-  7. Dashboard KPI: turnos del día (realizados/pendientes), ingresos ARS y USD en tiempo real.
+  7. Dashboard KPI: turnos del día, ingresos ARS y USD en tiempo real.
   8. Health check: GET /health devuelve estado del servidor y versión.
   9. Autenticación JWT: login para admin y secretaria con refresh automático.
-  10. Panel de administración: gestión de usuarios (crear, listar,
-     activar/desactivar, eliminar secretarias). Solo rol admin.
+  10. Panel de administración: gestión de usuarios (crear, editar, listar,
+      activar/desactivar, eliminar secretarias). Solo admin.
+  11. Catálogo de tratamientos y obras sociales: CRUD completo con precios ARS/USD,
+      integración en modal de cierre de turno con precios editables.
+  12. Gestión de doctores: CRUD completo con soft-delete y color de agenda por doctor.
 
 FUNCIONALIDADES PENDIENTES (por orden de implementación)
 ---------------------------------------------------------
-  1. [CHANGE-009] Autenticación JWT para admin y secretaria. Rate limiting. Security headers.
-  2. [CHANGE-011] Catálogo de tratamientos y obras sociales. Integración en modal de turnos.
-  3. [CHANGE-007] Portal de autogestión: guest checkout con DNI, shadow profiles, UUID,
-     panel de aprobación, bloqueo de slots, consulta pública por UUID.
-  4. [CHANGE-006] Notificaciones: email (opcional) + WhatsApp + bot conversacional.
-  5. [CHANGE-008] Exportación de reportes a Excel (historia clínica, deudores, ingresos).
-  6. [CHANGE-010] Deploy a producción (Railway/Render + Vercel, HTTPS, backups).
+  1. [CHANGE-007] Portal de autogestión: guest checkout con DNI, shadow profiles, UUID,
+      panel de aprobación, bloqueo de slots, consulta pública por UUID.
+  2. [CHANGE-006] Notificaciones: email (opcional) + WhatsApp + bot conversacional.
+  3. [CHANGE-008] Exportación de reportes a Excel (historia clínica, deudores, ingresos).
+  4. [CHANGE-010] Deploy a producción (Railway/Render + Vercel, HTTPS, backups).
 
 DOCTORES
 --------
   La clínica tiene dos doctores (Darío y Fabiana). Ambos gestionados desde el
-  módulo de doctores. La agenda los muestra por separado con vista filtrada.
+  módulo de doctores con CRUD completo. El admin puede agregar/quitar doctores.
+  La agenda los muestra por separado con vista filtrada y colores por doctor.
 
 MÉTODOS DE PAGO ACEPTADOS
 --------------------------
@@ -136,11 +139,11 @@ MODELO DE NEGOCIO / COMERCIALIZACIÓN
   - Servicio mensual: USD 60/mes (hosting, backups, soporte, actualizaciones)
   - Contrato mínimo recomendado: 6 meses
 
-SEGURIDAD (en desarrollo)
----------------------------
-  - Autenticación JWT con bcrypt para usuarios internos (CHANGE-009)
+SEGURIDAD
+----------
+  - Autenticación JWT con bcrypt para usuarios internos (operativo)
   - Pacientes sin cuenta: acceso solo por UUID (no brute-forceable)
-  - Rate limiting en endpoints públicos (slowapi)
+  - Rate limiting en endpoints públicos (slowapi, operativo)
   - HTTPS obligatorio en producción (Let's Encrypt)
   - Headers de seguridad: CSP, HSTS, X-Frame-Options, X-Content-Type-Options
   - CORS restrictivo en producción (solo dominio del frontend)
