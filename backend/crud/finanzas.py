@@ -14,31 +14,122 @@ def crear_pago(db: Session, pago: PagoCreate):
         if turno:
             dni = turno.dni_paciente
 
-    # ── 1. Registrar el pago ──
-    db_pago = models.Pago(
-        monto=pago.monto,
-        metodo_pago=pago.metodo_pago,
-        id_turno=pago.id_turno,
-        moneda=pago.moneda,
-        dni_paciente=dni,
-    )
-    db.add(db_pago)
+    if not dni:
+        # Si por alguna razón no hay DNI, registramos de forma simple
+        db_pago = models.Pago(
+            monto=pago.monto,
+            metodo_pago=pago.metodo_pago,
+            id_turno=pago.id_turno,
+            moneda=pago.moneda,
+            dni_paciente=None,
+        )
+        db.add(db_pago)
+        db.commit()
+        db.refresh(db_pago)
+        return db_pago
 
-    # ── 2. Actualizar cuenta corriente del paciente ──
-    if dni:
+    # ── Caso 1: Se especificó un Turno concreto ──
+    if pago.id_turno:
+        db_pago = models.Pago(
+            monto=pago.monto,
+            metodo_pago=pago.metodo_pago,
+            id_turno=pago.id_turno,
+            moneda=pago.moneda,
+            dni_paciente=dni,
+        )
+        db.add(db_pago)
+        
+        # Actualizar cuenta corriente del paciente
         from backend.crud.pacientes import registrar_movimiento
         registrar_movimiento(
             db,
             dni=dni,
             tipo="pago",
-            monto=pago.monto,
+            monto=Decimal(str(pago.monto)),
             moneda=pago.moneda,
-            descripcion=pago.notas or f"Pago {pago.metodo_pago}",
+            descripcion=pago.notas or f"Pago {pago.metodo_pago} (Turno #{pago.id_turno})",
         )
+        db.commit()
+        db.refresh(db_pago)
+        return db_pago
 
+    # ── Caso 2: Pago General / Sin Turno específico (Amortización automática) ──
+    # Buscamos todos los turnos Realizados del paciente
+    turnos = db.query(models.Turno).options(
+        joinedload(models.Turno.tratamientos),
+        joinedload(models.Turno.pagos)
+    ).filter(
+        models.Turno.dni_paciente == dni,
+        models.Turno.estado == "Realizado"
+    ).all()
+
+    # Los ordenamos cronológicamente (más antiguo primero) para amortizar en orden
+    turnos.sort(key=lambda t: t.fecha_hora)
+
+    monto_restante = Decimal(str(pago.monto))
+    pagos_creados = []
+    
+    for t in turnos:
+        if monto_restante <= 0:
+            break
+            
+        # Calcular deuda de este turno en la moneda seleccionada
+        if pago.moneda == "ARS":
+            total_turno = sum(Decimal(str(tr.precio_ars)) * tr.cantidad for tr in t.tratamientos if tr.precio_ars)
+            pagado_turno = sum(Decimal(str(p.monto)) for p in t.pagos if p.moneda == "ARS")
+        else:
+            total_turno = sum(Decimal(str(tr.precio_usd)) * tr.cantidad for tr in t.tratamientos if tr.precio_usd)
+            pagado_turno = sum(Decimal(str(p.monto)) for p in t.pagos if p.moneda == "USD")
+            
+        deuda_turno = max(Decimal("0.00"), total_turno - pagado_turno)
+        
+        if deuda_turno > 0:
+            # Cuánto podemos pagar de este turno
+            pago_a_turno = min(monto_restante, deuda_turno)
+            monto_restante -= pago_a_turno
+            
+            db_pago = models.Pago(
+                monto=float(pago_a_turno),
+                metodo_pago=pago.metodo_pago,
+                id_turno=t.id,
+                moneda=pago.moneda,
+                dni_paciente=dni,
+                fecha_pago=datetime.now(),
+            )
+            db.add(db_pago)
+            pagos_creados.append(db_pago)
+
+    # Si sobra dinero o no había turnos con deuda, el sobrante se registra como pago general sin id_turno
+    if monto_restante > 0 or not pagos_creados:
+        db_pago = models.Pago(
+            monto=float(monto_restante),
+            metodo_pago=pago.metodo_pago,
+            id_turno=None,
+            moneda=pago.moneda,
+            dni_paciente=dni,
+            fecha_pago=datetime.now(),
+        )
+        db.add(db_pago)
+        pagos_creados.append(db_pago)
+
+    # Actualizar cuenta corriente por el monto total pagado
+    from backend.crud.pacientes import registrar_movimiento
+    registrar_movimiento(
+        db,
+        dni=dni,
+        tipo="pago",
+        monto=Decimal(str(pago.monto)),
+        moneda=pago.moneda,
+        descripcion=pago.notas or f"Pago {pago.metodo_pago} (Amortización General)",
+    )
+    
     db.commit()
-    db.refresh(db_pago)
-    return db_pago
+    
+    # Refrescar y retornar el primer pago creado (o el pago general si corresponde)
+    for p in pagos_creados:
+        db.refresh(p)
+        
+    return pagos_creados[0]
 
 
 def cerrar_turno_con_pago(
@@ -46,6 +137,7 @@ def cerrar_turno_con_pago(
     turno_id: int,
     tratamientos_input: list,
     pagos_input: list,
+    comentarios: Optional[str] = None,
 ):
     """
     Cierra un turno:
@@ -60,6 +152,9 @@ def cerrar_turno_con_pago(
         return None
 
     turno.estado = "Realizado"
+    if comentarios:
+        motivo_previo = turno.motivo or "Consulta"
+        turno.motivo = f"{motivo_previo} | {comentarios}"
 
     # ── 1. Crear tratamientos del turno ──
     for t in tratamientos_input:

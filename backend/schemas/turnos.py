@@ -55,6 +55,7 @@ class HistorialTurnoItemResponse(BaseModel):
     total_pagado_usd: float
     saldo_ars: float
     saldo_usd: float
+    motivo: Optional[str] = None
 
 
 class TotalesHistorial(BaseModel):

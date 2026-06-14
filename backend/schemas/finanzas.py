@@ -67,6 +67,7 @@ class CerrarTurnoInput(BaseModel):
     """Input completo para cerrar turno: tratamientos realizados + pagos recibidos."""
     tratamientos: list[TratamientoInput]
     pagos: list[PagoInput]
+    comentarios: Optional[str] = None
 
 
 class CerrarTurnoResponse(BaseModel):

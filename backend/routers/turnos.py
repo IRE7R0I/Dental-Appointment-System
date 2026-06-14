@@ -105,6 +105,7 @@ def cerrar_turno(turno_id: int, datos: CerrarTurnoInput, db: Session = Depends(g
         db, turno_id,
         tratamientos_input=datos.tratamientos,
         pagos_input=datos.pagos,
+        comentarios=datos.comentarios,
     )
     if not resultado:
         raise HTTPException(status_code=404, detail="Turno no encontrado")

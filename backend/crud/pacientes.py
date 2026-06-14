@@ -191,6 +191,7 @@ def obtener_historial_paciente(db: Session, dni: str, fecha_desde=None, fecha_ha
             total_pagado_usd=turn_pag_usd,
             saldo_ars=max(0.0, turn_total_ars - turn_pag_ars),
             saldo_usd=max(0.0, turn_total_usd - turn_pag_usd),
+            motivo=turno.motivo,
         ))
 
         total_trat_ars += turn_total_ars

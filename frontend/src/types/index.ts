@@ -53,11 +53,13 @@ export interface Deudor {
   telefono?: string;
   saldo_ars: number;
   saldo_usd: number;
+  obra_social?: string;
 }
 
 export interface CerrarTurnoInput {
   tratamientos: TratamientoInput[];
   pagos: PagoInput[];
+  comentarios?: string;
 }
 
 export interface TratamientoInput {
@@ -137,6 +139,7 @@ export interface HistorialTurnoItemResponse {
   total_pagado_usd: number;
   saldo_ars: number;
   saldo_usd: number;
+  motivo?: string;
 }
 
 export interface TotalesHistorial {

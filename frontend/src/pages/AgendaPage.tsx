@@ -106,6 +106,7 @@ export default function AgendaPage() {
   const [catLoading, setCatLoading] = useState(false);
   const [pagos, setPagos] = useState<PagoFormItem[]>([{ monto: 0, moneda: 'ARS', metodo: 'efectivo' }]);
   const [cerrando, setCerrando] = useState(false);
+  const [comentarioClinico, setComentarioClinico] = useState('');
 
   const [cancelando, setCancelando] = useState(false);
   const [modalResumenRealizado, setModalResumenRealizado] = useState(false);
@@ -385,6 +386,7 @@ export default function AgendaPage() {
           moneda: p.moneda,
           metodo_pago: p.metodo,
         })),
+        comentarios: comentarioClinico.trim() || undefined,
       };
       await cerrarTurno(turnoSeleccionado.id, body);
       toast.success('¡El turno ha sido marcado como realizado y cerrado!');
@@ -392,6 +394,7 @@ export default function AgendaPage() {
       setTurnoSeleccionado(null);
       setTratamientos([{ nombre: '', precio: 0, moneda: 'ARS' }]);
       setPagos([{ monto: 0, moneda: 'ARS', metodo: 'efectivo' }]);
+      setComentarioClinico('');
       loadTurnos();
     } catch {
       setError('Error al cerrar el turno');
@@ -998,7 +1001,7 @@ export default function AgendaPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: 'spring', duration: 0.35 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 relative z-10 font-[family-name:var(--font-sans)]"
+              className="bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
@@ -1294,7 +1297,7 @@ export default function AgendaPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: 'spring', duration: 0.35 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 font-[family-name:var(--font-sans)]"
+              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
@@ -1384,7 +1387,7 @@ export default function AgendaPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: 'spring', duration: 0.35 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 font-[family-name:var(--font-sans)]"
+              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
@@ -1467,7 +1470,7 @@ export default function AgendaPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: 'spring', duration: 0.35 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 font-[family-name:var(--font-sans)]"
+              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
@@ -1542,7 +1545,7 @@ export default function AgendaPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: 'spring', duration: 0.35 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 font-[family-name:var(--font-sans)]"
+              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
@@ -1630,7 +1633,7 @@ export default function AgendaPage() {
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-slate-900">Cerrar Turno</h2>
-                <button onClick={() => { setModalCerrarForm(false); setTratamientos([{ nombre: '', precio: 0, moneda: 'ARS' }]); setPagos([{ monto: 0, moneda: 'ARS', metodo: 'efectivo' }]); }} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
+                <button onClick={() => { setModalCerrarForm(false); setTratamientos([{ nombre: '', precio: 0, moneda: 'ARS' }]); setPagos([{ monto: 0, moneda: 'ARS', metodo: 'efectivo' }]); setComentarioClinico(''); }} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
                   <span className="material-symbols-rounded">close</span>
                 </button>
               </div>
@@ -1739,6 +1742,20 @@ export default function AgendaPage() {
                 </button>
               </div>
 
+              {/* Comentarios de Evolución Clínica */}
+              <div className="mb-6 animate-fade-slide-up">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                  Evolución y Comentarios Clínicos
+                </label>
+                <textarea
+                  value={comentarioClinico}
+                  onChange={e => setComentarioClinico(e.target.value)}
+                  placeholder="Escribí los detalles de la evolución clínica de este turno..."
+                  rows={3}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#0061a4] transition-all bg-white resize-none"
+                />
+              </div>
+
               {/* Pagos */}
               <div className="mb-6">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Pagos</label>
@@ -1801,7 +1818,7 @@ export default function AgendaPage() {
 
               <div className="flex gap-3 mt-8">
                 <button
-                  onClick={() => { setModalCerrarForm(false); setTratamientos([{ nombre: '', precio: 0, moneda: 'ARS' }]); setPagos([{ monto: 0, moneda: 'ARS', metodo: 'efectivo' }]); setTurnoSeleccionado(null); }}
+                  onClick={() => { setModalCerrarForm(false); setTratamientos([{ nombre: '', precio: 0, moneda: 'ARS' }]); setPagos([{ monto: 0, moneda: 'ARS', metodo: 'efectivo' }]); setTurnoSeleccionado(null); setComentarioClinico(''); }}
                   className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Cancelar

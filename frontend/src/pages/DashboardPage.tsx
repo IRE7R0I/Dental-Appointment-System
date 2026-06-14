@@ -855,7 +855,7 @@ export default function DashboardPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: 'spring', duration: 0.35 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 font-[family-name:var(--font-sans)]"
+              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
