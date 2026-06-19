@@ -69,6 +69,16 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 25px 50px -12px rgba(30, 41, 59, 0.25) !important;
 }
 
+/* Popovers contables/calendarios que requieren un fondo totalmente opaco y sólido */
+.solid-popover {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
+  border-color: #e2e8f0 !important;
+}
+
 /* Slate 50 cards / containers - Excluyendo inputs y elementos de formulario */
 .bg-slate-50:not(input):not(select):not(textarea):not(button):not(option),
 [class*="bg-slate-50"]:not(input):not(select):not(textarea):not(button):not(option) {

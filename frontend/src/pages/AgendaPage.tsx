@@ -60,14 +60,14 @@ function getHorariosDisponibles(fecha: Date): string[] {
   const d = new Date(fecha);
   const dia = d.getDay();
   if (dia === 4 || dia === 0) return []; // Jueves y Domingos no se trabaja
-  
+
   const slots: string[] = [];
   // Mañana (9:00 a 12:30)
   for (let h = 9; h <= 12; h++) {
     slots.push(`${String(h).padStart(2, '0')}:00`);
     slots.push(`${String(h).padStart(2, '0')}:30`);
   }
-  
+
   // Tarde (16:00 a 19:30) - Solo Lunes, Martes, Miércoles, Viernes
   if (dia !== 6) { // Sábados no hay tarde
     for (let h = 16; h <= 19; h++) {
@@ -75,27 +75,27 @@ function getHorariosDisponibles(fecha: Date): string[] {
       slots.push(`${String(h).padStart(2, '0')}:30`);
     }
   }
-  
+
   return slots;
 }
 
 function getDefaultFecha() {
   let d = new Date();
-  
+
   // Si es sábado después de las 13:00, saltar al lunes
   if (d.getDay() === 6 && d.getHours() >= 13) {
     d.setDate(d.getDate() + 2);
   }
-  
+
   for (let i = 0; i < 7; i++) {
     const dayOfWeek = d.getDay();
     const esNoLaboral = dayOfWeek === 4 || dayOfWeek === 0; // Jueves (4) o Domingo (0)
-    
+
     // Si es hoy, verificar si ya pasó el último slot (19:30 hs)
     const isToday = d.toDateString() === new Date().toDateString();
     const now = new Date();
     const isTodayPassed = isToday && (now.getHours() > 19 || (now.getHours() === 19 && now.getMinutes() >= 30));
-    
+
     if (!esNoLaboral && !isTodayPassed) {
       return d;
     }
@@ -298,7 +298,7 @@ export default function AgendaPage() {
         return 'El horario de atención es de 9:00 a 13:00 (último a las 12:30) y de 16:00 a 20:00 (último a las 19:30).';
       }
     }
-    
+
     // Validar turnos de media hora
     const mins = dt.getMinutes();
     if (mins !== 0 && mins !== 30) {
@@ -435,7 +435,7 @@ export default function AgendaPage() {
       const pacienteNombre = existingTurno.paciente
         ? `${existingTurno.paciente.nombre} ${existingTurno.paciente.apellido}`
         : `DNI ${existingTurno.dni_paciente}`;
-        
+
       return (
         <button
           onClick={() => handleSlotClick(time, id_doctor, existingTurno)}
@@ -455,7 +455,7 @@ export default function AgendaPage() {
               <p className="text-xs text-slate-400 truncate mt-0.5">{existingTurno.motivo}</p>
             )}
           </div>
-          
+
           <div className="shrink-0 flex items-center gap-1.5">
             <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
               <span className="material-symbols-rounded text-base font-bold">check</span>
@@ -498,14 +498,14 @@ export default function AgendaPage() {
   const month = mesNavegacion.getMonth();
   const firstDayOfMonth = new Date(year, month, 1);
   const lastDayOfMonth = new Date(year, month + 1, 0);
-  
+
   // Day of week index for Monday-start (0 = Mon, ..., 6 = Sun)
   let firstDayIndex = firstDayOfMonth.getDay() - 1;
   if (firstDayIndex === -1) firstDayIndex = 6;
-  
+
   const totalDaysInMonth = lastDayOfMonth.getDate();
   const monthCells: { date: Date; isCurrentMonth: boolean }[] = [];
-  
+
   // Prev month buffer
   const prevMonthLastDay = new Date(year, month, 0).getDate();
   for (let i = firstDayIndex - 1; i >= 0; i--) {
@@ -514,7 +514,7 @@ export default function AgendaPage() {
       isCurrentMonth: false,
     });
   }
-  
+
   // Current month
   for (let i = 1; i <= totalDaysInMonth; i++) {
     monthCells.push({
@@ -522,7 +522,7 @@ export default function AgendaPage() {
       isCurrentMonth: true,
     });
   }
-  
+
   // Next month buffer to make 42 cells (6 rows)
   const remaining = 42 - monthCells.length;
   for (let i = 1; i <= remaining; i++) {
@@ -536,13 +536,13 @@ export default function AgendaPage() {
   const modalMonth = modalMesNavegacion.getMonth();
   const modalFirstDay = new Date(modalYear, modalMonth, 1);
   const modalLastDay = new Date(modalYear, modalMonth + 1, 0);
-  
+
   let modalFirstIndex = modalFirstDay.getDay() - 1;
   if (modalFirstIndex === -1) modalFirstIndex = 6;
-  
+
   const modalTotalDays = modalLastDay.getDate();
   const modalCells: { date: Date; isCurrentMonth: boolean }[] = [];
-  
+
   // Prev month buffer
   const modalPrevLastDay = new Date(modalYear, modalMonth, 0).getDate();
   for (let i = modalFirstIndex - 1; i >= 0; i--) {
@@ -551,7 +551,7 @@ export default function AgendaPage() {
       isCurrentMonth: false,
     });
   }
-  
+
   // Current month
   for (let i = 1; i <= modalTotalDays; i++) {
     modalCells.push({
@@ -559,7 +559,7 @@ export default function AgendaPage() {
       isCurrentMonth: true,
     });
   }
-  
+
   // Next month buffer to make 42 cells (6 rows)
   const modalRemaining = 42 - modalCells.length;
   for (let i = 1; i <= modalRemaining; i++) {
@@ -574,7 +574,7 @@ export default function AgendaPage() {
       if (t.estado === 'Cancelado') return false;
       if (t.id_doctor !== id_doctor) return false;
       if (toISODate(new Date(t.fecha_hora)) !== toISODate(selectedDay)) return false;
-      
+
       const dt = new Date(t.fecha_hora);
       const h = String(dt.getHours()).padStart(2, '0');
       const m = String(dt.getMinutes()).padStart(2, '0');
@@ -678,8 +678,8 @@ export default function AgendaPage() {
               <span className="material-symbols-rounded text-lg">chevron_left</span>
             </button>
             <span className="text-lg font-bold text-slate-700 capitalize min-w-[200px] text-center">
-              {vista === 'semana' 
-                ? formatWeekRange(fecha) 
+              {vista === 'semana'
+                ? formatWeekRange(fecha)
                 : mesNavegacion.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
               }
             </span>
@@ -734,22 +734,20 @@ export default function AgendaPage() {
               <button
                 key={opt.label}
                 onClick={() => setDoctorFiltro(opt.value)}
-                className={`relative px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer z-10 ${
-                  doctorFiltro === opt.value
-                    ? 'text-white'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
+                className={`relative px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer z-10 ${doctorFiltro === opt.value
+                  ? 'text-white'
+                  : 'text-slate-500 hover:text-slate-700'
+                  }`}
               >
                 {doctorFiltro === opt.value && (
                   <motion.div
                     layoutId="activeDoctorFilter"
-                    className={`absolute inset-0 rounded-xl shadow-md -z-10 ${
-                      opt.value === null
-                        ? 'bg-gradient-to-r from-[#009BFF] to-[#FF0088]'
-                        : opt.value === 1
-                          ? 'bg-[#009BFF]'
-                          : 'bg-[#FF0088]'
-                    }`}
+                    className={`absolute inset-0 rounded-xl shadow-md -z-10 ${opt.value === null
+                      ? 'bg-gradient-to-r from-[#009BFF] to-[#FF0088]'
+                      : opt.value === 1
+                        ? 'bg-[#009BFF]'
+                        : 'bg-[#FF0088]'
+                      }`}
                     transition={{ type: 'spring' as const, stiffness: 380, damping: 30 }}
                   />
                 )}
@@ -794,13 +792,12 @@ export default function AgendaPage() {
                     setDiaSemana(d);
                     setFecha(d);
                   }}
-                  className={`flex-1 relative flex flex-col items-center justify-center py-4 px-2 rounded-2xl select-none transition-all duration-300 ${
-                    active
-                      ? 'shadow-md shadow-blue-500/20'
-                      : isPast
-                        ? 'bg-slate-50 text-slate-400 pointer-events-none opacity-40'
-                        : 'hover:scale-[1.03] hover:y-[-2px] cursor-pointer'
-                  }`}
+                  className={`flex-1 relative flex flex-col items-center justify-center py-4 px-2 rounded-2xl select-none transition-all duration-300 ${active
+                    ? 'shadow-md shadow-blue-500/20'
+                    : isPast
+                      ? 'bg-slate-50 text-slate-400 pointer-events-none opacity-40'
+                      : 'hover:scale-[1.03] hover:y-[-2px] cursor-pointer'
+                    }`}
                   style={{ color: active ? '#ffffff' : (isPast ? '#94a3b8' : '#64748b') }}
                 >
                   {active && (
@@ -812,7 +809,7 @@ export default function AgendaPage() {
                   )}
                   <span className="text-[10px] uppercase font-bold tracking-wider mb-1">{formatDayName(d)}</span>
                   <span className="text-2xl font-black">{d.getDate()}</span>
-                  
+
                   {/* Indicadores de turnos por doctor */}
                   {getDoctorTurnosDots(d)}
                 </button>
@@ -831,7 +828,7 @@ export default function AgendaPage() {
             <div className="grid grid-cols-7 gap-1.5">
               {monthCells.map((cell, idx) => {
                 const active = isSameDay(cell.date, selectedDay);
-                
+
                 const diaSem = cell.date.getDay();
                 const esNoLaboral = diaSem === 4 || diaSem === 0; // Jueves o Domingo
                 const isPast = toISODate(cell.date) < toISODate(new Date());
@@ -845,17 +842,16 @@ export default function AgendaPage() {
                       setDiaSemana(cell.date);
                       setMesNavegacion(cell.date);
                     }}
-                    className={`aspect-[9/4] group relative rounded-xl flex flex-col items-center justify-between p-1.5 transition-all duration-300 ${
-                      active
-                        ? 'bg-[#009BFF] text-white shadow-md shadow-blue-500/20 scale-105'
-                        : isPast
-                          ? 'bg-slate-50 text-slate-400 pointer-events-none opacity-40'
-                          : !cell.isCurrentMonth 
-                            ? 'opacity-30 text-slate-400 cursor-pointer hover:scale-[1.05] hover:shadow-md' 
-                            : esNoLaboral 
-                              ? 'bg-slate-50/20 text-slate-400 cursor-pointer hover:scale-[1.05] hover:shadow-md' 
-                              : 'bg-white/10 text-slate-800 cursor-pointer hover:scale-[1.05] hover:shadow-md'
-                    }`}
+                    className={`aspect-[9/4] group relative rounded-xl flex flex-col items-center justify-between p-1.5 transition-all duration-300 ${active
+                      ? 'bg-[#009BFF] text-white shadow-md shadow-blue-500/20 scale-105'
+                      : isPast
+                        ? 'bg-slate-50 text-slate-400 pointer-events-none opacity-40'
+                        : !cell.isCurrentMonth
+                          ? 'opacity-30 text-slate-400 cursor-pointer hover:scale-[1.05] hover:shadow-md'
+                          : esNoLaboral
+                            ? 'bg-slate-50/20 text-slate-400 cursor-pointer hover:scale-[1.05] hover:shadow-md'
+                            : 'bg-white/10 text-slate-800 cursor-pointer hover:scale-[1.05] hover:shadow-md'
+                      }`}
                     style={{
                       border: active ? 'none' : '1px solid rgba(0, 0, 0, 0.18)',
                     }}
@@ -869,7 +865,7 @@ export default function AgendaPage() {
                     </div>
 
                     <span className="text-xs font-black self-start leading-none">{cell.date.getDate()}</span>
-                    
+
                     {/* Indicadores de turnos por doctor */}
                     {getDoctorTurnosDots(cell.date)}
                   </button>
@@ -934,7 +930,7 @@ export default function AgendaPage() {
                       <span className="w-2.5 h-2.5 rounded-full bg-[#009BFF]" />
                       Dr. Darío &middot; General
                     </h3>
- 
+
                     {/* Mañana */}
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 pl-2">Mañana</p>
@@ -949,7 +945,7 @@ export default function AgendaPage() {
                         })}
                       </div>
                     </div>
- 
+
                     {/* Tarde */}
                     {timeslots.some(t => Number(t.split(':')[0]) >= 14) && (
                       <div>
@@ -967,14 +963,14 @@ export default function AgendaPage() {
                       </div>
                     )}
                   </div>
- 
+
                   {/* Columna Fabiana (Ortodoncia) */}
                   <div className="space-y-4">
                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-2 flex items-center gap-2 border-b border-slate-100 pb-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#FF0088]" />
                       Dra. Fabiana &middot; Ortodoncia
                     </h3>
- 
+
                     {/* Mañana */}
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 pl-2">Mañana</p>
@@ -1142,7 +1138,7 @@ export default function AgendaPage() {
                 {/* Custom Date Picker (Calendario Cuadricular Mini) */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha del Turno</label>
-                  
+
                   <div className="bg-slate-50/50 rounded-3xl p-4 border border-slate-100/80 space-y-3">
                     {/* Navegación del Mes */}
                     <div className="flex items-center justify-between px-1">
@@ -1184,10 +1180,10 @@ export default function AgendaPage() {
                         const cellStr = toISODate(cell.date);
                         const active = selectedDate === cellStr;
                         const isTodayCell = toISODate(cell.date) === toISODate(new Date());
-                        
+
                         const diaSem = cell.date.getDay();
                         const esNoLaboral = diaSem === 4 || diaSem === 0; // Jueves o Domingo
-                        
+
                         // No permitir seleccionar fechas anteriores a hoy
                         const isPast = toISODate(cell.date) < toISODate(new Date());
 
@@ -1200,17 +1196,16 @@ export default function AgendaPage() {
                               setSelectedDate(cellStr);
                               setSelectedTime('');
                             }}
-                            className={`aspect-square rounded-xl flex items-center justify-center text-xs font-black transition-all ${
-                              active
-                                ? 'bg-[#0061a4] text-white shadow-xs font-black scale-105'
-                                : isPast || !cell.isCurrentMonth
-                                  ? 'opacity-20 text-slate-400 cursor-not-allowed'
-                                  : esNoLaboral
-                                    ? 'bg-slate-100/20 text-slate-400/70 cursor-not-allowed font-normal'
-                                    : isTodayCell
-                                      ? 'border border-[#0061a4]/50 text-[#0061a4] hover:bg-[#eaf4fe]'
-                                      : 'bg-white/40 text-slate-700 hover:bg-slate-100/50 hover:scale-[1.03] cursor-pointer'
-                            }`}
+                            className={`aspect-square rounded-xl flex items-center justify-center text-xs font-black transition-all ${active
+                              ? 'bg-[#0061a4] text-white shadow-xs font-black scale-105'
+                              : isPast || !cell.isCurrentMonth
+                                ? 'opacity-20 text-slate-400 cursor-not-allowed'
+                                : esNoLaboral
+                                  ? 'bg-slate-100/20 text-slate-400/70 cursor-not-allowed font-normal'
+                                  : isTodayCell
+                                    ? 'border border-[#0061a4]/50 text-[#0061a4] hover:bg-[#eaf4fe]'
+                                    : 'bg-white/40 text-slate-700 hover:bg-slate-100/50 hover:scale-[1.03] cursor-pointer'
+                              }`}
                           >
                             {cell.date.getDate()}
                           </button>
@@ -1226,7 +1221,7 @@ export default function AgendaPage() {
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
                       Horarios Disponibles
                     </label>
-                    
+
                     {loadingSlots ? (
                       <div className="py-6 text-center text-xs text-slate-400 animate-pulse-soft">
                         Cargando horarios disponibles...
@@ -1240,10 +1235,10 @@ export default function AgendaPage() {
                           </div>
                         );
                       }
-                      
+
                       const morningSlots = slots.filter(s => Number(s.split(':')[0]) < 14);
                       const afternoonSlots = slots.filter(s => Number(s.split(':')[0]) >= 14);
-                      
+
                       return (
                         <div className="space-y-4">
                           {/* Turnos Mañana */}
@@ -1260,13 +1255,12 @@ export default function AgendaPage() {
                                       type="button"
                                       disabled={isOccupied}
                                       onClick={() => setSelectedTime(time)}
-                                      className={`py-2 px-1 text-xs font-bold rounded-xl border text-center transition-all duration-250 select-none ${
-                                        isOccupied
-                                          ? 'bg-slate-100/60 text-slate-350 border-slate-150 cursor-not-allowed line-through opacity-50'
-                                          : isSelected
-                                            ? 'bg-[#0061a4] text-white border-transparent shadow-sm'
-                                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:scale-[1.03] hover:shadow-xs active:scale-95 cursor-pointer'
-                                      }`}
+                                      className={`py-2 px-1 text-xs font-bold rounded-xl border text-center transition-all duration-250 select-none ${isOccupied
+                                        ? 'bg-slate-100/60 text-slate-350 border-slate-150 cursor-not-allowed line-through opacity-50'
+                                        : isSelected
+                                          ? 'bg-[#0061a4] text-white border-transparent shadow-sm'
+                                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:scale-[1.03] hover:shadow-xs active:scale-95 cursor-pointer'
+                                        }`}
                                     >
                                       {time}
                                     </button>
@@ -1290,13 +1284,12 @@ export default function AgendaPage() {
                                       type="button"
                                       disabled={isOccupied}
                                       onClick={() => setSelectedTime(time)}
-                                      className={`py-2 px-1 text-xs font-bold rounded-xl border text-center transition-all duration-250 select-none ${
-                                        isOccupied
-                                          ? 'bg-slate-100/60 text-slate-350 border-slate-150 cursor-not-allowed line-through opacity-50'
-                                          : isSelected
-                                            ? 'bg-[#0061a4] text-white border-transparent shadow-sm'
-                                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:scale-[1.03] hover:shadow-xs active:scale-95 cursor-pointer'
-                                      }`}
+                                      className={`py-2 px-1 text-xs font-bold rounded-xl border text-center transition-all duration-250 select-none ${isOccupied
+                                        ? 'bg-slate-100/60 text-slate-350 border-slate-150 cursor-not-allowed line-through opacity-50'
+                                        : isSelected
+                                          ? 'bg-[#0061a4] text-white border-transparent shadow-sm'
+                                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:scale-[1.03] hover:shadow-xs active:scale-95 cursor-pointer'
+                                        }`}
                                     >
                                       {time}
                                     </button>

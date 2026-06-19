@@ -51,13 +51,12 @@ export default function CustomSelect({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-4 py-3 bg-white border rounded-2xl text-sm focus:outline-none transition-all duration-200 cursor-pointer ${
-          disabled
-            ? 'bg-slate-50 border-slate-205 text-slate-400 cursor-not-allowed'
-            : isOpen
+        className={`w-full flex items-center justify-between px-4 py-3 bg-white border rounded-2xl text-sm focus:outline-none transition-all duration-200 cursor-pointer ${disabled
+          ? 'bg-slate-50 border-slate-205 text-slate-400 cursor-not-allowed'
+          : isOpen
             ? 'border-blue-500 ring-2 ring-blue-500/10 text-slate-800 shadow-sm'
             : 'border-slate-200 text-slate-700 hover:border-slate-300'
-        }`}
+          }`}
       >
         <div className="flex items-center gap-2.5 truncate">
           {selectedOption?.color && (
@@ -71,9 +70,8 @@ export default function CustomSelect({
           </span>
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-slate-400 transition-transform duration-250 ${
-            isOpen ? 'rotate-180 text-blue-500' : ''
-          }`}
+          className={`w-4 h-4 text-slate-400 transition-transform duration-250 ${isOpen ? 'rotate-180 text-blue-500' : ''
+            }`}
         />
       </button>
 
@@ -94,11 +92,10 @@ export default function CustomSelect({
                     key={option.value}
                     type="button"
                     onClick={() => handleSelect(option.value)}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-left transition-all duration-150 cursor-pointer ${
-                      isSelected
-                        ? 'bg-blue-50/70 text-blue-700 font-semibold font-[family-name:var(--font-sans)]'
-                        : 'text-slate-700 hover:bg-slate-50 font-[family-name:var(--font-sans)]'
-                    }`}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-left transition-all duration-150 cursor-pointer ${isSelected
+                      ? 'bg-blue-50/70 text-blue-700 font-semibold font-[family-name:var(--font-sans)]'
+                      : 'text-slate-700 hover:bg-slate-50 font-[family-name:var(--font-sans)]'
+                      }`}
                   >
                     <div className="flex items-center gap-2.5 truncate">
                       {option.color && (

@@ -23,14 +23,14 @@ function getHorariosDisponibles(fecha: Date): string[] {
   const d = new Date(fecha);
   const dia = d.getDay();
   if (dia === 4 || dia === 0) return []; // Jueves y Domingos no se trabaja
-  
+
   const slots: string[] = [];
   // Mañana (9:00 a 12:30)
   for (let h = 9; h <= 12; h++) {
     slots.push(`${String(h).padStart(2, '0')}:00`);
     slots.push(`${String(h).padStart(2, '0')}:30`);
   }
-  
+
   // Tarde (16:00 a 19:30) - Solo Lunes, Martes, Miércoles, Viernes
   if (dia !== 6) { // Sábados no hay tarde
     for (let h = 16; h <= 19; h++) {
@@ -38,7 +38,7 @@ function getHorariosDisponibles(fecha: Date): string[] {
       slots.push(`${String(h).padStart(2, '0')}:30`);
     }
   }
-  
+
   return slots;
 }
 
@@ -112,7 +112,7 @@ export default function DashboardPage() {
 
   // Modal crear paciente rápido
   const [modalNuevoPac, setModalNuevoPac] = useState(false);
-  const [nuevoPac, setNuevoPac] = useState({ dni: '', nombre: '', apellido: '', telefono: ''});
+  const [nuevoPac, setNuevoPac] = useState({ dni: '', nombre: '', apellido: '', telefono: '' });
   const [creandoPac, setCreandoPac] = useState(false);
 
   // Modal cerrar turno desde dashboard
@@ -206,7 +206,7 @@ export default function DashboardPage() {
         return 'El horario de atención es de 9:00 a 13:00 (último a las 12:30) y de 16:00 a 20:00 (último a las 19:30).';
       }
     }
-    
+
     // Validar turnos de media hora
     const mins = dt.getMinutes();
     if (mins !== 0 && mins !== 30) {
@@ -338,13 +338,13 @@ export default function DashboardPage() {
   const modalMonth = modalMesNavegacion.getMonth();
   const modalFirstDay = new Date(modalYear, modalMonth, 1);
   const modalLastDay = new Date(modalYear, modalMonth + 1, 0);
-  
+
   let modalFirstIndex = modalFirstDay.getDay() - 1;
   if (modalFirstIndex === -1) modalFirstIndex = 6;
-  
+
   const modalTotalDays = modalLastDay.getDate();
   const modalCells: { date: Date; isCurrentMonth: boolean }[] = [];
-  
+
   // Prev month buffer
   const modalPrevLastDay = new Date(modalYear, modalMonth, 0).getDate();
   for (let i = modalFirstIndex - 1; i >= 0; i--) {
@@ -353,7 +353,7 @@ export default function DashboardPage() {
       isCurrentMonth: false,
     });
   }
-  
+
   // Current month
   for (let i = 1; i <= modalTotalDays; i++) {
     modalCells.push({
@@ -361,7 +361,7 @@ export default function DashboardPage() {
       isCurrentMonth: true,
     });
   }
-  
+
   // Next month buffer to make 42 cells (6 rows)
   const modalRemaining = 42 - modalCells.length;
   for (let i = 1; i <= modalRemaining; i++) {
@@ -428,22 +428,20 @@ export default function DashboardPage() {
               <button
                 key={opt.label}
                 onClick={() => setFiltroDoctor(opt.value)}
-                className={`relative px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer z-10 ${
-                  filtroDoctor === opt.value
-                    ? 'text-white'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
+                className={`relative px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer z-10 ${filtroDoctor === opt.value
+                  ? 'text-white'
+                  : 'text-slate-500 hover:text-slate-700'
+                  }`}
               >
                 {filtroDoctor === opt.value && (
                   <motion.div
                     layoutId="activeDoctorFilter"
-                    className={`absolute inset-0 rounded-lg shadow-md -z-10 ${
-                      opt.value === null
-                        ? 'bg-gradient-to-r from-[#009BFF] to-[#FF0088]'
-                        : opt.value === 1
-                          ? 'bg-[#009BFF]'
-                          : 'bg-[#FF0088]'
-                    }`}
+                    className={`absolute inset-0 rounded-lg shadow-md -z-10 ${opt.value === null
+                      ? 'bg-gradient-to-r from-[#009BFF] to-[#FF0088]'
+                      : opt.value === 1
+                        ? 'bg-[#009BFF]'
+                        : 'bg-[#FF0088]'
+                      }`}
                     transition={{ type: 'spring' as const, stiffness: 380, damping: 30 }}
                   />
                 )}
@@ -452,7 +450,7 @@ export default function DashboardPage() {
             ))}
           </div>
         </div>
-        
+
         {/* Filtro Estado (Derecha) */}
         <div className="flex flex-col items-start sm:items-end">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 text-left sm:text-right w-full">Estado del turno</span>
@@ -465,11 +463,10 @@ export default function DashboardPage() {
               <button
                 key={opt.label}
                 onClick={() => setFiltroEstado(opt.value)}
-                className={`relative px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer z-10 ${
-                  filtroEstado === opt.value
-                    ? 'text-slate-800'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
+                className={`relative px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer z-10 ${filtroEstado === opt.value
+                  ? 'text-slate-800'
+                  : 'text-slate-500 hover:text-slate-700'
+                  }`}
               >
                 {filtroEstado === opt.value && (
                   <motion.div
@@ -664,7 +661,7 @@ export default function DashboardPage() {
                 {/* Custom Date Picker (Calendario Cuadricular Mini) */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha del Turno</label>
-                  
+
                   <div className="bg-slate-50/50 rounded-3xl p-4 border border-slate-100/80 space-y-3">
                     {/* Navegación del Mes */}
                     <div className="flex items-center justify-between px-1">
@@ -706,10 +703,10 @@ export default function DashboardPage() {
                         const cellStr = toISODate(cell.date);
                         const active = selectedDate === cellStr;
                         const isTodayCell = toISODate(cell.date) === toISODate(new Date());
-                        
+
                         const diaSem = cell.date.getDay();
                         const esNoLaboral = diaSem === 4 || diaSem === 0; // Jueves o Domingo
-                        
+
                         // No permitir seleccionar fechas anteriores a hoy
                         const isPast = toISODate(cell.date) < toISODate(new Date());
 
@@ -722,17 +719,16 @@ export default function DashboardPage() {
                               setSelectedDate(cellStr);
                               setSelectedTime('');
                             }}
-                            className={`aspect-square rounded-xl flex items-center justify-center text-xs font-black transition-all ${
-                              active
-                                ? 'bg-[#0061a4] text-white shadow-xs font-black scale-105'
-                                : isPast || !cell.isCurrentMonth
-                                  ? 'opacity-20 text-slate-400 cursor-not-allowed'
-                                  : esNoLaboral
-                                    ? 'bg-slate-100/20 text-slate-400/70 cursor-not-allowed font-normal'
-                                    : isTodayCell
-                                      ? 'border border-[#0061a4]/50 text-[#0061a4] hover:bg-[#eaf4fe]'
-                                      : 'bg-white/40 text-slate-700 hover:bg-slate-100/50 hover:scale-[1.03] cursor-pointer'
-                            }`}
+                            className={`aspect-square rounded-xl flex items-center justify-center text-xs font-black transition-all ${active
+                              ? 'bg-[#0061a4] text-white shadow-xs font-black scale-105'
+                              : isPast || !cell.isCurrentMonth
+                                ? 'opacity-20 text-slate-400 cursor-not-allowed'
+                                : esNoLaboral
+                                  ? 'bg-slate-100/20 text-slate-400/70 cursor-not-allowed font-normal'
+                                  : isTodayCell
+                                    ? 'border border-[#0061a4]/50 text-[#0061a4] hover:bg-[#eaf4fe]'
+                                    : 'bg-white/40 text-slate-700 hover:bg-slate-100/50 hover:scale-[1.03] cursor-pointer'
+                              }`}
                           >
                             {cell.date.getDate()}
                           </button>
@@ -748,7 +744,7 @@ export default function DashboardPage() {
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
                       Horarios Disponibles
                     </label>
-                    
+
                     {loadingSlots ? (
                       <div className="py-6 text-center text-xs text-slate-400 animate-pulse-soft">
                         Cargando horarios disponibles...
@@ -762,10 +758,10 @@ export default function DashboardPage() {
                           </div>
                         );
                       }
-                      
+
                       const morningSlots = slots.filter(s => Number(s.split(':')[0]) < 14);
                       const afternoonSlots = slots.filter(s => Number(s.split(':')[0]) >= 14);
-                      
+
                       return (
                         <div className="space-y-4">
                           {/* Turnos Mañana */}
@@ -782,13 +778,12 @@ export default function DashboardPage() {
                                       type="button"
                                       disabled={isOccupied}
                                       onClick={() => setSelectedTime(time)}
-                                      className={`py-2 px-1 text-xs font-bold rounded-xl border text-center transition-all duration-250 select-none ${
-                                        isOccupied
-                                          ? 'bg-slate-100/60 text-slate-350 border-slate-150 cursor-not-allowed line-through opacity-50'
-                                          : isSelected
-                                            ? 'bg-[#0061a4] text-white border-transparent shadow-sm'
-                                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:scale-[1.03] hover:shadow-xs active:scale-95 cursor-pointer'
-                                      }`}
+                                      className={`py-2 px-1 text-xs font-bold rounded-xl border text-center transition-all duration-250 select-none ${isOccupied
+                                        ? 'bg-slate-100/60 text-slate-350 border-slate-150 cursor-not-allowed line-through opacity-50'
+                                        : isSelected
+                                          ? 'bg-[#0061a4] text-white border-transparent shadow-sm'
+                                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:scale-[1.03] hover:shadow-xs active:scale-95 cursor-pointer'
+                                        }`}
                                     >
                                       {time}
                                     </button>
@@ -812,13 +807,12 @@ export default function DashboardPage() {
                                       type="button"
                                       disabled={isOccupied}
                                       onClick={() => setSelectedTime(time)}
-                                      className={`py-2 px-1 text-xs font-bold rounded-xl border text-center transition-all duration-250 select-none ${
-                                        isOccupied
-                                          ? 'bg-slate-100/60 text-slate-350 border-slate-150 cursor-not-allowed line-through opacity-50'
-                                          : isSelected
-                                            ? 'bg-[#0061a4] text-white border-transparent shadow-sm'
-                                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:scale-[1.03] hover:shadow-xs active:scale-95 cursor-pointer'
-                                      }`}
+                                      className={`py-2 px-1 text-xs font-bold rounded-xl border text-center transition-all duration-250 select-none ${isOccupied
+                                        ? 'bg-slate-100/60 text-slate-350 border-slate-150 cursor-not-allowed line-through opacity-50'
+                                        : isSelected
+                                          ? 'bg-[#0061a4] text-white border-transparent shadow-sm'
+                                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:scale-[1.03] hover:shadow-xs active:scale-95 cursor-pointer'
+                                        }`}
                                     >
                                       {time}
                                     </button>

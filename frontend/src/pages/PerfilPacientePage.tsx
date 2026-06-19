@@ -280,8 +280,8 @@ function ClinicalNotes({
         </h3>
         <span
           className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${notaGuardada
-              ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-200/30'
-              : 'bg-amber-500/10 text-amber-600 border border-amber-200/30 animate-pulse'
+            ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-200/30'
+            : 'bg-amber-500/10 text-amber-600 border border-amber-200/30 animate-pulse'
             }`}
         >
           {notaGuardada ? 'Guardado' : 'Pendiente'}
@@ -929,7 +929,7 @@ export default function PerfilPacientePage() {
 
   // Combinar turnos y pagos agrupados para el "Historial de Movimientos" contable
   const movimientosAgrupados = (() => {
-    type DisplayGroup = 
+    type DisplayGroup =
       | { tipo: 'turno_group'; id: string; date: string; turno: any }
       | { tipo: 'unlinked_pago'; id: string; date: string; pago: PagoContextoResponse };
 
@@ -969,9 +969,8 @@ export default function PerfilPacientePage() {
   })();
 
   return (
-    <div className={`p-4 md:p-8 pb-20 md:pb-6 bg-gradient-to-tr from-[#F1F5F9] to-[#E2E8F0] text-slate-800 flex flex-col font-sans ${
-      subView === 'history' ? 'h-screen max-h-screen overflow-hidden' : 'min-h-screen overflow-x-hidden'
-    }`}>
+    <div className={`p-4 md:p-8 pb-20 md:pb-6 bg-gradient-to-tr from-[#F1F5F9] to-[#E2E8F0] text-slate-800 flex flex-col font-sans ${subView === 'history' ? 'h-screen max-h-screen overflow-hidden' : 'min-h-screen overflow-x-hidden'
+      }`}>
       <AnimatePresence mode="wait">
         {/* =========================================================================
             VISTA 1: DIRECTORIO GENERAL DE PACIENTES (Layout Maestro)
@@ -1544,12 +1543,11 @@ export default function PerfilPacientePage() {
                               return (
                                 <React.Fragment key={group.id}>
                                   {/* Main Turno Row */}
-                                  <tr 
-                                    className={`transition-colors align-middle ${
-                                      turno.pagos && turno.pagos.length > 0 
-                                        ? 'hover:bg-white/45 cursor-pointer select-none' 
+                                  <tr
+                                    className={`transition-colors align-middle ${turno.pagos && turno.pagos.length > 0
+                                        ? 'hover:bg-white/45 cursor-pointer select-none'
                                         : 'hover:bg-white/20'
-                                    }`}
+                                      }`}
                                     onClick={() => {
                                       if (turno.pagos && turno.pagos.length > 0) {
                                         toggleTurnoAbierto(turno.id);
@@ -1561,9 +1559,8 @@ export default function PerfilPacientePage() {
                                       <div className="flex items-center gap-2.5">
                                         {turno.pagos && turno.pagos.length > 0 ? (
                                           <ChevronRight
-                                            className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
-                                              turnosAbiertos[turno.id] ? 'rotate-90' : 'rotate-0'
-                                            }`}
+                                            className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${turnosAbiertos[turno.id] ? 'rotate-90' : 'rotate-0'
+                                              }`}
                                           />
                                         ) : (
                                           <div className="w-4 h-4 shrink-0" />
@@ -1627,8 +1624,8 @@ export default function PerfilPacientePage() {
 
                                   {/* Render each payment for this Turno */}
                                   {turnosAbiertos[turno.id] && turno.pagos && turno.pagos.map((pago: any) => (
-                                    <tr 
-                                      key={`pago-${pago.id}`} 
+                                    <tr
+                                      key={`pago-${pago.id}`}
                                       className="hover:bg-white/45 transition-colors align-middle animate-fade-slide-up"
                                     >
                                       {/* Columna 1: Pago Info with indent and border */}
@@ -1765,8 +1762,8 @@ export default function PerfilPacientePage() {
                             <div>
                               <div className="flex items-center gap-1.5 mb-1">
                                 <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${p.metodo_pago.toLowerCase() === 'efectivo'
-                                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-250/20'
-                                    : 'bg-blue-500/10 text-blue-700 border-blue-250/20'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-250/20'
+                                  : 'bg-blue-500/10 text-blue-700 border-blue-250/20'
                                   }`}>
                                   {p.metodo_pago}
                                 </span>

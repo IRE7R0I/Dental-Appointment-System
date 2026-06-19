@@ -169,7 +169,7 @@ export interface PagoContextoResponse {
   metodo_pago: string;
   id_turno: number | null;
   dni_paciente: string | null;
-  paciente: { dni: string; nombre: string; apellido: string } | null;
+  paciente: { dni: string; nombre: string; apellido: string; obra_social?: string } | null;
   doctor: { id: number; nombre: string } | null;
 }
 

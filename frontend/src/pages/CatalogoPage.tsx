@@ -89,7 +89,7 @@ export default function CatalogoPage() {
     } catch (err: any) { setTError(err.message); }
     setTLoading(false);
   };
-  
+
   const deleteTratamiento = async (id: number, name: string) => {
     try {
       const res = await fetch(`/api/catalogo/tratamientos/${id}`, { method: 'DELETE', headers: authHeaders() });
@@ -121,7 +121,7 @@ export default function CatalogoPage() {
     } catch (err: any) { setOError(err.message); }
     setOLoading(false);
   };
-  
+
   const deleteObraSocial = async (id: number, name: string) => {
     try {
       const res = await fetch(`/api/catalogo/obras-sociales/${id}`, { method: 'DELETE', headers: authHeaders() });
