@@ -79,14 +79,40 @@ function getHorariosDisponibles(fecha: Date): string[] {
   return slots;
 }
 
+function getDefaultFecha() {
+  let d = new Date();
+  
+  // Si es sábado después de las 13:00, saltar al lunes
+  if (d.getDay() === 6 && d.getHours() >= 13) {
+    d.setDate(d.getDate() + 2);
+  }
+  
+  for (let i = 0; i < 7; i++) {
+    const dayOfWeek = d.getDay();
+    const esNoLaboral = dayOfWeek === 4 || dayOfWeek === 0; // Jueves (4) o Domingo (0)
+    
+    // Si es hoy, verificar si ya pasó el último slot (19:30 hs)
+    const isToday = d.toDateString() === new Date().toDateString();
+    const now = new Date();
+    const isTodayPassed = isToday && (now.getHours() > 19 || (now.getHours() === 19 && now.getMinutes() >= 30));
+    
+    if (!esNoLaboral && !isTodayPassed) {
+      return d;
+    }
+    d = new Date(d);
+    d.setDate(d.getDate() + 1);
+  }
+  return new Date();
+}
+
 export default function AgendaPage() {
   const toast = useToast();
   const [vista, setVista] = useState<Vista>('semana');
-  const [mesNavegacion, setMesNavegacion] = useState(() => new Date());
+  const [mesNavegacion, setMesNavegacion] = useState(() => getDefaultFecha());
   const [doctores, setDoctores] = useState<Doctor[]>([]);
   const [doctorFiltro, setDoctorFiltro] = useState<number | null>(null);
   const [turnos, setTurnos] = useState<Turno[]>([]);
-  const [fecha, setFecha] = useState(() => new Date());
+  const [fecha, setFecha] = useState(() => getDefaultFecha());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -173,7 +199,7 @@ export default function AgendaPage() {
   const [diaSemana, setDiaSemana] = useState<Date | null>(null);
 
   const weekDays = getWeekDays(fecha);
-  const selectedDay = vista === 'semana' ? (diaSemana ?? weekDays[0] ?? fecha) : fecha;
+  const selectedDay = fecha;
   const isToday = toISODate(selectedDay) === toISODate(new Date());
 
   const doctorOptions = doctores.map(d => ({
@@ -556,6 +582,34 @@ export default function AgendaPage() {
     });
   }
 
+  function shouldShowSlot(time: string, id_doctor: number): boolean {
+    if (!isToday) return true;
+    const existing = getTurnoForSlot(time, id_doctor);
+    if (existing) return true;
+
+    const now = new Date();
+    const [hStr, mStr] = time.split(':');
+    const slotH = Number(hStr);
+    const slotM = Number(mStr);
+    return now.getHours() < slotH || (now.getHours() === slotH && now.getMinutes() < slotM);
+  }
+
+  function getDoctorTurnosDots(d: Date) {
+    const hasDario = turnos.some(t => t.estado !== 'Cancelado' && t.id_doctor === 1 && toISODate(new Date(t.fecha_hora)) === toISODate(d));
+    const hasFabiana = turnos.some(t => t.estado !== 'Cancelado' && t.id_doctor === 2 && toISODate(new Date(t.fecha_hora)) === toISODate(d));
+
+    return (
+      <div className="flex justify-center gap-1 h-1.5 mt-1">
+        {hasDario && (
+          <span className="w-1.5 h-1.5 rounded-full bg-[#009BFF]" />
+        )}
+        {hasFabiana && (
+          <span className="w-1.5 h-1.5 rounded-full bg-[#FF0088]" />
+        )}
+      </div>
+    );
+  }
+
   function handleSlotClick(time: string, id_doctor: number, existingTurno?: Turno) {
     if (existingTurno) {
       handleClickTurno(existingTurno);
@@ -636,7 +690,7 @@ export default function AgendaPage() {
               <span className="material-symbols-rounded text-lg">chevron_right</span>
             </button>
             <button
-              onClick={() => { setFecha(new Date()); setMesNavegacion(new Date()); setDiaSemana(null); }}
+              onClick={() => { setFecha(getDefaultFecha()); setMesNavegacion(getDefaultFecha()); setDiaSemana(null); }}
               className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
             >
               Hoy
@@ -669,8 +723,9 @@ export default function AgendaPage() {
         </div>
 
         {/* Filtro doctor */}
-        <div className="flex gap-2 flex-wrap">
-          <div className="flex gap-1 bg-slate-100 rounded-2xl p-1 relative">
+        <div className="flex flex-col">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Profesional</span>
+          <div className="flex gap-1 bg-slate-100 rounded-2xl p-1 relative w-fit">
             {[
               { value: null, label: 'Ambos' },
               { value: 1, label: 'Darío' },
@@ -730,15 +785,23 @@ export default function AgendaPage() {
             {weekDays.map(d => {
               const active = isSameDay(d, selectedDay);
               const isTurnoDia = turnos.some(t => toISODate(new Date(t.fecha_hora)) === toISODate(d) && t.estado !== 'Cancelado');
+              const isPast = toISODate(d) < toISODate(new Date());
               return (
                 <button
                   key={toISODate(d)}
+                  disabled={isPast}
                   onClick={() => {
                     setDiaSemana(d);
                     setFecha(d);
                   }}
-                  className="flex-1 relative flex flex-col items-center justify-center py-4 px-2 rounded-2xl cursor-pointer select-none transition-all duration-300 hover:scale-[1.03] hover:y-[-2px]"
-                  style={{ color: active ? '#ffffff' : '#64748b' }}
+                  className={`flex-1 relative flex flex-col items-center justify-center py-4 px-2 rounded-2xl select-none transition-all duration-300 ${
+                    active
+                      ? 'shadow-md shadow-blue-500/20'
+                      : isPast
+                        ? 'bg-slate-50 text-slate-400 pointer-events-none opacity-40'
+                        : 'hover:scale-[1.03] hover:y-[-2px] cursor-pointer'
+                  }`}
+                  style={{ color: active ? '#ffffff' : (isPast ? '#94a3b8' : '#64748b') }}
                 >
                   {active && (
                     <motion.div
@@ -750,17 +813,15 @@ export default function AgendaPage() {
                   <span className="text-[10px] uppercase font-bold tracking-wider mb-1">{formatDayName(d)}</span>
                   <span className="text-2xl font-black">{d.getDate()}</span>
                   
-                  {/* Punto indicador de turnos */}
-                  {isTurnoDia && (
-                    <span className={`w-2.5 h-2.5 rounded-full mt-1.5 animate-pulse-soft ${active ? 'bg-white' : 'bg-[#009BFF]'}`} />
-                  )}
+                  {/* Indicadores de turnos por doctor */}
+                  {getDoctorTurnosDots(d)}
                 </button>
               );
             })}
           </div>
         ) : (
           /* 📅 VISTA MENSUAL CUADRADA */
-          <div className="space-y-4 max-w-md mx-auto">
+          <div className="space-y-4 w-full max-w-5xl mx-auto">
             {/* Headers de días */}
             <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">
               <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
@@ -770,45 +831,47 @@ export default function AgendaPage() {
             <div className="grid grid-cols-7 gap-1.5">
               {monthCells.map((cell, idx) => {
                 const active = isSameDay(cell.date, selectedDay);
-                const dayTurnos = turnos.filter(t => toISODate(new Date(t.fecha_hora)) === toISODate(cell.date) && t.estado !== 'Cancelado');
-                const hasDario = dayTurnos.some(t => t.id_doctor === 1);
-                const hasFabiana = dayTurnos.some(t => t.id_doctor === 2);
                 
                 const diaSem = cell.date.getDay();
                 const esNoLaboral = diaSem === 4 || diaSem === 0; // Jueves o Domingo
+                const isPast = toISODate(cell.date) < toISODate(new Date());
 
                 return (
                   <button
                     key={`${toISODate(cell.date)}-${idx}`}
+                    disabled={isPast}
                     onClick={() => {
                       setFecha(cell.date);
                       setDiaSemana(cell.date);
                       setMesNavegacion(cell.date);
                     }}
-                    className={`aspect-square relative rounded-xl flex flex-col items-center justify-between p-1.5 cursor-pointer transition-all duration-300 hover:scale-[1.05] hover:shadow-md ${
+                    className={`aspect-[9/4] group relative rounded-xl flex flex-col items-center justify-between p-1.5 transition-all duration-300 ${
                       active
-                        ? 'bg-[#009BFF] text-white shadow-md shadow-blue-500/20'
-                        : !cell.isCurrentMonth 
-                          ? 'opacity-30 text-slate-400' 
-                          : esNoLaboral 
-                            ? 'bg-slate-50/20 text-slate-400' 
-                            : 'bg-white/10 text-slate-800'
+                        ? 'bg-[#009BFF] text-white shadow-md shadow-blue-500/20 scale-105'
+                        : isPast
+                          ? 'bg-slate-50 text-slate-400 pointer-events-none opacity-40'
+                          : !cell.isCurrentMonth 
+                            ? 'opacity-30 text-slate-400 cursor-pointer hover:scale-[1.05] hover:shadow-md' 
+                            : esNoLaboral 
+                              ? 'bg-slate-50/20 text-slate-400 cursor-pointer hover:scale-[1.05] hover:shadow-md' 
+                              : 'bg-white/10 text-slate-800 cursor-pointer hover:scale-[1.05] hover:shadow-md'
                     }`}
                     style={{
-                      border: active ? 'none' : '1px solid rgba(255,255,255,0.2)',
+                      border: active ? 'none' : '1px solid rgba(0, 0, 0, 0.18)',
                     }}
                   >
+                    {/* Tooltip personalizado */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 pointer-events-none z-30 select-none flex flex-col items-center">
+                      <div className="bg-slate-900/95 text-white text-[10px] font-bold py-1 px-2.5 rounded-lg shadow-md whitespace-nowrap backdrop-blur-xs uppercase tracking-wider">
+                        {cell.date.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}
+                      </div>
+                      <div className="w-1.5 h-1.5 bg-slate-900/95 rotate-45 -mt-[3px]" />
+                    </div>
+
                     <span className="text-xs font-black self-start leading-none">{cell.date.getDate()}</span>
                     
-                    {/* Indicadores de turnos */}
-                    <div className="flex gap-1.5 justify-center w-full mt-1">
-                      {hasDario && (
-                        <span className={`w-2.5 h-2.5 rounded-full ${active ? 'bg-white/95' : 'bg-[#009BFF]'}`} />
-                      )}
-                      {hasFabiana && (
-                        <span className={`w-2.5 h-2.5 rounded-full ${active ? 'bg-sky-200' : 'bg-[#FF0088]'}`} />
-                      )}
-                    </div>
+                    {/* Indicadores de turnos por doctor */}
+                    {getDoctorTurnosDots(cell.date)}
                   </button>
                 );
               })}
@@ -855,7 +918,7 @@ export default function AgendaPage() {
           </div>
         ) : (
           /* Slots Grid Cascading */
-          <div className="pr-1">
+          <div className="pr-1 max-h-[550px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
             <motion.div
               variants={containerVariants}
               initial="hidden"
@@ -871,12 +934,12 @@ export default function AgendaPage() {
                       <span className="w-2.5 h-2.5 rounded-full bg-[#009BFF]" />
                       Dr. Darío &middot; General
                     </h3>
-
+ 
                     {/* Mañana */}
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 pl-2">Mañana</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {timeslots.filter(t => Number(t.split(':')[0]) < 14).map(time => {
+                        {timeslots.filter(t => Number(t.split(':')[0]) < 14).filter(time => shouldShowSlot(time, 1)).map(time => {
                           const existing = getTurnoForSlot(time, 1);
                           return (
                             <motion.div key={`dario-morning-${time}`} variants={itemVariants}>
@@ -886,13 +949,13 @@ export default function AgendaPage() {
                         })}
                       </div>
                     </div>
-
+ 
                     {/* Tarde */}
                     {timeslots.some(t => Number(t.split(':')[0]) >= 14) && (
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 pl-2">Tarde</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {timeslots.filter(t => Number(t.split(':')[0]) >= 14).map(time => {
+                          {timeslots.filter(t => Number(t.split(':')[0]) >= 14).filter(time => shouldShowSlot(time, 1)).map(time => {
                             const existing = getTurnoForSlot(time, 1);
                             return (
                               <motion.div key={`dario-afternoon-${time}`} variants={itemVariants}>
@@ -904,19 +967,19 @@ export default function AgendaPage() {
                       </div>
                     )}
                   </div>
-
+ 
                   {/* Columna Fabiana (Ortodoncia) */}
                   <div className="space-y-4">
                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-2 flex items-center gap-2 border-b border-slate-100 pb-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#FF0088]" />
                       Dra. Fabiana &middot; Ortodoncia
                     </h3>
-
+ 
                     {/* Mañana */}
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 pl-2">Mañana</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {timeslots.filter(t => Number(t.split(':')[0]) < 14).map(time => {
+                        {timeslots.filter(t => Number(t.split(':')[0]) < 14).filter(time => shouldShowSlot(time, 2)).map(time => {
                           const existing = getTurnoForSlot(time, 2);
                           return (
                             <motion.div key={`fabiana-morning-${time}`} variants={itemVariants}>
@@ -932,7 +995,7 @@ export default function AgendaPage() {
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 pl-2">Tarde</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {timeslots.filter(t => Number(t.split(':')[0]) >= 14).map(time => {
+                          {timeslots.filter(t => Number(t.split(':')[0]) >= 14).filter(time => shouldShowSlot(time, 2)).map(time => {
                             const existing = getTurnoForSlot(time, 2);
                             return (
                               <motion.div key={`fabiana-afternoon-${time}`} variants={itemVariants}>
@@ -952,7 +1015,7 @@ export default function AgendaPage() {
                   <div>
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 pl-2">Turnos de la Mañana</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {timeslots.filter(t => Number(t.split(':')[0]) < 14).map(time => {
+                      {timeslots.filter(t => Number(t.split(':')[0]) < 14).filter(time => shouldShowSlot(time, doctorFiltro)).map(time => {
                         const existing = getTurnoForSlot(time, doctorFiltro);
                         return (
                           <motion.div key={`single-morning-${time}`} variants={itemVariants}>
@@ -968,7 +1031,7 @@ export default function AgendaPage() {
                     <div>
                       <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 pl-2 mt-4">Turnos de la Tarde</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {timeslots.filter(t => Number(t.split(':')[0]) >= 14).map(time => {
+                        {timeslots.filter(t => Number(t.split(':')[0]) >= 14).filter(time => shouldShowSlot(time, doctorFiltro)).map(time => {
                           const existing = getTurnoForSlot(time, doctorFiltro);
                           return (
                             <motion.div key={`single-afternoon-${time}`} variants={itemVariants}>
@@ -1628,7 +1691,7 @@ export default function AgendaPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: 'spring', duration: 0.35 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 my-8 relative z-10"
+              className="bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 my-8 relative z-10 max-h-[90vh] overflow-y-auto"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">

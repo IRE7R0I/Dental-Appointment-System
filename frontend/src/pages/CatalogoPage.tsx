@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import type { TratamientoCatalogo, ObraSocial } from '../types';
 
 export default function CatalogoPage() {
   const { user, getAccessToken } = useAuth();
+  const toast = useToast();
   const isAdminOrSecretaria = user?.rol === 'admin' || user?.rol === 'secretaria';
   const token = getAccessToken();
 
@@ -11,6 +13,13 @@ export default function CatalogoPage() {
   const [obrasSociales, setObrasSociales] = useState<ObraSocial[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filtroCategoria, setFiltroCategoria] = useState('');
+
+  // Modal confirmación de eliminación
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    type: 'tratamiento' | 'obra_social';
+    id: number;
+    name: string;
+  } | null>(null);
 
   // Modal tratamiento
   const [showModalT, setShowModalT] = useState(false);
@@ -74,14 +83,25 @@ export default function CatalogoPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Error'); }
-      setShowModalT(false); fetchData();
+      setShowModalT(false);
+      toast.success(editT ? `Tratamiento "${tNombre}" guardado con éxito` : `Tratamiento "${tNombre}" creado con éxito`);
+      fetchData();
     } catch (err: any) { setTError(err.message); }
     setTLoading(false);
   };
+  
   const deleteTratamiento = async (id: number, name: string) => {
-    if (!window.confirm(`¿Desactivar "${name}"?`)) return;
-    await fetch(`/api/catalogo/tratamientos/${id}`, { method: 'DELETE', headers: authHeaders() });
-    fetchData();
+    try {
+      const res = await fetch(`/api/catalogo/tratamientos/${id}`, { method: 'DELETE', headers: authHeaders() });
+      if (res.ok) {
+        toast.success(`Tratamiento "${name}" desactivado con éxito`);
+        fetchData();
+      } else {
+        toast.error('Error al desactivar el tratamiento');
+      }
+    } catch {
+      toast.error('Error de red al desactivar el tratamiento');
+    }
   };
 
   // ── CRUD Obras Sociales ──
@@ -93,14 +113,38 @@ export default function CatalogoPage() {
         method: 'POST', headers: authHeaders(), body: JSON.stringify({ nombre: oNombre.trim() }),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Error'); }
-      setShowModalO(false); setONombre(''); fetchData();
+      setShowModalO(false);
+      const tempONombre = oNombre;
+      setONombre('');
+      toast.success(`Obra social "${tempONombre}" creada con éxito`);
+      fetchData();
     } catch (err: any) { setOError(err.message); }
     setOLoading(false);
   };
+  
   const deleteObraSocial = async (id: number, name: string) => {
-    if (!window.confirm(`¿Eliminar "${name}"?`)) return;
-    await fetch(`/api/catalogo/obras-sociales/${id}`, { method: 'DELETE', headers: authHeaders() });
-    fetchData();
+    try {
+      const res = await fetch(`/api/catalogo/obras-sociales/${id}`, { method: 'DELETE', headers: authHeaders() });
+      if (res.ok) {
+        toast.success(`Obra social "${name}" eliminada con éxito`);
+        fetchData();
+      } else {
+        toast.error('Error al eliminar la obra social');
+      }
+    } catch {
+      toast.error('Error de red al eliminar la obra social');
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm) return;
+    const { type, id, name } = deleteConfirm;
+    if (type === 'tratamiento') {
+      await deleteTratamiento(id, name);
+    } else {
+      await deleteObraSocial(id, name);
+    }
+    setDeleteConfirm(null);
   };
 
   if (isLoading) return <div className="p-6 max-w-6xl mx-auto"><div className="bg-white rounded-[24px] p-8 shadow-sm text-center text-slate-400">Cargando...</div></div>;
@@ -117,7 +161,7 @@ export default function CatalogoPage() {
           {isAdminOrSecretaria && (
             <button onClick={openCreateT}
               className="bg-[#0061a4] hover:bg-[#004d8a] text-white px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-sm flex items-center gap-2">
-              <span className="material-symbols-rounded text-lg">add</span>Nuevo
+              <span className="material-symbols-rounded text-lg">add</span>Nuevo Tratamiento
             </button>
           )}
         </div>
@@ -152,7 +196,7 @@ export default function CatalogoPage() {
               {tratFiltrados.map(t => (
                 <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4 font-medium text-slate-800">{t.nombre}</td>
-                  <td className="px-6 py-4 text-slate-600">{t.precio_ars ? `$${t.precio_ars.toLocaleString()}` : '—'}</td>
+                  <td className="px-6 py-4 text-slate-600">{t.precio_ars ? `$ ${Math.round(t.precio_ars).toLocaleString('es-AR')}` : '—'}</td>
                   <td className="px-6 py-4 text-slate-600">{t.precio_usd ? `$${t.precio_usd}` : '—'}</td>
                   <td className="px-6 py-4 text-slate-600">{t.duracion_minutos}min</td>
                   <td className="px-6 py-4">
@@ -161,10 +205,7 @@ export default function CatalogoPage() {
                   <td className="px-6 py-4 text-right">
                     {isAdminOrSecretaria && (
                       <div className="flex justify-end gap-1">
-                        <button onClick={() => openEditT(t)}
-                          className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><span className="material-symbols-rounded text-lg">edit</span>
-                        </button>
-                        <button onClick={() => deleteTratamiento(t.id, t.nombre)}
+                        <button onClick={() => setDeleteConfirm({ type: 'tratamiento', id: t.id, name: t.nombre })}
                           className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"><span className="material-symbols-rounded text-lg">delete</span>
                         </button>
                       </div>
@@ -183,44 +224,49 @@ export default function CatalogoPage() {
       {/* ── Modal Tratamiento ── */}
       {showModalT && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setShowModalT(false)}>
-          <div className="bg-white rounded-[24px] p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-slate-800 mb-4">{editT ? 'Editar tratamiento' : 'Nuevo tratamiento'}</h2>
-            <form onSubmit={saveTratamiento} className="space-y-4">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-slate-900">{editT ? 'Editar tratamiento' : 'Nuevo tratamiento'}</h2>
+              <button onClick={() => setShowModalT(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
+                <span className="material-symbols-rounded">close</span>
+              </button>
+            </div>
+            <form onSubmit={saveTratamiento} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Nombre *</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre *</label>
                 <input value={tNombre} onChange={e => setTNombre(e.target.value)}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff]" required />
+                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" required />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Precio ARS</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Precio ARS</label>
                   <input type="number" step="0.01" value={tArs} onChange={e => setTArs(e.target.value)}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff]" />
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Precio USD</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Precio USD</label>
                   <input type="number" step="0.01" value={tUsd} onChange={e => setTUsd(e.target.value)}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff]" />
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Duración (min)</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Duración (min)</label>
                   <input type="number" value={tDuracion} onChange={e => setTDuracion(e.target.value)}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff]" />
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Categoría</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Categoría</label>
                   <input value={tCategoria} onChange={e => setTCategoria(e.target.value)} placeholder="Ej: Cirugía"
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff]" />
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
                 </div>
               </div>
               {tError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">{tError}</div>}
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setShowModalT(false)}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 rounded-xl">Cancelar</button>
+                  className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors cursor-pointer">Cancelar</button>
                 <button type="submit" disabled={tLoading}
-                  className="flex-1 bg-[#0061a4] hover:bg-[#004d8a] text-white font-medium py-2 rounded-xl disabled:opacity-50">
+                  className="flex-1 px-5 py-3 rounded-2xl bg-[#0061a4] text-white font-bold text-sm hover:bg-[#00528c] transition-colors disabled:opacity-50 cursor-pointer shadow-sm hover:shadow">
                   {tLoading ? 'Guardando...' : editT ? 'Guardar' : 'Crear'}
                 </button>
               </div>
@@ -235,8 +281,8 @@ export default function CatalogoPage() {
           <h2 className="text-lg font-bold text-slate-800 font-[family-name:var(--font-display)]">Obras Sociales</h2>
           {user?.rol === 'admin' && (
             <button onClick={() => { setShowModalO(true); setONombre(''); setOError(''); }}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-1">
-              <span className="material-symbols-rounded text-lg">add</span>Agregar
+              className="bg-[#0061a4] hover:bg-[#004d8a] text-white px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-sm flex items-center gap-2">
+              <span className="material-symbols-rounded text-lg">add</span>Nueva Obra Social
             </button>
           )}
         </div>
@@ -260,7 +306,7 @@ export default function CatalogoPage() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     {user?.rol === 'admin' && (
-                      <button onClick={() => deleteObraSocial(os.id, os.nombre)}
+                      <button onClick={() => setDeleteConfirm({ type: 'obra_social', id: os.id, name: os.nombre })}
                         className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
                         <span className="material-symbols-rounded text-lg">delete</span>
                       </button>
@@ -276,24 +322,59 @@ export default function CatalogoPage() {
       {/* Modal obra social */}
       {showModalO && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setShowModalO(false)}>
-          <div className="bg-white rounded-[24px] p-6 w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-slate-800 mb-4">Nueva obra social</h2>
-            <form onSubmit={createObraSocial} className="space-y-4">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-slate-900">Nueva obra social</h2>
+              <button onClick={() => setShowModalO(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
+                <span className="material-symbols-rounded">close</span>
+              </button>
+            </div>
+            <form onSubmit={createObraSocial} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Nombre</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre</label>
                 <input value={oNombre} onChange={e => setONombre(e.target.value)}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff]" required />
+                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" required />
               </div>
               {oError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">{oError}</div>}
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setShowModalO(false)}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 rounded-xl">Cancelar</button>
+                  className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors cursor-pointer">Cancelar</button>
                 <button type="submit" disabled={oLoading}
-                  className="flex-1 bg-[#0061a4] hover:bg-[#004d8a] text-white font-medium py-2 rounded-xl disabled:opacity-50">
+                  className="flex-1 px-5 py-3 rounded-2xl bg-[#0061a4] text-white font-bold text-sm hover:bg-[#00528c] transition-colors disabled:opacity-50 cursor-pointer shadow-sm hover:shadow">
                   {oLoading ? 'Creando...' : 'Crear'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ── Modal Confirmar Eliminación ── */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setDeleteConfirm(null)}>
+          <div className="bg-white rounded-[24px] p-6 w-full max-w-xs shadow-xl border border-slate-100 text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <span className="material-symbols-rounded text-2xl text-red-500">delete</span>
+            </div>
+            <h2 className="text-lg font-bold text-slate-800 mb-1">
+              {deleteConfirm.type === 'tratamiento' ? 'Desactivar Tratamiento' : 'Eliminar Obra Social'}
+            </h2>
+            <p className="text-sm text-slate-500 mb-6">
+              ¿Estás seguro de que querés {deleteConfirm.type === 'tratamiento' ? 'desactivar' : 'eliminar'} "{deleteConfirm.name}"?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition-colors"
+              >
+                No
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-medium py-2.5 rounded-xl transition-all"
+              >
+                Sí, {deleteConfirm.type === 'tratamiento' ? 'desactivar' : 'eliminar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

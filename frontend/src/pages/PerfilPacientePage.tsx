@@ -242,13 +242,15 @@ function SidebarInfo({ paciente }: SidebarInfoProps) {
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">
               Obra Social Actual
             </span>
-            <span
-              className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs md:text-sm font-bold border ${getOSBadgeClass(
-                paciente.obra_social
-              )}`}
-            >
-              {paciente.obra_social || 'Particular'}
-            </span>
+            {(!paciente.obra_social || paciente.obra_social === 'Particular') ? (
+              <span className="inline-flex items-center bg-slate-100 text-slate-600 text-xs font-normal px-2.5 py-1 rounded-md">
+                Particular
+              </span>
+            ) : (
+              <span className="inline-flex items-center bg-blue-50 text-blue-600 text-xs font-medium px-2.5 py-1 rounded-md">
+                {paciente.obra_social}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -1119,13 +1121,15 @@ export default function PerfilPacientePage() {
 
                             {/* Obra Social */}
                             <td className="px-6 py-5">
-                              <span
-                                className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs md:text-sm font-bold border ${getOSBadgeClass(
-                                  paciente.obra_social
-                                )}`}
-                              >
-                                {paciente.obra_social || 'Particular'}
-                              </span>
+                              {(!paciente.obra_social || paciente.obra_social === 'Particular') ? (
+                                <span className="inline-flex items-center bg-slate-100 text-slate-600 text-xs font-normal px-2.5 py-1 rounded-md">
+                                  Particular
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center bg-blue-50 text-blue-600 text-xs font-medium px-2.5 py-1 rounded-md">
+                                  {paciente.obra_social}
+                                </span>
+                              )}
                             </td>
 
                             {/* Saldo de Cuenta Calculado */}

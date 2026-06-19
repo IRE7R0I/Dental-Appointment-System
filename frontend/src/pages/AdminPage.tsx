@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 interface User {
   id: number;
@@ -11,8 +12,12 @@ interface User {
 
 export default function AdminPage() {
   const { getAccessToken } = useAuth();
+  const toast = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Modal confirmación de eliminación
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; username: string } | null>(null);
 
   // Modal crear
   const [showCreate, setShowCreate] = useState(false);
@@ -62,6 +67,7 @@ export default function AdminPage() {
       setNewUsername('');
       setNewPassword('');
       setShowNewPass(false);
+      toast.success(`Usuario "${newUsername}" creado con éxito`);
       fetchUsers();
     } catch (err: any) { setCreateError(err.message); }
     setCreateLoading(false);
@@ -103,6 +109,7 @@ export default function AdminPage() {
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Error'); }
       setEditTarget(null);
+      toast.success(`Usuario "${editUsername}" actualizado con éxito`);
       fetchUsers();
     } catch (err: any) { setEditError(err.message); }
     setEditLoading(false);
@@ -110,18 +117,39 @@ export default function AdminPage() {
 
   // ── Acciones rápidas ──
   const handleToggleActivo = async (userId: number) => {
-    await fetch(`/api/admin/usuarios/${userId}/toggle-activo`, {
-      method: 'PUT', headers: { Authorization: `Bearer ${token}` },
-    });
-    fetchUsers();
+    const targetUser = users.find(u => u.id === userId);
+    const action = targetUser?.activo ? 'desactivado' : 'activado';
+    try {
+      const res = await fetch(`/api/admin/usuarios/${userId}/toggle-activo`, {
+        method: 'PUT', headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        toast.success(`Usuario "${targetUser?.username}" ${action} con éxito`);
+        fetchUsers();
+      } else {
+        toast.error('Error al cambiar estado del usuario');
+      }
+    } catch {
+      toast.error('Error de red al cambiar estado del usuario');
+    }
   };
 
-  const handleDelete = async (userId: number, username: string) => {
-    if (!window.confirm(`¿Eliminar definitivamente al usuario "${username}"?`)) return;
-    await fetch(`/api/admin/usuarios/${userId}`, {
-      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
-    });
-    fetchUsers();
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm) return;
+    try {
+      const res = await fetch(`/api/admin/usuarios/${deleteConfirm.id}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        toast.success(`Usuario "${deleteConfirm.username}" eliminado con éxito`);
+        fetchUsers();
+      } else {
+        toast.error('Error al eliminar el usuario');
+      }
+    } catch {
+      toast.error('Error de red al eliminar el usuario');
+    }
+    setDeleteConfirm(null);
   };
 
   // ── Render ──
@@ -141,7 +169,7 @@ export default function AdminPage() {
           className="bg-[#0061a4] hover:bg-[#004d8a] text-white px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm flex items-center gap-2"
         >
           <span className="material-symbols-rounded text-lg">add</span>
-          Nueva secretaria
+          Nuevo Usuario
         </button>
       </div>
 
@@ -201,18 +229,22 @@ export default function AdminPage() {
                               {u.activo ? 'block' : 'check_circle'}
                             </span>
                           </button>
-                          <button onClick={() => handleDelete(u.id, u.username)}
+                          <button onClick={() => setDeleteConfirm({ id: u.id, username: u.username })}
                             className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                             title="Eliminar">
                             <span className="material-symbols-rounded text-lg">delete</span>
                           </button>
                         </>
                       ) : (
-                        <button onClick={() => openEdit(u)}
-                          className="p-2 rounded-lg text-slate-400 hover:text-[#0061a4] hover:bg-[#eaf4fe] transition-colors"
-                          title="Editar mi usuario">
-                          <span className="material-symbols-rounded text-lg">edit</span>
-                        </button>
+                        <>
+                          <button onClick={() => openEdit(u)}
+                            className="p-2 rounded-lg text-slate-400 hover:text-[#0061a4] hover:bg-[#eaf4fe] transition-colors"
+                            title="Editar mi usuario">
+                            <span className="material-symbols-rounded text-lg">edit</span>
+                          </button>
+                          <div className="w-9" />
+                          <div className="w-9" />
+                        </>
                       )}
                     </div>
                   </td>
@@ -230,7 +262,7 @@ export default function AdminPage() {
       {showCreate && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setShowCreate(false)}>
           <div className="bg-white rounded-[24px] p-6 w-full max-w-sm shadow-xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-slate-800 mb-4">Nueva secretaria</h2>
+            <h2 className="text-lg font-bold text-slate-800 mb-4">Nuevo Usuario</h2>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-600 mb-1">Usuario</label>
@@ -314,6 +346,33 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Confirmar Eliminación ── */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setDeleteConfirm(null)}>
+          <div className="bg-white rounded-[24px] p-6 w-full max-w-xs shadow-xl border border-slate-100 text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <span className="material-symbols-rounded text-2xl text-red-500">delete</span>
+            </div>
+            <h2 className="text-lg font-bold text-slate-800 mb-1">Eliminar Usuario</h2>
+            <p className="text-sm text-slate-500 mb-6">¿Estás seguro de que querés eliminar definitivamente a "{deleteConfirm.username}"?</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition-colors"
+              >
+                No
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-medium py-2.5 rounded-xl transition-all"
+              >
+                Sí, eliminar
+              </button>
+            </div>
           </div>
         </div>
       )}
