@@ -58,10 +58,6 @@ Antes de proponer cualquier change, leé los archivos relevantes para el dominio
 ### Skills de Frontend
 Las siguientes skills están instaladas en el proyecto y deben leerse antes de escribir cualquier código de UI:
 
-### frontend-design
-- **Trigger**: al construir componentes de UI nuevos, páginas, layouts o estilos.
-- **Regla**: aplicar las guías de frontend-design antes de proponer markup o estilos. Garantiza diseño consistente, profesional y no genérico.
-
 ### impeccable
 - **Trigger**: en cualquier change que toque el frontend.
 - **Regla**: pasar el checklist de impeccable antes de marcar una tarea de UI como done. Cubre UX review, visual hierarchy, typography, spacing, layout, color, motion, accessibility.

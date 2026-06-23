@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft,
@@ -30,7 +30,7 @@ import {
   getHistorialPaciente,
   getPagos
 } from '../services/api';
-import type { Paciente, CuentaCorrienteResponse, HistorialPacienteResponse, PagoContextoResponse } from '../types';
+import type { Paciente, CuentaCorrienteResponse, HistorialPacienteResponse, PagoContextoResponse, HistorialTurnoItemResponse } from '../types';
 
 // Obras sociales especificadas por el diseñador
 const OBRAS_SOCIALES_DEFAULT = [
@@ -613,23 +613,27 @@ export default function PerfilPacientePage() {
     };
   }, [pacientes]);
 
-  let pacientesFiltrados = pacientes.filter((p) => {
-    if (busqueda) {
-      const q = busqueda.toLowerCase();
-      if (
-        !p.nombre.toLowerCase().includes(q) &&
-        !p.apellido.toLowerCase().includes(q) &&
-        !p.dni.includes(q)
-      )
-        return false;
-    }
-    if (filtroOS && p.obra_social !== filtroOS) return false;
-    return true;
-  });
+  const pacientesFiltrados = useMemo(() => {
+    const filtrados = pacientes.filter((p) => {
+      if (busqueda) {
+        const q = busqueda.toLowerCase();
+        if (
+          !p.nombre.toLowerCase().includes(q) &&
+          !p.apellido.toLowerCase().includes(q) &&
+          !p.dni.includes(q)
+        )
+          return false;
+      }
+      if (filtroOS && p.obra_social !== filtroOS) return false;
+      return true;
+    });
 
-  if (orden === 'az') pacientesFiltrados.sort((a, b) => a.apellido.localeCompare(b.apellido));
-  else if (orden === 'za') pacientesFiltrados.sort((a, b) => b.apellido.localeCompare(a.apellido));
-  else if (orden === 'reciente') pacientesFiltrados.sort((a, b) => (a.dni > b.dni ? -1 : 1));
+    if (orden === 'az') filtrados.sort((a, b) => a.apellido.localeCompare(b.apellido));
+    else if (orden === 'za') filtrados.sort((a, b) => b.apellido.localeCompare(a.apellido));
+    else if (orden === 'reciente') filtrados.sort((a, b) => (a.dni > b.dni ? -1 : 1));
+
+    return filtrados;
+  }, [pacientes, busqueda, filtroOS, orden]);
 
   async function abrirPerfil(paciente: Paciente) {
     setPacienteSel(paciente);
@@ -919,16 +923,23 @@ export default function PerfilPacientePage() {
   }
 
   // Filtrado de pagos para la vista 4 contable
-  const pagosFiltrados = pagosSel.filter((p) => {
-    if (filtroMetodo === 'todos') return true;
-    return p.metodo_pago.toLowerCase() === filtroMetodo;
-  });
+  const pagosFiltrados = useMemo(() => {
+    return pagosSel.filter((p) => {
+      if (filtroMetodo === 'todos') return true;
+      return p.metodo_pago.toLowerCase() === filtroMetodo;
+    });
+  }, [pagosSel, filtroMetodo]);
 
-  const totalCajaCobradoARS = pagosSel.reduce((s, p) => p.moneda === 'ARS' ? s + p.monto : s, 0);
-  const totalCajaCobradoUSD = pagosSel.reduce((s, p) => p.moneda === 'USD' ? s + p.monto : s, 0);
+  const totalCajaCobradoARS = useMemo(() => {
+    return pagosSel.reduce((s, p) => p.moneda === 'ARS' ? s + p.monto : s, 0);
+  }, [pagosSel]);
+
+  const totalCajaCobradoUSD = useMemo(() => {
+    return pagosSel.reduce((s, p) => p.moneda === 'USD' ? s + p.monto : s, 0);
+  }, [pagosSel]);
 
   // Combinar turnos y pagos agrupados para el "Historial de Movimientos" contable
-  const movimientosAgrupados = (() => {
+  const movimientosAgrupados = useMemo(() => {
     type DisplayGroup =
       | { tipo: 'turno_group'; id: string; date: string; turno: any }
       | { tipo: 'unlinked_pago'; id: string; date: string; pago: PagoContextoResponse };
@@ -966,12 +977,12 @@ export default function PerfilPacientePage() {
     // Sort by date (descending, most recent first)
     groups.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return groups;
-  })();
+  }, [historialSel, pagosSel]);
 
   return (
     <div className={`p-4 md:p-8 pb-20 md:pb-6 bg-gradient-to-tr from-[#F1F5F9] to-[#E2E8F0] text-slate-800 flex flex-col font-sans ${subView === 'history' ? 'h-screen max-h-screen overflow-hidden' : 'min-h-screen overflow-x-hidden'
       }`}>
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="popLayout">
         {/* =========================================================================
             VISTA 1: DIRECTORIO GENERAL DE PACIENTES (Layout Maestro)
             ========================================================================= */}
@@ -980,8 +991,7 @@ export default function PerfilPacientePage() {
             key="list"
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
             className="flex flex-col flex-1"
           >
             {/* Cabecera Principal */}
@@ -1167,9 +1177,8 @@ export default function PerfilPacientePage() {
             key="profile"
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="flex flex-col flex-1 animate-fade-slide-up"
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="flex flex-col flex-1"
           >
             <PatientHeader
               paciente={pacienteSel}
@@ -1178,28 +1187,23 @@ export default function PerfilPacientePage() {
               onEdit={abrirEditar}
             />
 
-            {loadingPerfil ? (
-              <div className="flex-1 flex items-center justify-center py-20">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="w-12 h-12 rounded-full border-4 border-white/40 border-t-blue-600 animate-spin" />
-                  <p className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest">
-                    Cargando ficha clínica...
-                  </p>
-                </div>
-              </div>
-            ) : (
-              /* Bento Grid Panels */
-              <div className="grid grid-cols-1 lg:grid-cols-10 gap-5 items-stretch">
-                {/* Columna Izquierda (30% - 3/10) */}
-                <div className="flex flex-col gap-4 lg:col-span-3 h-full">
-                  <SidebarInfo paciente={pacienteSel} />
+            {/* Bento Grid Panels */}
+            <div className="grid grid-cols-1 lg:grid-cols-10 gap-5 items-stretch">
+              {/* Columna Izquierda (30% - 3/10) */}
+              <div className="flex flex-col gap-4 lg:col-span-3 h-full">
+                <SidebarInfo paciente={pacienteSel} />
 
-                  {/* Tarjeta de Balance Compacta */}
-                  <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-xl shadow-blue-950/5 p-5 rounded-3xl hover:bg-white/75 transition-all duration-300">
-                    <h3 className="text-sm font-bold text-slate-600 tracking-tight mb-3 flex items-center gap-2">
-                      <Wallet className="w-4 h-4 text-blue-500" />
-                      Balances de cuenta corriente
-                    </h3>
+                {/* Tarjeta de Balance Compacta */}
+                <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-xl shadow-blue-950/5 p-5 rounded-3xl hover:bg-white/75 transition-all duration-300">
+                  <h3 className="text-sm font-bold text-slate-600 tracking-tight mb-3 flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-blue-500" />
+                    Balances de cuenta corriente
+                  </h3>
+                  {loadingPerfil ? (
+                    <div className="flex justify-center items-center py-6">
+                      <div className="w-6 h-6 rounded-full border-2 border-slate-200/40 border-t-blue-600 animate-spin" />
+                    </div>
+                  ) : (
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <div>
@@ -1229,25 +1233,31 @@ export default function PerfilPacientePage() {
                         </button>
                       </div>
                     </div>
-                  </div>
-
-                  <ClinicalNotes
-                    comentariosMedicos={comentariosMedicos}
-                    onChangeComentarios={handleComentariosMedicosChange}
-                    notaGuardada={notaGuardada}
-                    onGuardar={handleGuardarNotaMedica}
-                  />
+                  )}
                 </div>
 
-                {/* Columna Derecha (70% - 7/10) */}
-                <div className="flex flex-col lg:col-span-7 h-full">
+                <ClinicalNotes
+                  comentariosMedicos={comentariosMedicos}
+                  onChangeComentarios={handleComentariosMedicosChange}
+                  notaGuardada={notaGuardada}
+                  onGuardar={handleGuardarNotaMedica}
+                />
+              </div>
+
+              {/* Columna Derecha (70% - 7/10) */}
+              <div className="flex flex-col lg:col-span-7 h-full">
+                {loadingPerfil ? (
+                  <div className="flex-1 flex items-center justify-center py-20">
+                    <div className="w-8 h-8 rounded-full border-3 border-slate-200/40 border-t-blue-600 animate-spin" />
+                  </div>
+                ) : (
                   <Timeline
                     historialSel={historialSel}
                     onTurnoClick={setTurnoSeleccionadoDetalle}
                   />
-                </div>
+                )}
               </div>
-            )}
+            </div>
           </motion.div>
         )}
 
@@ -1259,8 +1269,7 @@ export default function PerfilPacientePage() {
             key="edit"
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: 0.15 }}
             className="flex flex-col flex-1"
           >
             {/* Header */}
@@ -1426,8 +1435,7 @@ export default function PerfilPacientePage() {
             key="history"
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: 0.15 }}
             className="flex flex-col flex-1 min-h-0"
           >
             {/* Header */}
@@ -1545,8 +1553,8 @@ export default function PerfilPacientePage() {
                                   {/* Main Turno Row */}
                                   <tr
                                     className={`transition-colors align-middle ${turno.pagos && turno.pagos.length > 0
-                                        ? 'hover:bg-white/45 cursor-pointer select-none'
-                                        : 'hover:bg-white/20'
+                                      ? 'hover:bg-white/45 cursor-pointer select-none'
+                                      : 'hover:bg-white/20'
                                       }`}
                                     onClick={() => {
                                       if (turno.pagos && turno.pagos.length > 0) {
