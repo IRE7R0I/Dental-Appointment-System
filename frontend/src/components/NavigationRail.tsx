@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ConfirmModal from './ConfirmModal';
 
 const links = [
   { to: '/', icon: 'home', label: 'Inicio' },
@@ -23,8 +24,8 @@ export default function NavigationRail() {
   return (
     <>
       <nav className="hidden md:flex w-[90px] bg-white flex-col items-center py-6 border-r border-slate-200 z-20 shrink-0">
-        <div className="mb-10 w-12 h-12 bg-[#eaf4fe] rounded-2xl flex items-center justify-center text-[#0061a4]">
-          <span className="material-symbols-rounded text-3xl filled">dentistry</span>
+        <div className="mb-10 w-[76px] h-[76px] bg-[#eaf4fe] rounded-2xl flex items-center justify-center text-[#0061a4]">
+          <span className="material-symbols-rounded text-[56px] filled">dentistry</span>
         </div>
         <div className="flex flex-col gap-6 w-full px-2 flex-1">
           {links.map((link) => (
@@ -161,31 +162,15 @@ export default function NavigationRail() {
       </nav>
 
       {/* Modal confirmación logout */}
-      {showLogout && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setShowLogout(false)}>
-          <div className="bg-white rounded-[24px] p-6 w-full max-w-xs shadow-xl border border-slate-100 text-center" onClick={(e) => e.stopPropagation()}>
-            <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <span className="material-symbols-rounded text-2xl text-red-500">logout</span>
-            </div>
-            <h2 className="text-lg font-bold text-slate-800 mb-1">Cerrar sesión</h2>
-            <p className="text-sm text-slate-500 mb-6">¿Estás seguro de que querés salir?</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowLogout(false)}
-                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition-colors"
-              >
-                No
-              </button>
-              <button
-                onClick={handleLogout}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-medium py-2.5 rounded-xl transition-all"
-              >
-                Sí, salir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={showLogout}
+        onClose={() => setShowLogout(false)}
+        onConfirm={handleLogout}
+        title="Cerrar sesión"
+        message="¿Estás seguro de que querés salir?"
+        confirmText="Sí, salir"
+        icon="logout"
+      />
     </>
   );
 }

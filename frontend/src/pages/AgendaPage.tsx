@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { getDoctores, getTurnos, getPaciente, crearTurno, cerrarTurno, cancelarTurno, crearPaciente, getTratamientosCatalogo } from '../services/api';
 import type { Doctor, Turno, Paciente, CerrarTurnoInput, TratamientoFormItem, PagoFormItem, TratamientoCatalogo } from '../types';
 import { useToast } from '../context/ToastContext';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
+import Modal from '../components/Modal';
 import CustomSelect from '../components/CustomSelect';
 
 type Vista = 'semana' | 'mensual';
@@ -196,8 +197,6 @@ export default function AgendaPage() {
     }
   }, [selectedDate, selectedTime]);
 
-  const [diaSemana, setDiaSemana] = useState<Date | null>(null);
-
   const weekDays = getWeekDays(fecha);
   const selectedDay = fecha;
   const isToday = toISODate(selectedDay) === toISODate(new Date());
@@ -379,6 +378,14 @@ export default function AgendaPage() {
     setModalCerrarForm(true);
   }
 
+  function closeCerrarFormModal() {
+    setModalCerrarForm(false);
+    setTratamientos([{ nombre: '', precio: 0, moneda: 'ARS' }]);
+    setPagos([{ monto: 0, moneda: 'ARS', metodo: 'efectivo' }]);
+    setTurnoSeleccionado(null);
+    setComentarioClinico('');
+  }
+
   async function handleCancelarTurno() {
     if (!turnoSeleccionado) return;
     setCancelando(true);
@@ -416,11 +423,7 @@ export default function AgendaPage() {
       };
       await cerrarTurno(turnoSeleccionado.id, body);
       toast.success('¡El turno ha sido marcado como realizado y cerrado!');
-      setModalCerrarForm(false);
-      setTurnoSeleccionado(null);
-      setTratamientos([{ nombre: '', precio: 0, moneda: 'ARS' }]);
-      setPagos([{ monto: 0, moneda: 'ARS', metodo: 'efectivo' }]);
-      setComentarioClinico('');
+      closeCerrarFormModal();
       loadTurnos();
     } catch {
       setError('Error al cerrar el turno');
@@ -690,7 +693,7 @@ export default function AgendaPage() {
               <span className="material-symbols-rounded text-lg">chevron_right</span>
             </button>
             <button
-              onClick={() => { setFecha(getDefaultFecha()); setMesNavegacion(getDefaultFecha()); setDiaSemana(null); }}
+              onClick={() => { setFecha(getDefaultFecha()); setMesNavegacion(getDefaultFecha()); }}
               className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
             >
               Hoy
@@ -782,14 +785,12 @@ export default function AgendaPage() {
           <div className="flex gap-2 w-full">
             {weekDays.map(d => {
               const active = isSameDay(d, selectedDay);
-              const isTurnoDia = turnos.some(t => toISODate(new Date(t.fecha_hora)) === toISODate(d) && t.estado !== 'Cancelado');
               const isPast = toISODate(d) < toISODate(new Date());
               return (
                 <button
                   key={toISODate(d)}
                   disabled={isPast}
                   onClick={() => {
-                    setDiaSemana(d);
                     setFecha(d);
                   }}
                   className={`flex-1 relative flex flex-col items-center justify-center py-4 px-2 rounded-2xl select-none transition-all duration-300 ${active
@@ -839,7 +840,6 @@ export default function AgendaPage() {
                     disabled={isPast}
                     onClick={() => {
                       setFecha(cell.date);
-                      setDiaSemana(cell.date);
                       setMesNavegacion(cell.date);
                     }}
                     className={`aspect-[9/4] group relative rounded-xl flex flex-col items-center justify-between p-1.5 transition-all duration-300 ${active
@@ -1046,29 +1046,12 @@ export default function AgendaPage() {
       </div>
 
 
-      <AnimatePresence>
-        {modalCrear && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setModalCrear(false)}>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/45 backdrop-blur-[3px] pointer-events-none"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: 'spring', duration: 0.35 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-900">Nuevo Turno</h2>
-                <button onClick={() => { setModalCrear(false); resetFormulario(); }} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
-                  <span className="material-symbols-rounded">close</span>
-                </button>
-              </div>
+      <Modal
+        isOpen={modalCrear}
+        onClose={() => { setModalCrear(false); resetFormulario(); }}
+        title="Nuevo Turno"
+        maxWidthClass="max-w-lg"
+      >
 
               <div className="space-y-5">
                 {/* Buscador paciente */}
@@ -1334,34 +1317,16 @@ export default function AgendaPage() {
                   {creando ? 'Guardando...' : 'Guardar'}
                 </motion.button>
               </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      </Modal>
 
-      <AnimatePresence>
-        {modalCerrar && turnoSeleccionado && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => { setModalCerrar(false); setTurnoSeleccionado(null); }}>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/45 backdrop-blur-[3px] pointer-events-none"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: 'spring', duration: 0.35 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-900">Resumen del Turno</h2>
-                <button onClick={() => { setModalCerrar(false); setTurnoSeleccionado(null); }} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
-                  <span className="material-symbols-rounded">close</span>
-                </button>
-              </div>
+      <Modal
+        isOpen={modalCerrar && !!turnoSeleccionado}
+        onClose={() => { setModalCerrar(false); setTurnoSeleccionado(null); }}
+        title="Resumen del Turno"
+        maxWidthClass="max-w-md"
+      >
+        {turnoSeleccionado && (
+          <>
 
               <div className="space-y-4">
                 <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100/60">
@@ -1424,34 +1389,18 @@ export default function AgendaPage() {
                   Marcar como Realizado
                 </button>
               </div>
-            </motion.div>
-          </div>
+            </>
         )}
-      </AnimatePresence>
+      </Modal>
 
-      <AnimatePresence>
-        {modalResumenRealizado && turnoSeleccionado && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => { setModalResumenRealizado(false); setTurnoSeleccionado(null); }}>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/45 backdrop-blur-[3px] pointer-events-none"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: 'spring', duration: 0.35 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-900">Turno Realizado</h2>
-                <button onClick={() => { setModalResumenRealizado(false); setTurnoSeleccionado(null); }} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
-                  <span className="material-symbols-rounded">close</span>
-                </button>
-              </div>
+      <Modal
+        isOpen={modalResumenRealizado && !!turnoSeleccionado}
+        onClose={() => { setModalResumenRealizado(false); setTurnoSeleccionado(null); }}
+        title="Turno Realizado"
+        maxWidthClass="max-w-md"
+      >
+        {turnoSeleccionado && (
+          <>
 
               <div className="space-y-4">
                 <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100/60">
@@ -1507,34 +1456,17 @@ export default function AgendaPage() {
                   Cerrar
                 </button>
               </div>
-            </motion.div>
-          </div>
+            </>
         )}
-      </AnimatePresence>
+      </Modal>
 
-      <AnimatePresence>
-        {modalNuevoPac && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => setModalNuevoPac(false)}>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/45 backdrop-blur-[3px] pointer-events-none"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: 'spring', duration: 0.35 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-900">Nuevo Paciente</h2>
-                <button onClick={() => setModalNuevoPac(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
-                  <span className="material-symbols-rounded">close</span>
-                </button>
-              </div>
+      <Modal
+        isOpen={modalNuevoPac}
+        onClose={() => setModalNuevoPac(false)}
+        title="Nuevo Paciente"
+        maxWidthClass="max-w-md"
+        zIndex="z-[60]"
+      >
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">DNI</label>
@@ -1582,34 +1514,16 @@ export default function AgendaPage() {
                   {creandoPac ? 'Creando...' : 'Crear Paciente'}
                 </motion.button>
               </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      </Modal>
 
-      <AnimatePresence>
-        {modalResumenCancelado && turnoSeleccionado && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => { setModalResumenCancelado(false); setTurnoSeleccionado(null); }}>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/45 backdrop-blur-[3px] pointer-events-none"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: 'spring', duration: 0.35 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-900">Turno Cancelado</h2>
-                <button onClick={() => { setModalResumenCancelado(false); setTurnoSeleccionado(null); }} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
-                  <span className="material-symbols-rounded">close</span>
-                </button>
-              </div>
+      <Modal
+        isOpen={modalResumenCancelado && !!turnoSeleccionado}
+        onClose={() => { setModalResumenCancelado(false); setTurnoSeleccionado(null); }}
+        title="Turno Cancelado"
+        maxWidthClass="max-w-md"
+      >
+        {turnoSeleccionado && (
+          <>
 
               <div className="space-y-4">
                 <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100/60">
@@ -1665,34 +1579,18 @@ export default function AgendaPage() {
                   Cerrar
                 </button>
               </div>
-            </motion.div>
-          </div>
+            </>
         )}
-      </AnimatePresence>
+      </Modal>
 
-      <AnimatePresence>
-        {modalCerrarForm && turnoSeleccionado && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto font-[family-name:var(--font-sans)]" onClick={() => setModalCerrarForm(false)}>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/45 backdrop-blur-[3px] pointer-events-none"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: 'spring', duration: 0.35 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 my-8 relative z-10 max-h-[90vh] overflow-y-auto"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-900">Cerrar Turno</h2>
-                <button onClick={() => { setModalCerrarForm(false); setTratamientos([{ nombre: '', precio: 0, moneda: 'ARS' }]); setPagos([{ monto: 0, moneda: 'ARS', metodo: 'efectivo' }]); setComentarioClinico(''); }} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
-                  <span className="material-symbols-rounded">close</span>
-                </button>
-              </div>
+      <Modal
+        isOpen={modalCerrarForm && !!turnoSeleccionado}
+        onClose={closeCerrarFormModal}
+        title="Cerrar Turno"
+        maxWidthClass="max-w-lg"
+      >
+        {turnoSeleccionado && (
+          <>
 
               {/* Selector de catálogo */}
               <div className="mb-4">
@@ -1874,7 +1772,7 @@ export default function AgendaPage() {
 
               <div className="flex gap-3 mt-8">
                 <button
-                  onClick={() => { setModalCerrarForm(false); setTratamientos([{ nombre: '', precio: 0, moneda: 'ARS' }]); setPagos([{ monto: 0, moneda: 'ARS', metodo: 'efectivo' }]); setTurnoSeleccionado(null); setComentarioClinico(''); }}
+                  onClick={closeCerrarFormModal}
                   className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Cancelar
@@ -1889,10 +1787,9 @@ export default function AgendaPage() {
                   {cerrando ? 'Cerrando...' : 'Confirmar'}
                 </motion.button>
               </div>
-            </motion.div>
-          </div>
+            </>
         )}
-      </AnimatePresence>
+      </Modal>
     </div>
   );
 }

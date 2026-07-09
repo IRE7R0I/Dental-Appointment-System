@@ -93,8 +93,8 @@ export default function CustomSelect({
                     type="button"
                     onClick={() => handleSelect(option.value)}
                     className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm text-left transition-all duration-150 cursor-pointer ${isSelected
-                      ? 'bg-blue-50/70 text-blue-700 font-semibold font-[family-name:var(--font-sans)]'
-                      : 'text-slate-700 hover:bg-slate-50 font-[family-name:var(--font-sans)]'
+                      ? 'bg-blue-50/70 text-blue-700 font-semibold'
+                      : 'text-slate-700 hover:bg-slate-50'
                       }`}
                   >
                     <div className="flex items-center gap-2.5 truncate">

@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { getCajaHoy, getDeudores, registrarPago, getPagos, getHistorialPaciente } from '../services/api';
 import type { ResumenCaja, Deudor, PagoContextoResponse, HistorialTurnoItemResponse } from '../types';
+import { globalCache } from '../services/cache';
 import { motion, AnimatePresence } from 'motion/react';
+import Modal from '../components/Modal';
 import { useToast } from '../context/ToastContext';
 import {
   TrendingUp,
@@ -172,9 +174,9 @@ function formatFechaCorta(iso: string) {
 
 export default function PagosPage() {
   const toast = useToast();
-  const [caja, setCaja] = useState<ResumenCaja | null>(null);
-  const [deudores, setDeudores] = useState<Deudor[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [caja, setCaja] = useState<ResumenCaja | null>(globalCache.pagos.caja);
+  const [deudores, setDeudores] = useState<Deudor[]>(globalCache.pagos.deudores);
+  const [loading, setLoading] = useState(!globalCache.pagos.caja && globalCache.pagos.deudores.length === 0);
 
   // Pestaña principal activa: "deudores" (Cuentas y Deudores) o "pagos" (Libro de Caja)
   const [activeTab, setActiveTab] = useState<'deudores' | 'pagos'>('deudores');
@@ -226,6 +228,8 @@ export default function PagosPage() {
         if (!cancelled) {
           setCaja(cajaData);
           setDeudores(deudoresData);
+          globalCache.pagos.caja = cajaData;
+          globalCache.pagos.deudores = deudoresData;
         }
       } catch { /* ignore */ } finally {
         if (!cancelled) setLoading(false);
@@ -445,14 +449,27 @@ export default function PagosPage() {
       });
 
       // ── Optimistic update: reduce local balance immediately ──
-      setDeudores(prev => prev.map(d => {
+      const updatedDeudores = deudores.map(d => {
         if (d.dni !== cobroPaciente.dni) return d;
         return {
           ...d,
           saldo_ars: cobroMoneda === 'ARS' ? d.saldo_ars - cobroMonto : d.saldo_ars,
           saldo_usd: cobroMoneda === 'USD' ? d.saldo_usd - cobroMonto : d.saldo_usd,
         };
-      }));
+      });
+      setDeudores(updatedDeudores);
+      globalCache.pagos.deudores = updatedDeudores;
+
+      // Optimistically update caja stats if cached
+      if (globalCache.pagos.caja) {
+        const updatedCaja = {
+          ...globalCache.pagos.caja,
+          ingresos_ars: cobroMoneda === 'ARS' ? globalCache.pagos.caja.ingresos_ars + cobroMonto : globalCache.pagos.caja.ingresos_ars,
+          ingresos_usd: cobroMoneda === 'USD' ? globalCache.pagos.caja.ingresos_usd + cobroMonto : globalCache.pagos.caja.ingresos_usd,
+        };
+        setCaja(updatedCaja);
+        globalCache.pagos.caja = updatedCaja;
+      }
 
       // Guardar información del recibo y abrir modal
       setReceiptData({
@@ -539,22 +556,22 @@ export default function PagosPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8" id="always-visible-metrics-grid">
 
         {/* Recaudación diaria - Verde Esmeralda (Números en verde médico) */}
-        <div className="bg-white border border-slate-200/50 backdrop-blur-md rounded-3xl p-6 shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
-          <div className="space-y-3 w-full">
-            <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
-              <TrendingUp className="w-4 h-4 text-emerald-600" />
+        <div className="bg-white border border-slate-200/50 backdrop-blur-md rounded-3xl p-6 shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4 min-w-0">
+          <div className="space-y-3 w-full min-w-0">
+            <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1.5 truncate" title="Recaudación Agregada Diaria (Hoy)">
+              <TrendingUp className="w-4 h-4 text-emerald-600 shrink-0" />
               Recaudación Agregada Diaria (Hoy)
             </span>
-            <div className="grid grid-cols-2 gap-4 divide-l divide-slate-100">
-              <div className="pr-2">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Pesos Argentinos</span>
-                <span className="text-xl md:text-2xl font-black text-emerald-650 font-sans">
+            <div className="grid grid-cols-2 gap-2 xl:gap-4 divide-l divide-slate-100 min-w-0">
+              <div className="pr-1 xl:pr-2 min-w-0">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block truncate" title="Pesos Argentinos">Pesos Argentinos</span>
+                <span className="text-2xl lg:text-3xl font-black text-emerald-650 font-sans block" title={loading ? '-' : `$ ${Math.round(caja?.ingresos_ars ?? 0).toLocaleString('es-AR')}`}>
                   $ {loading ? '-' : Math.round(caja?.ingresos_ars ?? 0).toLocaleString('es-AR')}
                 </span>
               </div>
-              <div className="pl-4">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Dólares Americanos</span>
-                <span className="text-xl md:text-2xl font-black text-emerald-650 font-sans">
+              <div className="pl-2 xl:pl-4 min-w-0">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block truncate" title="Dólares Americanos">Dólares Americanos</span>
+                <span className="text-2xl lg:text-3xl font-black text-emerald-650 font-sans block" title={loading ? '-' : `USD ${Math.round(caja?.ingresos_usd ?? 0).toLocaleString('es-AR')}`}>
                   USD {loading ? '-' : Math.round(caja?.ingresos_usd ?? 0).toLocaleString('es-AR')}
                 </span>
               </div>
@@ -563,22 +580,22 @@ export default function PagosPage() {
         </div>
 
         {/* Cartera de Saldos / Deudas - Rojo Coral */}
-        <div className="bg-white border border-slate-200/50 backdrop-blur-md rounded-3xl p-6 shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
-          <div className="space-y-3 w-full">
-            <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
-              <Wallet className="w-4 h-4 text-rose-600" />
+        <div className="bg-white border border-slate-200/50 backdrop-blur-md rounded-3xl p-6 shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4 min-w-0">
+          <div className="space-y-3 w-full min-w-0">
+            <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1.5 truncate" title="Cartera de Saldos a Cobrar (Deudores)">
+              <Wallet className="w-4 h-4 text-rose-600 shrink-0" />
               Cartera de Saldos a Cobrar (Deudores)
             </span>
-            <div className="grid grid-cols-2 gap-4 divide-l divide-slate-100">
-              <div className="pr-2">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Total Deuda ARS</span>
-                <span className="text-xl md:text-2xl font-black text-rose-700 font-sans">
+            <div className="grid grid-cols-2 gap-2 xl:gap-4 divide-l divide-slate-100 min-w-0">
+              <div className="pr-1 xl:pr-2 min-w-0">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block truncate" title="Total Deuda ARS">Total Deuda ARS</span>
+                <span className="text-2xl lg:text-3xl font-black text-rose-700 font-sans block" title={loading ? '-' : `$ ${Math.round(totalDeudaARS).toLocaleString('es-AR')}`}>
                   $ {loading ? '-' : Math.round(totalDeudaARS).toLocaleString('es-AR')}
                 </span>
               </div>
-              <div className="pl-4">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Total Deuda USD</span>
-                <span className="text-xl md:text-2xl font-black text-rose-700 font-sans">
+              <div className="pl-2 xl:pl-4 min-w-0">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block truncate" title="Total Deuda USD">Total Deuda USD</span>
+                <span className="text-2xl lg:text-3xl font-black text-rose-700 font-sans block" title={loading ? '-' : `USD ${Math.round(totalDeudaUSD).toLocaleString('es-AR')}`}>
                   USD {loading ? '-' : Math.round(totalDeudaUSD).toLocaleString('es-AR')}
                 </span>
               </div>
@@ -1342,7 +1359,7 @@ export default function PagosPage() {
                           }
                         }
                       }}
-                      className="w-full mt-1.5 px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 bg-white font-bold text-slate-755 outline-none cursor-pointer transition-all"
+                      className="w-full min-w-0 max-w-full mt-1.5 px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 bg-white font-bold text-slate-755 outline-none cursor-pointer transition-all truncate"
                     >
                       <option value="">Abono general / Amortización automática</option>
                       {turnosPaciente.map(t => (
@@ -1378,85 +1395,66 @@ export default function PagosPage() {
       </AnimatePresence>
 
       {/* 🎉 RECIBO Y MODAL DE CONFIRMACIÓN DE ABONO */}
-      <AnimatePresence>
-        {showReceiptModal && receiptData && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <Modal
+        isOpen={showReceiptModal && !!receiptData}
+        onClose={() => setShowReceiptModal(false)}
+      >
+        {receiptData && (
+          <div className="flex flex-col items-center text-center">
+            {/* Halo animado con check */}
+            <div className="relative mb-6">
+              <motion.div
+                initial={{ scale: 0.8 }}
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                className="absolute inset-0 bg-emerald-500/10 rounded-full scale-125"
+              />
+              <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500 relative z-10">
+                <CheckCircle className="w-10 h-10" />
+              </div>
+            </div>
 
-            {/* Backdrop con desenfoque de fondo */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowReceiptModal(false)}
-              className="absolute inset-0 bg-slate-900/70 backdrop-blur-md cursor-pointer"
-            />
+            <h3 className="text-2xl font-black text-slate-900 tracking-tight">¡Abono Aprobado!</h3>
+            <p className="text-xs text-slate-450 font-bold mt-1.5 uppercase tracking-wider">Comprobante de Caja Diaria</p>
 
-            {/* Modal de Ticket contable */}
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="relative bg-white rounded-[32px] w-full max-w-md p-8 shadow-2xl z-10 flex flex-col items-center text-center font-sans border border-slate-100"
-            >
-
-              {/* Halo animado con check */}
-              <div className="relative mb-6">
-                <motion.div
-                  initial={{ scale: 0.8 }}
-                  animate={{ scale: [1, 1.1, 1] }}
-                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                  className="absolute inset-0 bg-emerald-500/10 rounded-full scale-125"
-                />
-                <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500 relative z-10">
-                  <CheckCircle className="w-10 h-10" />
-                </div>
+            {/* Ticket Físico estilizado */}
+            <div className="bg-slate-50 border border-slate-200/60 rounded-2xl w-full p-5 mt-6 space-y-3.5 text-left text-sm">
+              <div className="flex justify-between items-start gap-4">
+                <span className="text-slate-450 text-[10px] font-black uppercase tracking-wider">Paciente:</span>
+                <span className="font-bold text-slate-800 text-right">{receiptData.paciente}</span>
               </div>
 
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight">¡Abono Aprobado!</h3>
-              <p className="text-xs text-slate-450 font-bold mt-1.5 uppercase tracking-wider">Comprobante de Caja Diaria</p>
-
-              {/* Ticket Físico estilizado */}
-              <div className="bg-slate-50 border border-slate-200/60 rounded-2xl w-full p-5 mt-6 space-y-3.5 text-left text-sm">
-
-                <div className="flex justify-between items-start gap-4">
-                  <span className="text-slate-450 text-[10px] font-black uppercase tracking-wider">Paciente:</span>
-                  <span className="font-bold text-slate-800 text-right">{receiptData.paciente}</span>
-                </div>
-
-                <div className="flex justify-between items-center border-t border-slate-200/50 pt-3">
-                  <span className="text-slate-450 text-[10px] font-black uppercase tracking-wider">Importe Recibido:</span>
-                  <span className="font-black text-lg text-[#00875A] font-sans">
-                    {receiptData.moneda === 'ARS' ? '$' : 'USD'} {receiptData.monto.toLocaleString('es-AR')}{' '}
-                    <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-200/30 px-1.5 py-0.5 rounded-md ml-1 font-sans">
-                      {receiptData.moneda}
-                    </span>
+              <div className="flex justify-between items-center border-t border-slate-200/50 pt-3">
+                <span className="text-slate-450 text-[10px] font-black uppercase tracking-wider">Importe Recibido:</span>
+                <span className="font-black text-lg text-[#00875A] font-sans">
+                  {receiptData.moneda === 'ARS' ? '$' : 'USD'} {receiptData.monto.toLocaleString('es-AR')}{' '}
+                  <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-200/30 px-1.5 py-0.5 rounded-md ml-1 font-sans">
+                    {receiptData.moneda}
                   </span>
-                </div>
-
-                <div className="flex justify-between items-center border-t border-slate-200/50 pt-3">
-                  <span className="text-slate-450 text-[10px] font-black uppercase tracking-wider">Método de Pago:</span>
-                  <span className="font-bold text-slate-800">{receiptData.metodo}</span>
-                </div>
-
-                <div className="flex justify-between items-center border-t border-slate-200/50 pt-3">
-                  <span className="text-slate-450 text-[10px] font-black uppercase tracking-wider">Marca de Tiempo:</span>
-                  <span className="font-bold text-slate-500 text-xs">{receiptData.timestamp}</span>
-                </div>
+                </span>
               </div>
 
-              {/* Botón de cierre */}
-              <button
-                onClick={() => setShowReceiptModal(false)}
-                className="mt-8 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-2xl w-full hover:shadow-md active:scale-95 transition-all cursor-pointer"
-              >
-                Finalizar Transacción
-              </button>
+              <div className="flex justify-between items-center border-t border-slate-200/50 pt-3">
+                <span className="text-slate-450 text-[10px] font-black uppercase tracking-wider">Método de Pago:</span>
+                <span className="font-bold text-slate-800">{receiptData.metodo}</span>
+              </div>
 
-            </motion.div>
+              <div className="flex justify-between items-center border-t border-slate-200/50 pt-3">
+                <span className="text-slate-450 text-[10px] font-black uppercase tracking-wider">Marca de Tiempo:</span>
+                <span className="font-bold text-slate-500 text-xs">{receiptData.timestamp}</span>
+              </div>
+            </div>
+
+            {/* Botón de cierre */}
+            <button
+              onClick={() => setShowReceiptModal(false)}
+              className="mt-8 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-2xl w-full hover:shadow-md active:scale-95 transition-all cursor-pointer"
+            >
+              Finalizar Transacción
+            </button>
           </div>
         )}
-      </AnimatePresence>
+      </Modal>
 
     </div>
   );

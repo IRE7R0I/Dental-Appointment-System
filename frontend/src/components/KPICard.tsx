@@ -31,11 +31,11 @@ export default function KPICard({ title, value, subtitle, icon, color, loading, 
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
           <span className="material-symbols-rounded filled">{icon}</span>
         </div>
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-[family-name:var(--font-body)]">
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
           {subtitle || title}
         </span>
       </div>
-      <h2 className="text-3xl font-bold text-slate-800 font-[family-name:var(--font-display)]">
+      <h2 className="text-3xl font-bold text-slate-800">
         {value}
       </h2>
       <p className="text-sm text-slate-500 font-medium mt-1">{title}</p>
