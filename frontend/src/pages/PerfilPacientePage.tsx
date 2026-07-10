@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import Modal from '../components/Modal';
 import {
   ArrowLeft,
   Edit3,
@@ -49,21 +50,6 @@ const OBRAS_SOCIALES_DEFAULT = [
 
 type SubView = 'list' | 'profile' | 'edit' | 'history';
 
-const OBRA_SOCIAL_BADGE_STYLE: Record<string, string> = {
-  osde: 'bg-amber-500/10 text-amber-700 border-amber-250/30',
-  particular: 'bg-slate-500/10 text-slate-700 border-slate-200/40',
-  'swiss medical': 'bg-purple-500/10 text-purple-700 border-purple-250/30',
-  osep: 'bg-sky-500/10 text-sky-700 border-sky-250/30',
-  medicus: 'bg-teal-500/10 text-teal-700 border-teal-250/30',
-  'jerárquicos salud': 'bg-pink-500/10 text-pink-700 border-pink-250/30',
-  'prevención cobertura': 'bg-emerald-500/10 text-emerald-700 border-emerald-250/30',
-};
-
-function getOSBadgeClass(os?: string) {
-  if (!os) return 'bg-slate-500/10 text-slate-700 border-slate-250/30';
-  const key = os.toLowerCase();
-  return OBRA_SOCIAL_BADGE_STYLE[key] || 'bg-blue-500/10 text-blue-700 border-blue-250/30';
-}
 
 const AVATAR_ICE_STYLES = [
   'from-blue-500/20 to-indigo-500/20 text-blue-700 border-blue-300/40',
@@ -404,52 +390,37 @@ interface TurnoDetalleModalProps {
 }
 
 function TurnoDetalleModal({ turno, onClose }: TurnoDetalleModalProps) {
-  if (!turno) return null;
-
-  const fechaCompleta = formatFecha(turno.fecha_hora);
-  const hora = new Date(turno.fecha_hora).toLocaleTimeString('es-AR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
+  const fechaCompleta = turno ? formatFecha(turno.fecha_hora) : '';
+  const hora = turno
+    ? new Date(turno.fecha_hora).toLocaleTimeString('es-AR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      })
+    : '';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
-      />
-
-      {/* Modal Content */}
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-lg w-full relative z-10 overflow-hidden flex flex-col max-h-[90vh] animate-fade-slide-up">
-        {/* Cabecera */}
-        <header className="p-6 border-b border-slate-100 flex justify-between items-start gap-4 bg-slate-50/50">
-          <div>
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
+    <Modal
+      isOpen={!!turno}
+      onClose={onClose}
+      title={fechaCompleta}
+      maxWidthClass="max-w-lg"
+    >
+      {turno && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center bg-slate-50/50 p-4 rounded-2xl border border-slate-100/60">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Detalle del Turno</span>
               <span className="text-xs text-slate-300 font-bold">&middot;</span>
               <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border ${getStatusTagClass(turno.estado)} shadow-xs`}>
                 {turno.estado.toUpperCase()}
               </span>
             </div>
-            <h2 className="text-xl font-bold text-slate-900 leading-tight">
-              {fechaCompleta}
-            </h2>
-            <p className="text-xs font-semibold text-slate-500 mt-1">
+            <p className="text-xs font-semibold text-slate-500">
               Hora: <span className="text-slate-800 font-bold">{hora} hs</span> &middot; Odontólogo: <span className="text-slate-800 font-bold">Dr. {turno.doctor.nombre}</span>
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white hover:bg-slate-100 border border-slate-200/60 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-all cursor-pointer focus:outline-none"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </header>
 
-        {/* Cuerpo Scrollable */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
           {/* Tratamientos Efectuados */}
           <div>
             <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
@@ -484,19 +455,18 @@ function TurnoDetalleModal({ turno, onClose }: TurnoDetalleModalProps) {
               </p>
             </div>
           </div>
-        </div>
 
-        {/* Pie de modal */}
-        <footer className="p-5 border-t border-slate-100 flex justify-end items-center bg-slate-50/30">
-          <button
-            onClick={onClose}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs tracking-wider px-5 py-3 rounded-2xl transition-all active:scale-95 shadow-md shadow-blue-500/10 cursor-pointer focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          >
-            Cerrar
-          </button>
-        </footer>
-      </div>
-    </div>
+          <div className="flex justify-end pt-4 border-t border-slate-100">
+            <button
+              onClick={onClose}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs tracking-wider px-5 py-3 rounded-2xl transition-all active:scale-95 shadow-md shadow-blue-500/10 cursor-pointer focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -551,7 +521,7 @@ export default function PerfilPacientePage() {
   const [errorNuevo, setErrorNuevo] = useState('');
 
   // Vista 4 Contabilidad: Filtros y pagos rápidos
-  const [filtroMetodo, setFiltroMetodo] = useState<'todos' | 'efectivo' | 'transferencia'>('todos');
+
   const [nuevoPago, setNuevoPago] = useState({
     monto: '',
     moneda: 'ARS' as 'ARS' | 'USD',
@@ -911,24 +881,10 @@ export default function PerfilPacientePage() {
     }));
   };
 
-  function getDoctorBadgeColor(name: string) {
-    const lname = name.toLowerCase();
-    if (lname.includes('dario') || lname.includes('darío')) {
-      return 'bg-[#009BFF]/10 text-[#009BFF] border-[#009BFF]/30';
-    }
-    if (lname.includes('fabiana')) {
-      return 'bg-[#FF0088]/10 text-[#FF0088] border-[#FF0088]/30';
-    }
-    return 'bg-blue-500/10 text-blue-700 border-blue-200/40';
-  }
+
 
   // Filtrado de pagos para la vista 4 contable
-  const pagosFiltrados = useMemo(() => {
-    return pagosSel.filter((p) => {
-      if (filtroMetodo === 'todos') return true;
-      return p.metodo_pago.toLowerCase() === filtroMetodo;
-    });
-  }, [pagosSel, filtroMetodo]);
+  const pagosFiltrados = pagosSel;
 
   const totalCajaCobradoARS = useMemo(() => {
     return pagosSel.reduce((s, p) => p.moneda === 'ARS' ? s + p.monto : s, 0);
@@ -1450,7 +1406,7 @@ export default function PerfilPacientePage() {
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">
                   Desglose de Caja de Paciente
                 </span>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight mt-1">
+                <h1 className="text-xl lg:text-2xl 2xl:text-3xl font-bold text-slate-900 tracking-tight mt-1">
                   Historial de Pagos y Tratamientos &middot; {pacienteSel.apellido}, {pacienteSel.nombre}
                 </h1>
               </div>
@@ -1517,9 +1473,9 @@ export default function PerfilPacientePage() {
             </div>
 
             {/* Doble columna Contable */}
-            <div className="grid grid-cols-1 xl:grid-cols-10 gap-6 items-stretch flex-1 min-h-0">
-              {/* COLUMNA IZQUIERDA: Historial de Movimientos (70%) */}
-              <div className="xl:col-span-7 flex flex-col gap-5 h-full min-h-0">
+            <div className="grid grid-cols-1 xl:grid-cols-12 2xl:grid-cols-10 gap-6 items-stretch flex-1 min-h-0">
+              {/* COLUMNA IZQUIERDA: Historial de Movimientos (70% standard, 66.6% on laptop) */}
+              <div className="xl:col-span-8 2xl:col-span-7 flex flex-col gap-5 h-full min-h-0">
                 <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-xl shadow-blue-950/5 p-6 rounded-3xl flex flex-col flex-1 h-full min-h-0">
                   <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 pb-2 border-b border-slate-200/50">
                     Historial de Movimientos
@@ -1531,13 +1487,13 @@ export default function PerfilPacientePage() {
                     </div>
                   ) : (
                     <div className="overflow-x-auto flex-1 min-h-0 overflow-y-auto pr-1">
-                      <table className="w-full text-left border-collapse text-xs">
+                      <table className="w-full text-left border-collapse text-xs min-w-[700px]">
                         <thead>
                           <tr className="border-b border-slate-200/40 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                            <th className="py-3 px-2">Concepto / Fecha</th>
-                            <th className="py-3 px-2">Costo Total</th>
-                            <th className="py-3 px-2">Abonado</th>
-                            <th className="py-3 px-2 text-right">Saldo Restante</th>
+                            <th className="py-3 px-2 w-[45%] xl:w-[40%] 2xl:w-[50%] min-w-0">Concepto / Fecha</th>
+                            <th className="py-3 px-2 w-[18%] xl:w-[20%] 2xl:w-[15%] min-w-0">Costo Total</th>
+                            <th className="py-3 px-2 w-[18%] xl:w-[20%] 2xl:w-[15%] min-w-0">Abonado</th>
+                            <th className="py-3 px-2 w-[19%] xl:w-[20%] 2xl:w-[20%] text-right min-w-0">Saldo Restante</th>
                           </tr>
                         </thead>
                         <tbody className="font-medium text-slate-700">
@@ -1564,7 +1520,7 @@ export default function PerfilPacientePage() {
                                   >
                                     {/* Columna 1: Concepto / Fecha */}
                                     <td className="py-3.5 px-2 align-middle">
-                                      <div className="flex items-center gap-2.5">
+                                      <div className="flex items-start gap-2.5">
                                         {turno.pagos && turno.pagos.length > 0 ? (
                                           <ChevronRight
                                             className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${turnosAbiertos[turno.id] ? 'rotate-90' : 'rotate-0'
@@ -1727,8 +1683,8 @@ export default function PerfilPacientePage() {
                 </div>
               </div>
 
-              {/* COLUMNA DERECHA: Libro de Caja y Registrar Cobro Simplificado (30%) */}
-              <div className="xl:col-span-3 flex flex-col gap-5 h-full min-h-0">
+              {/* COLUMNA DERECHA: Libro de Caja y Registrar Cobro Simplificado (30% standard, 33.3% on laptop) */}
+              <div className="xl:col-span-4 2xl:col-span-3 flex flex-col gap-5 h-full min-h-0">
                 <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-xl shadow-blue-950/5 p-6 rounded-3xl flex flex-col gap-6 h-full min-h-0 justify-between">
                   {/* Título y Resumen */}
                   <div>
@@ -1757,7 +1713,7 @@ export default function PerfilPacientePage() {
                       Últimos Cobros Registrados
                     </span>
                     {pagosFiltrados.length === 0 ? (
-                      <div className="text-center py-6 text-slate-400 bg-slate-50/45 rounded-2xl text-xs flex-1 flex items-center justify-center">
+                      <div className="relative text-center py-6 px-3 text-slate-400 bg-slate-50/45 rounded-2xl text-xs flex items-center justify-center w-full min-h-[56px]">
                         Sin cobros registrados en caja.
                       </div>
                     ) : (
@@ -1791,12 +1747,12 @@ export default function PerfilPacientePage() {
                   </div>
 
                   {/* Formulario Registrar Cobro */}
-                  <div className="border-t border-slate-200/50 pt-5 mt-auto">
+                  <div className="border-t border-slate-200/50 pt-5">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">
                       Registrar Nuevo Cobro
                     </span>
                     <div className="space-y-3">
-                      <div className="flex gap-2">
+                      <div className="flex flex-row flex-nowrap gap-2 w-full min-w-0 items-center">
                         {/* Selector de Moneda */}
                         <select
                           value={nuevoPago.moneda}
@@ -1811,29 +1767,29 @@ export default function PerfilPacientePage() {
                             }
                             setNuevoPago({ ...nuevoPago, moneda: currency, monto: autoMonto });
                           }}
-                          className="bg-white border border-slate-200 text-slate-800 text-xs rounded-xl px-2 py-2 outline-none font-bold cursor-pointer"
+                          className="bg-white border border-slate-200 text-slate-800 text-xs rounded-xl px-2 py-2 outline-none font-bold cursor-pointer w-20 shrink-0 min-w-0"
                         >
                           <option value="ARS">ARS ($)</option>
                           <option value="USD">USD</option>
                         </select>
 
-                        <div className="relative flex-1">
+                        <div className="relative flex-1 min-w-0">
                           <span className="absolute left-3 top-2.5 text-slate-400 text-xs font-black tracking-tight">
                             {nuevoPago.moneda === 'ARS' ? '$' : 'USD'}
                           </span>
                           <input
                             type="number"
-                            placeholder={nuevoPago.moneda === 'ARS' ? "Monto ARS" : "Monto USD"}
+                            placeholder={nuevoPago.moneda === 'ARS' ? "Monto" : "Monto"}
                             value={nuevoPago.monto}
                             onChange={(e) => setNuevoPago({ ...nuevoPago, monto: e.target.value })}
                             onWheel={(e) => e.currentTarget.blur()}
-                            className="w-full bg-white border border-slate-200 text-slate-800 text-xs rounded-xl pl-10 pr-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 font-black tracking-tight"
+                            className="w-full bg-white border border-slate-200 text-slate-800 text-xs rounded-xl pl-8 pr-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 font-black tracking-tight min-w-0"
                           />
                         </div>
                         <select
                           value={nuevoPago.metodo}
                           onChange={(e) => setNuevoPago({ ...nuevoPago, metodo: e.target.value })}
-                          className="bg-white border border-slate-200 text-slate-800 text-xs rounded-xl px-2 py-2 outline-none font-bold cursor-pointer"
+                          className="bg-white border border-slate-200 text-slate-800 text-xs rounded-xl px-2 py-2 outline-none font-bold cursor-pointer w-28 shrink-0 min-w-0"
                         >
                           <option value="efectivo">Efectivo</option>
                           <option value="transferencia">Transferencia</option>
@@ -1856,7 +1812,7 @@ export default function PerfilPacientePage() {
                             }
                             setNuevoPago({ ...nuevoPago, id_turno: val, monto: autoMonto });
                           }}
-                          className="w-full bg-white border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 font-bold cursor-pointer"
+                          className="w-full min-w-0 max-w-full bg-white border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 font-bold cursor-pointer truncate"
                         >
                           <option value="">Abono general / Amortización automática</option>
                           {(historialSel?.turnos ?? [])
@@ -1897,256 +1853,210 @@ export default function PerfilPacientePage() {
           ========================================================================= */}
       <AnimatePresence>
         {/* Modal de Obras Sociales */}
-        {modalOS && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm"
-            onClick={() => setModalOS(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 20 }}
-              className="bg-white/85 backdrop-blur-md border border-white/50 shadow-2xl rounded-3xl w-full max-w-md p-6 md:p-8"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-                  Obras Sociales Admitidas
-                </h2>
-                <button
-                  onClick={() => setModalOS(false)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={nuevaOS}
-                    onChange={(e) => setNuevaOS(e.target.value)}
-                    placeholder="Agregar nueva obra social..."
-                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-blue-600 transition-all font-semibold"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const v = nuevaOS.trim();
-                        if (v && !obrasSociales.includes(v)) {
-                          setObrasSociales((prev) => [...prev, v]);
-                          setNuevaOS('');
-                        }
-                      }
-                    }}
-                  />
-                  <button
-                    onClick={() => {
-                      const v = nuevaOS.trim();
-                      if (v && !obrasSociales.includes(v)) {
-                        setObrasSociales((prev) => [...prev, v]);
-                        setNuevaOS('');
-                      }
-                    }}
-                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-500/20 active:scale-95 transition-all cursor-pointer"
-                  >
-                    + Agregar
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
-                  {obrasSociales.map((os) => (
-                    <span
-                      key={os}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/70 border border-slate-200/50 text-slate-700 text-xs font-bold shadow-sm"
-                    >
-                      {os}
-                      {os !== 'Particular' && (
-                        <button
-                          onClick={() => setObrasSociales((prev) => prev.filter((x) => x !== os))}
-                          className="text-slate-400 hover:text-red-500 cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {/* Modal de Nuevo Paciente */}
-        {modalNuevo && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm"
-            onClick={() => setModalNuevo(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 20 }}
-              className="bg-white/85 backdrop-blur-md border border-white/50 shadow-2xl rounded-3xl w-full max-w-lg p-6 md:p-8"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-                  Registrar Nuevo Paciente
-                </h2>
-                <button
-                  onClick={() => setModalNuevo(false)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
-                      Número de DNI *
-                    </label>
-                    <input
-                      type="text"
-                      value={nuevoForm.dni}
-                      onChange={(e) => setNuevoForm({ ...nuevoForm, dni: e.target.value })}
-                      placeholder="Ej: 35123456"
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-blue-600/20 transition-all font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
-                      Nombre *
-                    </label>
-                    <input
-                      type="text"
-                      value={nuevoForm.nombre}
-                      onChange={(e) => setNuevoForm({ ...nuevoForm, nombre: e.target.value })}
-                      placeholder="Ej: Riki"
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-blue-600/20 transition-all font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
-                      Apellido *
-                    </label>
-                    <input
-                      type="text"
-                      value={nuevoForm.apellido}
-                      onChange={(e) => setNuevoForm({ ...nuevoForm, apellido: e.target.value })}
-                      placeholder="Ej: Martin"
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-blue-600/20 transition-all font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
-                      Teléfono Móvil
-                    </label>
-                    <input
-                      type="text"
-                      value={nuevoForm.telefono}
-                      onChange={(e) => setNuevoForm({ ...nuevoForm, telefono: e.target.value })}
-                      placeholder="Ej: +5492615554321"
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-blue-600/20 transition-all font-semibold"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
-                    Correo Electrónico
-                  </label>
-                  <input
-                    type="email"
-                    value={nuevoForm.email}
-                    onChange={(e) => setNuevoForm({ ...nuevoForm, email: e.target.value })}
-                    placeholder="Ej: riki@clinica.com"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-blue-600/20 transition-all font-semibold"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
-                    Cobertura Médica
-                  </label>
-                  <select
-                    value={nuevoForm.obra_social}
-                    onChange={(e) => setNuevoForm({ ...nuevoForm, obra_social: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-blue-600/20 transition-all bg-white font-bold"
-                  >
-                    {obrasSociales.map((os) => (
-                      <option key={os} value={os}>
-                        {os}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {errorNuevo && (
-                  <p className="text-red-650 text-xs font-mono font-bold">{errorNuevo}</p>
-                )}
-              </div>
-
-              <div className="flex gap-4 mt-8 border-t border-slate-100/50 pt-4">
-                <button
-                  onClick={() => setModalNuevo(false)}
-                  className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-xs tracking-wider uppercase hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleCrearPaciente}
-                  disabled={creando}
-                  className="flex-1 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs tracking-wider uppercase shadow-lg shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
-                >
-                  {creando ? 'Creando...' : 'Crear Paciente'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {/* CARTEL DE CONFIRMACIÓN ANIMADO (Éxito de Modificación) */}
-        {showSuccessModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-955/40 backdrop-blur-md">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-              className="bg-white/90 backdrop-blur-md border border-white/60 shadow-2xl rounded-3xl p-6 md:p-8 max-w-md w-full flex flex-col items-center text-center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Círculo verde con check */}
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', delay: 0.15, stiffness: 260, damping: 12 }}
-                className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 mb-4"
-              >
-                <CheckCircle2 className="w-10 h-10" />
-              </motion.div>
-
-              <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-2">
-                ¡Ficha Actualizada!
-              </h3>
-              <p className="text-sm font-semibold text-slate-650 mb-6 leading-relaxed">
-                ¡Excelente! Los datos del paciente han sido actualizados con éxito
-              </p>
-
-              {/* Botón Entendido */}
+        <Modal
+          isOpen={modalOS}
+          onClose={() => setModalOS(false)}
+          title="Obras Sociales Admitidas"
+        >
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={nuevaOS}
+                onChange={(e) => setNuevaOS(e.target.value)}
+                placeholder="Agregar nueva obra social..."
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-blue-600 transition-all font-semibold"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const v = nuevaOS.trim();
+                    if (v && !obrasSociales.includes(v)) {
+                      setObrasSociales((prev) => [...prev, v]);
+                      setNuevaOS('');
+                    }
+                  }
+                }}
+              />
               <button
                 onClick={() => {
-                  setShowSuccessModal(false);
-                  setSubView('profile');
+                  const v = nuevaOS.trim();
+                  if (v && !obrasSociales.includes(v)) {
+                    setObrasSociales((prev) => [...prev, v]);
+                    setNuevaOS('');
+                  }
                 }}
-                className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs tracking-wider uppercase shadow-lg shadow-blue-500/20 active:scale-95 transition-all outline-none cursor-pointer"
+                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-500/20 active:scale-95 transition-all cursor-pointer"
               >
-                Entendido
+                + Agregar
               </button>
-            </motion.div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+              {obrasSociales.map((os) => (
+                <span
+                  key={os}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/70 border border-slate-200/50 text-slate-700 text-xs font-bold shadow-sm"
+                >
+                  {os}
+                  {os !== 'Particular' && (
+                    <button
+                      onClick={() => setObrasSociales((prev) => prev.filter((x) => x !== os))}
+                      className="text-slate-400 hover:text-red-500 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
           </div>
-        )}
+        </Modal>
+
+        {/* Modal de Nuevo Paciente */}
+        <Modal
+          isOpen={modalNuevo}
+          onClose={() => setModalNuevo(false)}
+          title="Registrar Nuevo Paciente"
+          maxWidthClass="max-w-lg"
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                  Número de DNI *
+                </label>
+                <input
+                  type="text"
+                  value={nuevoForm.dni}
+                  onChange={(e) => setNuevoForm({ ...nuevoForm, dni: e.target.value })}
+                  placeholder="Ej: 35123456"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-blue-600/20 transition-all font-semibold"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                  Nombre *
+                </label>
+                <input
+                  type="text"
+                  value={nuevoForm.nombre}
+                  onChange={(e) => setNuevoForm({ ...nuevoForm, nombre: e.target.value })}
+                  placeholder="Ej: Riki"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-blue-600/20 transition-all font-semibold"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                  Apellido *
+                </label>
+                <input
+                  type="text"
+                  value={nuevoForm.apellido}
+                  onChange={(e) => setNuevoForm({ ...nuevoForm, apellido: e.target.value })}
+                  placeholder="Ej: Martin"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-blue-600/20 transition-all font-semibold"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                  Teléfono Móvil
+                </label>
+                <input
+                  type="text"
+                  value={nuevoForm.telefono}
+                  onChange={(e) => setNuevoForm({ ...nuevoForm, telefono: e.target.value })}
+                  placeholder="Ej: +5492615554321"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-blue-600/20 transition-all font-semibold"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                Correo Electrónico
+              </label>
+              <input
+                type="email"
+                value={nuevoForm.email}
+                onChange={(e) => setNuevoForm({ ...nuevoForm, email: e.target.value })}
+                placeholder="Ej: riki@clinica.com"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-blue-600/20 transition-all font-semibold"
+              />
+            </div>
+            <div>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                Cobertura Médica
+              </label>
+              <select
+                value={nuevoForm.obra_social}
+                onChange={(e) => setNuevoForm({ ...nuevoForm, obra_social: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-blue-600/20 transition-all bg-white font-bold"
+              >
+                {obrasSociales.map((os) => (
+                  <option key={os} value={os}>
+                    {os}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {errorNuevo && (
+              <p className="text-red-650 text-xs font-mono font-bold">{errorNuevo}</p>
+            )}
+          </div>
+
+          <div className="flex gap-4 mt-8 border-t border-slate-100/50 pt-4">
+            <button
+              onClick={() => setModalNuevo(false)}
+              className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-xs tracking-wider uppercase hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleCrearPaciente}
+              disabled={creando}
+              className="flex-1 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs tracking-wider uppercase shadow-lg shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+            >
+              {creando ? 'Creando...' : 'Crear Paciente'}
+            </button>
+          </div>
+        </Modal>
+
+        {/* CARTEL DE CONFIRMACIÓN ANIMADO (Éxito de Modificación) */}
+        <Modal
+          isOpen={showSuccessModal}
+          onClose={() => {
+            setShowSuccessModal(false);
+            setSubView('profile');
+          }}
+        >
+          <div className="flex flex-col items-center text-center">
+            {/* Círculo verde con check */}
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', delay: 0.15, stiffness: 260, damping: 12 }}
+              className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 mb-4"
+            >
+              <CheckCircle2 className="w-10 h-10" />
+            </motion.div>
+
+            <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-2">
+              ¡Ficha Actualizada!
+            </h3>
+            <p className="text-sm font-semibold text-slate-650 mb-6 leading-relaxed">
+              ¡Excelente! Los datos del paciente han sido actualizados con éxito
+            </p>
+
+            {/* Botón Entendido */}
+            <button
+              onClick={() => {
+                setShowSuccessModal(false);
+                setSubView('profile');
+              }}
+              className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs tracking-wider uppercase shadow-lg shadow-blue-500/20 active:scale-95 transition-all outline-none cursor-pointer"
+            >
+              Entendido
+            </button>
+          </div>
+        </Modal>
 
         {/* MODAL DETALLE DE TURNO */}
         <TurnoDetalleModal

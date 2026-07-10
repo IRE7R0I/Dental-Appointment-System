@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { globalCache } from '../services/cache';
 
 interface User {
   id: number;
@@ -44,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(null);
     setRefreshToken(null);
     setUser(null);
+    globalCache.clear();
   };
 
   // On mount: validate stored token

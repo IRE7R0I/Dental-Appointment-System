@@ -171,6 +171,7 @@ export interface PagoContextoResponse {
   dni_paciente: string | null;
   paciente: { dni: string; nombre: string; apellido: string; obra_social?: string } | null;
   doctor: { id: number; nombre: string } | null;
+  notas?: string;
 }
 
 export interface TratamientoCatalogo {

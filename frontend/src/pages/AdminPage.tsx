@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import ConfirmModal from '../components/ConfirmModal';
+import Modal from '../components/Modal';
 
 interface User {
   id: number;
@@ -13,6 +15,15 @@ interface User {
 export default function AdminPage() {
   const { getAccessToken } = useAuth();
   const toast = useToast();
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -44,12 +55,22 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/usuarios', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setUsers(await res.json());
-    } catch { /* silent */ }
-    setIsLoading(false);
+      if (res.ok) {
+        const data = await res.json();
+        if (isMountedRef.current) {
+          setUsers(data);
+        }
+      }
+    } catch { /* silent */ } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+    }
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   // ── Crear usuario ──
   const handleCreate = async (e: React.FormEvent) => {
@@ -154,10 +175,10 @@ export default function AdminPage() {
 
   // ── Render ──
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-4xl mx-auto animate-fade-slide-up">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 font-[family-name:var(--font-display)]">
+          <h1 className="text-2xl font-bold text-slate-800">
             Gestión de Usuarios
           </h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -259,123 +280,107 @@ export default function AdminPage() {
       )}
 
       {/* ── Modal Crear ── */}
-      {showCreate && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setShowCreate(false)}>
-          <div className="bg-white rounded-[24px] p-6 w-full max-w-sm shadow-xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-slate-800 mb-4">Nuevo Usuario</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Usuario</label>
-                <input type="text" value={newUsername} onChange={(e) => setNewUsername(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff] focus:border-[#0061a4]" required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Contraseña</label>
-                <div className="relative">
-                  <input type={showNewPass ? 'text' : 'password'} value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-4 py-2.5 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff] focus:border-[#0061a4]" required />
-                  <button type="button" onClick={() => setShowNewPass(!showNewPass)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" tabIndex={-1}>
-                    <span className="material-symbols-rounded text-xl">{showNewPass ? 'visibility' : 'visibility_off'}</span>
-                  </button>
-                </div>
-              </div>
-              {createError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">{createError}</div>}
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowCreate(false)}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition-colors">Cancelar</button>
-                <button type="submit" disabled={createLoading}
-                  className="flex-1 bg-[#0061a4] hover:bg-[#004d8a] text-white font-medium py-2.5 rounded-xl transition-all disabled:opacity-50">
-                  {createLoading ? 'Creando...' : 'Crear'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="Nuevo Usuario"
+        maxWidthClass="max-w-sm"
+      >
+        <form onSubmit={handleCreate} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1">Usuario</label>
+            <input type="text" value={newUsername} onChange={(e) => setNewUsername(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff] focus:border-[#0061a4]" required />
           </div>
-        </div>
-      )}
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1">Contraseña</label>
+            <div className="relative">
+              <input type={showNewPass ? 'text' : 'password'} value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-4 py-2.5 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff] focus:border-[#0061a4]" required />
+              <button type="button" onClick={() => setShowNewPass(!showNewPass)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" tabIndex={-1}>
+                <span className="material-symbols-rounded text-xl">{showNewPass ? 'visibility' : 'visibility_off'}</span>
+              </button>
+            </div>
+          </div>
+          {createError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">{createError}</div>}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={() => setShowCreate(false)}
+              className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition-colors cursor-pointer">Cancelar</button>
+            <button type="submit" disabled={createLoading}
+              className="flex-1 bg-[#0061a4] hover:bg-[#004d8a] text-white font-medium py-2.5 rounded-xl transition-all disabled:opacity-50 cursor-pointer">
+              {createLoading ? 'Creando...' : 'Crear'}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* ── Modal Editar ── */}
-      {editTarget && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setEditTarget(null)}>
-          <div className="bg-white rounded-[24px] p-6 w-full max-w-sm shadow-xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-slate-800 mb-4">Editar: {editTarget.username}</h2>
-            <form onSubmit={handleEdit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Nombre de usuario</label>
-                <input type="text" value={editUsername} onChange={(e) => setEditUsername(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff] focus:border-[#0061a4]" />
+      <Modal
+        isOpen={!!editTarget}
+        onClose={() => setEditTarget(null)}
+        title={editTarget ? `Editar: ${editTarget.username}` : ''}
+        maxWidthClass="max-w-sm"
+      >
+        {editTarget && (
+          <form onSubmit={handleEdit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Nombre de usuario</label>
+              <input type="text" value={editUsername} onChange={(e) => setEditUsername(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff] focus:border-[#0061a4]" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">
+                Nueva contraseña <span className="text-slate-400 font-normal">(opcional)</span>
+              </label>
+              <div className="relative">
+                <input type={showEditPass ? 'text' : 'password'} value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  className="w-full px-4 py-2.5 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff] focus:border-[#0061a4]"
+                  placeholder="Dejá vacío para mantener" />
+                <button type="button" onClick={() => setShowEditPass(!showEditPass)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" tabIndex={-1}>
+                  <span className="material-symbols-rounded text-xl">{showEditPass ? 'visibility' : 'visibility_off'}</span>
+                </button>
               </div>
+            </div>
+            {editPassword && editTarget.rol === 'admin' && (
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">
-                  Nueva contraseña <span className="text-slate-400 font-normal">(opcional)</span>
-                </label>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Contraseña actual <span className="text-red-500">*</span></label>
                 <div className="relative">
-                  <input type={showEditPass ? 'text' : 'password'} value={editPassword}
-                    onChange={(e) => setEditPassword(e.target.value)}
+                  <input type={showEditCurrPass ? 'text' : 'password'} value={editCurrentPassword}
+                    onChange={(e) => setEditCurrentPassword(e.target.value)}
                     className="w-full px-4 py-2.5 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff] focus:border-[#0061a4]"
-                    placeholder="Dejá vacío para mantener" />
-                  <button type="button" onClick={() => setShowEditPass(!showEditPass)}
+                    placeholder="Ingresá la contraseña actual" required />
+                  <button type="button" onClick={() => setShowEditCurrPass(!showEditCurrPass)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" tabIndex={-1}>
-                    <span className="material-symbols-rounded text-xl">{showEditPass ? 'visibility' : 'visibility_off'}</span>
+                    <span className="material-symbols-rounded text-xl">{showEditCurrPass ? 'visibility' : 'visibility_off'}</span>
                   </button>
                 </div>
               </div>
-              {editPassword && editTarget.rol === 'admin' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Contraseña actual <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <input type={showEditCurrPass ? 'text' : 'password'} value={editCurrentPassword}
-                      onChange={(e) => setEditCurrentPassword(e.target.value)}
-                      className="w-full px-4 py-2.5 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#c2e7ff] focus:border-[#0061a4]"
-                      placeholder="Ingresá la contraseña actual" required />
-                    <button type="button" onClick={() => setShowEditCurrPass(!showEditCurrPass)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" tabIndex={-1}>
-                      <span className="material-symbols-rounded text-xl">{showEditCurrPass ? 'visibility' : 'visibility_off'}</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-              {editError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">{editError}</div>}
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setEditTarget(null)}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition-colors">Cancelar</button>
-                <button type="submit" disabled={editLoading}
-                  className="flex-1 bg-[#0061a4] hover:bg-[#004d8a] text-white font-medium py-2.5 rounded-xl transition-all disabled:opacity-50">
-                  {editLoading ? 'Guardando...' : 'Guardar cambios'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            )}
+            {editError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">{editError}</div>}
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setEditTarget(null)}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition-colors cursor-pointer">Cancelar</button>
+              <button type="submit" disabled={editLoading}
+                className="flex-1 bg-[#0061a4] hover:bg-[#004d8a] text-white font-medium py-2.5 rounded-xl transition-all disabled:opacity-50 cursor-pointer">
+                {editLoading ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
 
-      {/* ── Modal Confirmar Eliminación ── */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setDeleteConfirm(null)}>
-          <div className="bg-white rounded-[24px] p-6 w-full max-w-xs shadow-xl border border-slate-100 text-center" onClick={(e) => e.stopPropagation()}>
-            <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <span className="material-symbols-rounded text-2xl text-red-500">delete</span>
-            </div>
-            <h2 className="text-lg font-bold text-slate-800 mb-1">Eliminar Usuario</h2>
-            <p className="text-sm text-slate-500 mb-6">¿Estás seguro de que querés eliminar definitivamente a "{deleteConfirm.username}"?</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition-colors"
-              >
-                No
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-medium py-2.5 rounded-xl transition-all"
-              >
-                Sí, eliminar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Usuario"
+        message={deleteConfirm ? `¿Estás seguro de que querés eliminar definitivamente a "${deleteConfirm.username}"?` : ''}
+        confirmText="Sí, eliminar"
+      />
     </div>
   );
 }

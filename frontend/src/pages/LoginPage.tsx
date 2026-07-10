@@ -38,10 +38,10 @@ export default function LoginPage() {
         className="w-full max-w-sm"
       >
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-[#eaf4fe] rounded-[20px] flex items-center justify-center mx-auto mb-4 shadow-sm border border-white/50">
-            <span className="material-symbols-rounded text-4xl text-[#0061a4] filled">dentistry</span>
+          <div className="w-[84px] h-[84px] bg-[#eaf4fe] rounded-[24px] flex items-center justify-center mx-auto mb-4 shadow-sm border border-white/50">
+            <span className="material-symbols-rounded text-[60px] text-[#0061a4] filled">dentistry</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800 font-[family-name:var(--font-display)]">
+          <h1 className="text-2xl font-bold text-slate-800">
             OdontoGest
           </h1>
           <p className="text-sm text-slate-500 font-medium mt-1">

@@ -1,17 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import type { TratamientoCatalogo, ObraSocial } from '../types';
+import ConfirmModal from '../components/ConfirmModal';
+import Modal from '../components/Modal';
+import { globalCache } from '../services/cache';
 
 export default function CatalogoPage() {
   const { user, getAccessToken } = useAuth();
   const toast = useToast();
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const isAdminOrSecretaria = user?.rol === 'admin' || user?.rol === 'secretaria';
   const token = getAccessToken();
 
-  const [tratamientos, setTratamientos] = useState<TratamientoCatalogo[]>([]);
-  const [obrasSociales, setObrasSociales] = useState<ObraSocial[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [tratamientos, setTratamientos] = useState<TratamientoCatalogo[]>(globalCache.catalogo.tratamientos);
+  const [obrasSociales, setObrasSociales] = useState<ObraSocial[]>(globalCache.catalogo.obrasSociales);
+  const [isLoading, setIsLoading] = useState(!globalCache.catalogo.hasLoaded);
   const [filtroCategoria, setFiltroCategoria] = useState('');
 
   // Modal confirmación de eliminación
@@ -47,13 +59,24 @@ export default function CatalogoPage() {
         fetch('/api/catalogo/tratamientos').then(r => r.json()),
         fetch('/api/catalogo/obras-sociales').then(r => r.json()),
       ]);
-      setTratamientos(tr);
-      setObrasSociales(os);
-    } catch { /* silent */ }
-    setIsLoading(false);
+      globalCache.catalogo.tratamientos = tr;
+      globalCache.catalogo.obrasSociales = os;
+      globalCache.catalogo.hasLoaded = true;
+
+      if (isMountedRef.current) {
+        setTratamientos(tr);
+        setObrasSociales(os);
+      }
+    } catch { /* silent */ } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+    }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const categorias = [...new Set(tratamientos.map(t => t.categoria).filter(Boolean))] as string[];
   const tratFiltrados = filtroCategoria ? tratamientos.filter(t => t.categoria === filtroCategoria) : tratamientos;
@@ -63,10 +86,7 @@ export default function CatalogoPage() {
     setEditT(null); setTNombre(''); setTArs(''); setTUsd(''); setTDuracion('30'); setTCategoria(''); setTError('');
     setShowModalT(true);
   };
-  const openEditT = (t: TratamientoCatalogo) => {
-    setEditT(t); setTNombre(t.nombre); setTArs(t.precio_ars?.toString() || ''); setTUsd(t.precio_usd?.toString() || '');
-    setTDuracion(t.duracion_minutos.toString()); setTCategoria(t.categoria || ''); setTError(''); setShowModalT(true);
-  };
+
   const saveTratamiento = async (e: React.FormEvent) => {
     e.preventDefault(); setTError(''); setTLoading(true);
     if (!tNombre.trim()) { setTError('El nombre es obligatorio'); setTLoading(false); return; }
@@ -150,12 +170,12 @@ export default function CatalogoPage() {
   if (isLoading) return <div className="p-6 max-w-6xl mx-auto"><div className="bg-white rounded-[24px] p-8 shadow-sm text-center text-slate-400">Cargando...</div></div>;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8">
+    <div className="p-6 max-w-6xl mx-auto space-y-8 animate-fade-slide-up">
       {/* ── Tratamientos ── */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 font-[family-name:var(--font-display)]">Catálogo de Tratamientos</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Catálogo de Tratamientos</h1>
             <p className="text-sm text-slate-500">Servicios odontológicos con precios base</p>
           </div>
           {isAdminOrSecretaria && (
@@ -222,63 +242,58 @@ export default function CatalogoPage() {
       </div>
 
       {/* ── Modal Tratamiento ── */}
-      {showModalT && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setShowModalT(false)}>
-          <div className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-900">{editT ? 'Editar tratamiento' : 'Nuevo tratamiento'}</h2>
-              <button onClick={() => setShowModalT(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
-                <span className="material-symbols-rounded">close</span>
-              </button>
-            </div>
-            <form onSubmit={saveTratamiento} className="space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre *</label>
-                <input value={tNombre} onChange={e => setTNombre(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" required />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Precio ARS</label>
-                  <input type="number" step="0.01" value={tArs} onChange={e => setTArs(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Precio USD</label>
-                  <input type="number" step="0.01" value={tUsd} onChange={e => setTUsd(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Duración (min)</label>
-                  <input type="number" value={tDuracion} onChange={e => setTDuracion(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Categoría</label>
-                  <input value={tCategoria} onChange={e => setTCategoria(e.target.value)} placeholder="Ej: Cirugía"
-                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
-                </div>
-              </div>
-              {tError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">{tError}</div>}
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowModalT(false)}
-                  className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors cursor-pointer">Cancelar</button>
-                <button type="submit" disabled={tLoading}
-                  className="flex-1 px-5 py-3 rounded-2xl bg-[#0061a4] text-white font-bold text-sm hover:bg-[#00528c] transition-colors disabled:opacity-50 cursor-pointer shadow-sm hover:shadow">
-                  {tLoading ? 'Guardando...' : editT ? 'Guardar' : 'Crear'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showModalT}
+        onClose={() => setShowModalT(false)}
+        title={editT ? 'Editar tratamiento' : 'Nuevo tratamiento'}
+        maxWidthClass="max-w-md"
+      >
+        <form onSubmit={saveTratamiento} className="space-y-5">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre *</label>
+            <input value={tNombre} onChange={e => setTNombre(e.target.value)}
+              className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" required />
           </div>
-        </div>
-      )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Precio ARS</label>
+              <input type="number" step="0.01" value={tArs} onChange={e => setTArs(e.target.value)}
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Precio USD</label>
+              <input type="number" step="0.01" value={tUsd} onChange={e => setTUsd(e.target.value)}
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Duración (min)</label>
+              <input type="number" value={tDuracion} onChange={e => setTDuracion(e.target.value)}
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Categoría</label>
+              <input value={tCategoria} onChange={e => setTCategoria(e.target.value)} placeholder="Ej: Cirugía"
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" />
+            </div>
+          </div>
+          {tError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">{tError}</div>}
+          <div className="flex gap-3 pt-4">
+            <button type="button" onClick={() => setShowModalT(false)}
+              className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors cursor-pointer">Cancelar</button>
+            <button type="submit" disabled={tLoading}
+              className="flex-1 px-5 py-3 rounded-2xl bg-[#0061a4] text-white font-bold text-sm hover:bg-[#00528c] transition-colors disabled:opacity-50 cursor-pointer shadow-sm hover:shadow">
+              {tLoading ? 'Guardando...' : editT ? 'Guardar' : 'Crear'}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* ── Obras Sociales ── */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-800 font-[family-name:var(--font-display)]">Obras Sociales</h2>
+          <h2 className="text-lg font-bold text-slate-800">Obras Sociales</h2>
           {user?.rol === 'admin' && (
             <button onClick={() => { setShowModalO(true); setONombre(''); setOError(''); }}
               className="bg-[#0061a4] hover:bg-[#004d8a] text-white px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-sm flex items-center gap-2">
@@ -320,64 +335,38 @@ export default function CatalogoPage() {
       </div>
 
       {/* Modal obra social */}
-      {showModalO && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setShowModalO(false)}>
-          <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-8 relative z-10 max-h-[90vh] overflow-y-auto font-[family-name:var(--font-sans)]" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-900">Nueva obra social</h2>
-              <button onClick={() => setShowModalO(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg">
-                <span className="material-symbols-rounded">close</span>
-              </button>
-            </div>
-            <form onSubmit={createObraSocial} className="space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre</label>
-                <input value={oNombre} onChange={e => setONombre(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" required />
-              </div>
-              {oError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">{oError}</div>}
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowModalO(false)}
-                  className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors cursor-pointer">Cancelar</button>
-                <button type="submit" disabled={oLoading}
-                  className="flex-1 px-5 py-3 rounded-2xl bg-[#0061a4] text-white font-bold text-sm hover:bg-[#00528c] transition-colors disabled:opacity-50 cursor-pointer shadow-sm hover:shadow">
-                  {oLoading ? 'Creando...' : 'Crear'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showModalO}
+        onClose={() => setShowModalO(false)}
+        title="Nueva obra social"
+        maxWidthClass="max-w-sm"
+      >
+        <form onSubmit={createObraSocial} className="space-y-5">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre</label>
+            <input value={oNombre} onChange={e => setONombre(e.target.value)}
+              className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-800 outline-none focus:border-[#0061a4] focus:ring-2 focus:ring-[#0061a4]/10 transition-all" required />
           </div>
-        </div>
-      )}
+          {oError && <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">{oError}</div>}
+          <div className="flex gap-3 pt-4">
+            <button type="button" onClick={() => setShowModalO(false)}
+              className="flex-1 px-5 py-3 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors cursor-pointer">Cancelar</button>
+            <button type="submit" disabled={oLoading}
+              className="flex-1 px-5 py-3 rounded-2xl bg-[#0061a4] text-white font-bold text-sm hover:bg-[#00528c] transition-colors disabled:opacity-50 cursor-pointer shadow-sm hover:shadow">
+              {oLoading ? 'Creando...' : 'Crear'}
+            </button>
+          </div>
+        </form>
+      </Modal>
       {/* ── Modal Confirmar Eliminación ── */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setDeleteConfirm(null)}>
-          <div className="bg-white rounded-[24px] p-6 w-full max-w-xs shadow-xl border border-slate-100 text-center" onClick={(e) => e.stopPropagation()}>
-            <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <span className="material-symbols-rounded text-2xl text-red-500">delete</span>
-            </div>
-            <h2 className="text-lg font-bold text-slate-800 mb-1">
-              {deleteConfirm.type === 'tratamiento' ? 'Desactivar Tratamiento' : 'Eliminar Obra Social'}
-            </h2>
-            <p className="text-sm text-slate-500 mb-6">
-              ¿Estás seguro de que querés {deleteConfirm.type === 'tratamiento' ? 'desactivar' : 'eliminar'} "{deleteConfirm.name}"?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition-colors"
-              >
-                No
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-medium py-2.5 rounded-xl transition-all"
-              >
-                Sí, {deleteConfirm.type === 'tratamiento' ? 'desactivar' : 'eliminar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={handleConfirmDelete}
+        title={deleteConfirm ? (deleteConfirm.type === 'tratamiento' ? 'Desactivar Tratamiento' : 'Eliminar Obra Social') : ''}
+        message={deleteConfirm ? `¿Estás seguro de que querés ${deleteConfirm.type === 'tratamiento' ? 'desactivar' : 'eliminar'} "${deleteConfirm.name}"?` : ''}
+        confirmText={deleteConfirm ? `Sí, ${deleteConfirm.type === 'tratamiento' ? 'desactivar' : 'eliminar'}` : ''}
+      />
     </div>
   );
 }
