@@ -99,6 +99,7 @@ Las siguientes skills están instaladas en el proyecto y deben leerse antes de e
 | C-12 | `correccion-horarios-doctores-pagos` | ALTO | ✅ completado |
 | C-13 | `frontend2-rediseno` | ALTO | 🔲 pendiente |
 | C-14 | `historia-clinica-y-plan-tratamiento` | ALTO | ✅ completado |
+| C-15 | `imagenes-radiografias-paciente` | MEDIO | ✅ completado |
 | C-08 | `portal-autogestion` | ALTO | 🔲 pendiente |
 | C-09 | `notificaciones` | ALTO | 🔲 pendiente |
 | C-10 | `reportes-excel` | BAJO | 🔲 pendiente |

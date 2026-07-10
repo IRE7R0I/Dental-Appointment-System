@@ -43,3 +43,7 @@ twilio
 # --- Reportes (CHANGE-008) ---
 # openpyxl       # Generación de archivos Excel (FUTURO — CHANGE-008)
 # reportlab      # Generación de archivos PDF (FUTURO — CHANGE-008)
+
+# --- Imágenes (C-015)
+Pillow
+# Compresión y conversión de imágenes a WebP. Se usa dentro de la capa AlmacenamientoArchivos.

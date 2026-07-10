@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from backend.routers import pacientes, turnos, doctores, finanzas, auth, admin, catalogo, config as config_router, historia_clinica
+from backend.routers import pacientes, turnos, doctores, finanzas, auth, admin, catalogo, config as config_router, historia_clinica, imagenes
 from backend.database import engine, Base
 
 # ── Security Headers Middleware ──────────────────────────
@@ -73,6 +73,8 @@ app.include_router(finanzas.router)
 app.include_router(catalogo.router)
 app.include_router(config_router.router)
 app.include_router(historia_clinica.router)
+app.include_router(imagenes.router)
+app.include_router(imagenes.imagenes_router)
 
 
 @app.get("/health")

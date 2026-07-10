@@ -1,7 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, case
+from sqlalchemy import func
 from datetime import date, datetime
-from decimal import Decimal
 from typing import Optional
 from backend import models
 from backend.schemas import historia_clinica as schemas
@@ -89,87 +88,19 @@ def corregir_evolucion(db: Session, id: int, data: schemas.EvolucionClinicaUpdat
     return evol
 
 
-def crear_item_plan(db: Session, dni: str, data: schemas.PlanTratamientoItemCreate) -> models.PlanTratamientoItem:
-    descripcion = data.descripcion
-    if data.id_tratamiento is not None and not descripcion:
-        tratamiento = db.query(models.TratamientoCatalogo).filter(
-            models.TratamientoCatalogo.id == data.id_tratamiento
-        ).first()
-        if tratamiento:
-            descripcion = tratamiento.nombre
-    if not descripcion:
-        raise ValueError("Debe proporcionar una descripcion o un id_tratamiento valido")
-
-    db_item = models.PlanTratamientoItem(
-        dni_paciente=dni,
-        id_tratamiento=data.id_tratamiento,
-        descripcion=descripcion,
-        fecha_objetivo=data.fecha_objetivo,
-        estado=data.estado,
-        orden=data.orden,
-    )
-    db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
-
-
-def listar_plan(db: Session, dni: str) -> list[models.PlanTratamientoItem]:
-    return db.query(models.PlanTratamientoItem).options(
-        joinedload(models.PlanTratamientoItem.tratamiento)
-    ).filter(
-        models.PlanTratamientoItem.dni_paciente == dni
-    ).order_by(models.PlanTratamientoItem.orden.asc()).all()
-
-
-def cambiar_estado_plan(db: Session, id: int, data: schemas.PlanTratamientoItemUpdateEstado) -> Optional[models.PlanTratamientoItem]:
-    item = db.query(models.PlanTratamientoItem).filter(models.PlanTratamientoItem.id == id).first()
-    if not item:
-        return None
-    item.estado = data.estado
-    db.commit()
-    db.refresh(item)
-    return item
-
-
-def eliminar_item_plan(db: Session, id: int) -> bool:
-    item = db.query(models.PlanTratamientoItem).filter(models.PlanTratamientoItem.id == id).first()
-    if not item:
-        return False
-    db.delete(item)
-    db.commit()
-    return True
-
-
 def obtener_resumen(db: Session, dni: str) -> dict:
     count_evoluciones = db.query(func.count(models.EvolucionClinica.id)).filter(
         models.EvolucionClinica.dni_paciente == dni
     ).scalar() or 0
 
-    items = db.query(models.PlanTratamientoItem).options(
-        joinedload(models.PlanTratamientoItem.tratamiento)
+    count_imagenes = db.query(func.count(models.Imagen.id)).join(
+        models.CarpetaPaciente, models.Imagen.id_carpeta == models.CarpetaPaciente.id
     ).filter(
-        models.PlanTratamientoItem.dni_paciente == dni,
-        models.PlanTratamientoItem.estado == "pendiente",
-    ).all()
-
-    pendientes = len(items)
-    total_ars = sum(
-        (item.tratamiento.precio_ars for item in items
-         if item.tratamiento and item.tratamiento.precio_ars is not None),
-        Decimal('0'),
-    )
-    total_usd = sum(
-        (item.tratamiento.precio_usd for item in items
-         if item.tratamiento and item.tratamiento.precio_usd is not None),
-        Decimal('0'),
-    )
+        models.CarpetaPaciente.dni_paciente == dni
+    ).scalar() or 0
 
     return {
         "hallazgos": None,
-        "pendientes": pendientes,
-        "pendientes_monto_estimado_ars": total_ars,
-        "pendientes_monto_estimado_usd": total_usd,
         "evoluciones": count_evoluciones,
-        "imagenes": None,
+        "imagenes": count_imagenes,
     }

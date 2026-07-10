@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import Optional
 from backend.database import get_db
 from backend.dependencies import require_role, get_current_user
 from backend import models
@@ -94,51 +93,7 @@ def corregir_evolucion(
     return evol
 
 
-# ─── 4.4 Plan de Tratamiento ──────────────────────────────────────
-
-
-@router.get("/{dni}/plan-tratamiento", response_model=list[schemas.PlanTratamientoItemResponse])
-def listar_plan_tratamiento(dni: str, db: Session = Depends(get_db)):
-    _verificar_paciente(db, dni)
-    return crud.listar_plan(db, dni)
-
-
-@router.post("/{dni}/plan-tratamiento", response_model=schemas.PlanTratamientoItemResponse, status_code=201)
-def crear_item_plan(
-    dni: str,
-    data: schemas.PlanTratamientoItemCreate,
-    db: Session = Depends(get_db),
-):
-    _verificar_paciente(db, dni)
-    try:
-        return crud.crear_item_plan(db, dni, data)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-
-
-@router.put("/{dni}/plan-tratamiento/{item_id}/estado", response_model=schemas.PlanTratamientoItemResponse)
-def cambiar_estado_plan(
-    dni: str,
-    item_id: int,
-    data: schemas.PlanTratamientoItemUpdateEstado,
-    db: Session = Depends(get_db),
-):
-    _verificar_paciente(db, dni)
-    item = crud.cambiar_estado_plan(db, item_id, data)
-    if not item:
-        raise HTTPException(status_code=404, detail="Ítem de plan de tratamiento no encontrado")
-    return item
-
-
-@router.delete("/{dni}/plan-tratamiento/{item_id}")
-def eliminar_item_plan(dni: str, item_id: int, db: Session = Depends(get_db)):
-    _verificar_paciente(db, dni)
-    if not crud.eliminar_item_plan(db, item_id):
-        raise HTTPException(status_code=404, detail="Ítem de plan de tratamiento no encontrado")
-    return {"mensaje": "Ítem eliminado"}
-
-
-# ─── 4.5 Resumen ─────────────────────────────────────────────────
+# ─── 4.4 Resumen ──────────────────────────────────────────────────
 
 
 @router.get("/{dni}/resumen", response_model=schemas.ResumenPacienteResponse)

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Date, DateTime, Boolean, DECIMAL, ForeignKey, Text, Time, Index, UniqueConstraint
+from sqlalchemy import Column, String, Integer, Date, DateTime, Boolean, DECIMAL, ForeignKey, LargeBinary, Text, Time, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 from backend.database import Base
 from datetime import datetime
@@ -19,8 +19,6 @@ class Paciente(Base):
     historia_clinica = relationship("HistoriaClinica", back_populates="paciente", uselist=False)
     alertas_medicas = relationship("AlertaMedica", back_populates="paciente")
     evoluciones_clinicas = relationship("EvolucionClinica", back_populates="paciente")
-    plan_tratamiento = relationship("PlanTratamientoItem", back_populates="paciente")
-
 class Doctor(Base):
     __tablename__ = "doctores"
 
@@ -161,7 +159,7 @@ class ObraSocial(Base):
     activo = Column(Boolean, default=True)
 
 
-# ── C-014: Historia Clínica y Plan de Tratamiento ──────────
+# ── C-014: Historia Clínica ────────────────────────────────
 class AlertaMedica(Base):
     """Alergia o condición médica relevante del paciente."""
     __tablename__ = "alertas_medicas"
@@ -192,7 +190,7 @@ class EvolucionClinica(Base):
     pieza_dental = Column(Integer, nullable=True)
     ubicacion_lesion = Column(String(100), nullable=True)
     observaciones = Column(Text, nullable=False)
-    conformidad_paciente = Column(Boolean, default=False)
+    conformidad_paciente = Column(Boolean, nullable=True)
     creado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     actualizado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     creado_en = Column(DateTime, default=datetime.now)
@@ -202,23 +200,6 @@ class EvolucionClinica(Base):
     turno = relationship("Turno")
     creado_por = relationship("Usuario", foreign_keys=[creado_por_id])
     actualizado_por = relationship("Usuario", foreign_keys=[actualizado_por_id])
-
-
-class PlanTratamientoItem(Base):
-    """Ítem del plan de tratamiento del paciente."""
-    __tablename__ = "plan_tratamiento_items"
-
-    id = Column(Integer, primary_key=True, index=True)
-    dni_paciente = Column(String(20), ForeignKey("pacientes.dni"), nullable=False, index=True)
-    id_tratamiento = Column(Integer, ForeignKey("tratamientos_catalogo.id"), nullable=True)
-    descripcion = Column(String(255), nullable=False)
-    fecha_objetivo = Column(Date, nullable=True)
-    estado = Column(String(20), nullable=False, default="pendiente")  # pendiente | completado
-    orden = Column(Integer, default=0)
-    creado_en = Column(DateTime, default=datetime.now)
-
-    paciente = relationship("Paciente", back_populates="plan_tratamiento")
-    tratamiento = relationship("TratamientoCatalogo")
 
 
 # ── C-012: Slots bloqueados manualmente ─────────────────────
@@ -239,3 +220,46 @@ class SlotsBloqueado(Base):
 
     doctor = relationship("Doctor")
     bloqueado_por = relationship("Usuario")
+
+
+# ── C-015: Imágenes / Radiografías ──────────────────────────
+class CarpetaPaciente(Base):
+    """Carpeta de imágenes organizada por el usuario."""
+    __tablename__ = "carpetas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dni_paciente = Column(String(20), ForeignKey("pacientes.dni"), nullable=False, index=True)
+    nombre = Column(String(255), nullable=False)
+    creado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    creado_en = Column(DateTime, default=datetime.now)
+
+    paciente = relationship("Paciente", backref="carpetas")
+    creado_por = relationship("Usuario", foreign_keys=[creado_por_id])
+
+
+class Imagen(Base):
+    """Metadatos de una imagen/radiografía."""
+    __tablename__ = "imagenes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    id_carpeta = Column(Integer, ForeignKey("carpetas.id"), nullable=False, index=True)
+    nombre_original = Column(String(255), nullable=False)
+    tipo_mime = Column(String(50), nullable=False, default="image/webp")
+    tamano_bytes = Column(Integer, nullable=False)
+    es_radiografia = Column(Boolean, default=False)
+    creado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    creado_en = Column(DateTime, default=datetime.now)
+
+    carpeta = relationship("CarpetaPaciente", backref="imagenes")
+    creado_por = relationship("Usuario", foreign_keys=[creado_por_id])
+    contenido = relationship("ImagenContenido", back_populates="imagen", uselist=False, cascade="all, delete-orphan")
+
+
+class ImagenContenido(Base):
+    """Binario de la imagen (tabla separada para no pesar listados)."""
+    __tablename__ = "imagenes_contenido"
+
+    id_imagen = Column(Integer, ForeignKey("imagenes.id"), primary_key=True)
+    contenido = Column(LargeBinary, nullable=False)
+
+    imagen = relationship("Imagen", back_populates="contenido")

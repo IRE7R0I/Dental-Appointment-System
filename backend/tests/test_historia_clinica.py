@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 import pytest
 
 from backend import models
@@ -41,20 +39,6 @@ def sample_turno_pendiente(db, sample_paciente, sample_doctor, admin_user):
     db.refresh(turno)
     return turno
 
-
-@pytest.fixture
-def sample_tratamiento_catalogo(db):
-    """Create a treatment in catalog."""
-    t = models.TratamientoCatalogo(
-        nombre="Consulta Odontológica",
-        precio_ars=Decimal("5000.00"),
-        duracion_minutos=30,
-        categoria="Consulta",
-    )
-    db.add(t)
-    db.commit()
-    db.refresh(t)
-    return t
 
 
 # ── 5.2 Alertas CRUD happy path ────────────────────────────
@@ -218,75 +202,12 @@ def test_validar_ubicacion_lesion_invalida(client, headers_admin):
     assert response.status_code == 422
 
 
-# ── 5.7 Plan de tratamiento CRUD ────────────────────────────
 
-
-def test_crear_item_plan_desde_catalogo(
-    client, headers_admin, sample_paciente, sample_tratamiento_catalogo
-):
-    response = client.post(
-        "/pacientes/12345678/plan-tratamiento",
-        json={
-            "id_tratamiento": sample_tratamiento_catalogo.id,
-            "estado": "pendiente",
-            "orden": 1,
-        },
-        headers=headers_admin,
-    )
-    assert response.status_code == 201
-    data = response.json()
-    assert data["descripcion"] == sample_tratamiento_catalogo.nombre
-    assert data["estado"] == "pendiente"
-
-
-def test_crear_item_plan_texto_libre(client, headers_admin, sample_paciente):
-    response = client.post(
-        "/pacientes/12345678/plan-tratamiento",
-        json={
-            "descripcion": "Corona estética pieza 21",
-            "estado": "pendiente",
-            "orden": 2,
-        },
-        headers=headers_admin,
-    )
-    assert response.status_code == 201
-    assert response.json()["descripcion"] == "Corona estética pieza 21"
-
-
-def test_cambiar_estado_plan(client, headers_admin, sample_paciente):
-    resp = client.post(
-        "/pacientes/12345678/plan-tratamiento",
-        json={"descripcion": "Ortodoncia", "estado": "pendiente", "orden": 1},
-        headers=headers_admin,
-    )
-    item_id = resp.json()["id"]
-    response = client.put(
-        f"/pacientes/12345678/plan-tratamiento/{item_id}/estado",
-        json={"estado": "completado"},
-        headers=headers_admin,
-    )
-    assert response.status_code == 200
-    assert response.json()["estado"] == "completado"
-
-
-def test_eliminar_item_plan(client, headers_admin, sample_paciente):
-    resp = client.post(
-        "/pacientes/12345678/plan-tratamiento",
-        json={"descripcion": "A eliminar", "estado": "pendiente"},
-        headers=headers_admin,
-    )
-    item_id = resp.json()["id"]
-    response = client.delete(
-        f"/pacientes/12345678/plan-tratamiento/{item_id}", headers=headers_admin
-    )
-    assert response.status_code == 200
-
-
-# ── 5.8 Resumen endpoint ────────────────────────────────────
+# ── 5.7 Resumen endpoint ────────────────────────────────────
 
 
 def test_resumen_con_datos(
-    client, headers_admin, sample_tratamiento_catalogo, sample_turno_asistio
+    client, headers_admin, sample_turno_asistio
 ):
     client.post(
         "/pacientes/12345678/evoluciones",
@@ -297,22 +218,12 @@ def test_resumen_con_datos(
         },
         headers=headers_admin,
     )
-    client.post(
-        "/pacientes/12345678/plan-tratamiento",
-        json={
-            "id_tratamiento": sample_tratamiento_catalogo.id,
-            "estado": "pendiente",
-        },
-        headers=headers_admin,
-    )
     response = client.get("/pacientes/12345678/resumen", headers=headers_admin)
     assert response.status_code == 200
     data = response.json()
     assert data["evoluciones"] == 1
-    assert data["pendientes"] == 1
-    assert data["pendientes_monto_estimado_ars"] == "5000.00"
     assert data["hallazgos"] is None
-    assert data["imagenes"] is None
+    assert data["imagenes"] == 0  # C-015: ahora es conteo real, no None
 
 
 def test_resumen_sin_datos(client, headers_admin, sample_paciente):
@@ -320,8 +231,6 @@ def test_resumen_sin_datos(client, headers_admin, sample_paciente):
     assert response.status_code == 200
     data = response.json()
     assert data["evoluciones"] == 0
-    assert data["pendientes"] == 0
-    assert data["pendientes_monto_estimado_ars"] == "0"
 
 
 def test_resumen_paciente_no_encontrado(client, headers_admin):
@@ -338,8 +247,6 @@ def test_no_auth_returns_401(client):
         ("POST", "/pacientes/12345678/alertas"),
         ("GET", "/pacientes/12345678/evoluciones"),
         ("POST", "/pacientes/12345678/evoluciones"),
-        ("GET", "/pacientes/12345678/plan-tratamiento"),
-        ("POST", "/pacientes/12345678/plan-tratamiento"),
         ("GET", "/pacientes/12345678/resumen"),
     ]
     for method, url in endpoints:
@@ -356,7 +263,7 @@ def test_no_auth_returns_401(client):
 def test_hallazgos_imagenes_null(client, headers_admin, sample_paciente):
     response = client.get("/pacientes/12345678/resumen", headers=headers_admin)
     assert response.json()["hallazgos"] is None
-    assert response.json()["imagenes"] is None
+    assert response.json()["imagenes"] == 0  # C-015: ahora es conteo real
 
 
 # ── 5.11 RN-18: No exponer datos clínicos en errores ────────

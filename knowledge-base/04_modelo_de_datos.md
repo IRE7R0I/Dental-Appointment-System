@@ -126,18 +126,6 @@ ObraSocial ── independiente
 | `creado_en` | DateTime | |
 | `actualizado_en` | DateTime | nullable |
 
-### PlanTratamientoItem (`plan_tratamiento_items`)
-| Campo | Tipo | Notas |
-|---|---|---|
-| `id` | Integer PK | |
-| `dni_paciente` | String(20) FK → pacientes.dni | index |
-| `id_tratamiento` | Integer FK → tratamientos_catalogo.id | nullable |
-| `descripcion` | String(255) | texto libre |
-| `fecha_objetivo` | Date | nullable |
-| `estado` | String(20) | pendiente | completado |
-| `orden` | Integer | default 0 |
-| `creado_en` | DateTime | |
-
 ### Usuario (`usuarios`) — CHANGE-009
 | Campo | Tipo | Notas |
 |-------|------|-------|
@@ -172,3 +160,34 @@ ObraSocial ── independiente
 **Obras Sociales**: Particular, OSDE, Swiss Medical, Galeno, Medicus, Sancor Salud, OMINT.
 
 **Doctores**: Darío (#1e91ed), Fabiana (#FFFFFF). Creados en DB existente.
+
+### C-015 Agregados: Imágenes / Radiografías
+
+### CarpetaPaciente (`carpetas`)
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | Integer PK | |
+| `dni_paciente` | String(20) FK → pacientes.dni | index |
+| `nombre` | String(255) | nombre libre definido por el usuario |
+| `creado_por_id` | Integer FK → usuarios.id | auditoría |
+| `creado_en` | DateTime | |
+
+### Imagen (`imagenes`)
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | Integer PK | |
+| `id_carpeta` | Integer FK → carpetas.id | index |
+| `nombre_original` | String(255) | nombre del archivo subido (con extensión original) |
+| `tipo_mime` | String(50) | siempre "image/webp" (normalizado) |
+| `tamano_bytes` | Integer | tamaño del WebP final comprimido |
+| `es_radiografia` | Boolean | false = normal, true = radiografía (lossless) |
+| `creado_por_id` | Integer FK → usuarios.id | auditoría |
+| `creado_en` | DateTime | |
+
+### ImagenContenido (`imagenes_contenido`)
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id_imagen` | Integer FK → imagenes.id PK | 1:1 con Imagen |
+| `contenido` | LargeBinary | WebP comprimido |
+
+**Almacenamiento temporal**: Los binarios se guardan en PostgreSQL (tabla separada de metadatos). Previsto migrar a Supabase Storage en deploy real. La capa de abstracción `AlmacenamientoArchivos` permite cambiar el backend sin modificar endpoints ni CRUD.

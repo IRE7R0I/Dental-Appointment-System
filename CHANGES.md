@@ -22,6 +22,7 @@ C-01 foundation-setup ──┬── C-02 pacientes-turnos ── C-03 finanzas
                          │
                          └── C-06 auth ──┬── C-07 catalogo ── C-12 correccion ──┬── C-08 portal ── C-09 notificaciones
                                          │                                       │
+                                         ├── C-15 imagenes ──────────────────────┤
                                          ├── C-14 historia-clinica ──────────────┤── C-13 frontend2-rediseno (PARALELO)
                                          │                                       │
                                          └── C-10 reportes ──────────────────────┤
@@ -42,9 +43,10 @@ FASE 3 ───── C-06 → C-07 (C-06 es CRITICO, C-07 depende de C-06)
                 │
                 ├── C-12 → C-08 → C-09 (secuencial, correccion desbloquea portal)
                 │
-                ├── C-14 (PARALELO con C-08/C-13 — depende de C-07 y C-12)
-                │
-                └── C-10 (PARALELO con C-08/C-09 — solo depende de C-06)
+                 ├── C-14 (PARALELO con C-08/C-13 — depende de C-07 y C-12)
+                 ├── C-15 (PARALELO con C-08/C-13/C-14 — depende de C-02 y C-06)
+                 │
+                 └── C-10 (PARALELO con C-08/C-09 — solo depende de C-06)
                             │
 FASE 5 ───── C-11 (bloqueado por C-08, C-09, C-10)
 ```
@@ -53,7 +55,8 @@ FASE 5 ───── C-11 (bloqueado por C-08, C-09, C-10)
 - **GATE-1**: C-06 (`auth-y-autorizacion`) desbloquea C-07, C-10.
 - **GATE-2**: C-07 (`catalogo-tratamientos`) desbloquea C-12.
 - **GATE-2b**: C-12 (`correccion-horarios-doctores-pagos`) desbloquea C-08.
-- **GATE-2c**: C-12 desbloquea C-14 (`historia-clinica-y-plan-tratamiento`). C-07 desbloquea C-14 (catálogo para plan).
+- **GATE-2c**: C-12 desbloquea C-14 (`historia-clinica`).
+- **GATE-2d**: C-06 desbloquea C-15 (`imagenes-radiografias-paciente`).
 - **GATE-3**: C-08 (`portal-autogestion`) desbloquea C-09, C-11.
 
 ### Camino crítico
@@ -308,28 +311,53 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-08 →
   - `docs/Cambios_Respecto_Anterior_Auditoria.md` (estado post C-12)
   - `knowledge-base/08_arquitectura_propuesta.md`
 
-### [C-14] `historia-clinica-y-plan-tratamiento` ✅
+### [C-14] `historia-clinica` ✅
 
 - **Estado**: [x] completado (2026-07-10)
 - **Scope**:
   - **Alertas médicas**: tabla `alertas_medicas` (tipo: alergia/condicion, descripcion). CRUD vía `GET/POST/DELETE /pacientes/{dni}/alertas`. Badges en ficha frontend2.
   - **Evoluciones clínicas**: tabla `evoluciones_clinicas` (fecha, id_turno nullable, pieza_dental int FDI 11-48 nullable, ubicacion_lesion string comma-separated O/D/G/L/M/I/V/P nullable, observaciones Text, conformidad_paciente bool). Endpoints: `POST` crear, `GET` listar, `PUT` corregir (con auditoría `actualizado_por_id` + `actualizado_en`). Reemplaza `localStorage` del hallazgo 6.2 de `AUDITORIA_BACKEND.md`.
-  - **Plan de tratamiento**: tabla `plan_tratamiento_items` (id_tratamiento FK opcional a tratamientos_catalogo, descripcion texto libre, fecha_objetivo opcional, estado pendiente/completado, orden). Endpoints: `POST` crear, `GET` listar, `PUT` cambiar estado, `DELETE` eliminar. Items con FK al catálogo permiten estimación de costo total.
-  - **Endpoint de resumen**: `GET /pacientes/{dni}/resumen` — devuelve conteos: evoluciones, plan pendientes (+ monto estimado si tienen FK al catálogo), hallazgos=null, imagenes=null.
+  - **Endpoint de resumen**: `GET /pacientes/{dni}/resumen` — devuelve conteos: evoluciones, hallazgos=null, imagenes=null.
   - Nuevo router `historia_clinica.py` bajo prefijo `/pacientes/{dni}/...`, protegido `admin`/`secretaria`.
   - Schemas Pydantic v2 con `model_config = ConfigDict(from_attributes=True)`.
   - Tests de integración con base de datos real (`test_historia_clinica.py`).
-  - KB: `05_reglas_de_negocio.md` (RN-15 a RN-18).
+  - KB: `05_reglas_de_negocio.md` (RN-15, RN-16, RN-18).
 - **Historias**: HU-001 (ampliada, ficha clínica completa)
-- **Reglas de negocio**: RN-15 (alertas médicas — solo admin/secretaria), RN-16 (evoluciones — turno debe estar "Asistió", fecha manual si sin turno, corrección con auditoría), RN-17 (plan de tratamiento — estimación de costo vía catálogo), RN-18 (no exponer datos clínicos en logs)
-- **Dependencias**: C-02 (turnos), C-06 (auth/roles), C-07 (catálogo para FK de plan), C-12 (estado "Asistió"). Todas completadas.
+- **Reglas de negocio**: RN-15 (alertas médicas — solo admin/secretaria), RN-16 (evoluciones — turno debe estar "Asistió", fecha manual si sin turno, corrección con auditoría), RN-18 (no exponer datos clínicos en logs)
+- **Dependencias**: C-02 (turnos), C-06 (auth/roles), C-12 (estado "Asistió"). Todas completadas.
 - **Governance**: ALTO
 - **Paralelismo**: puede ejecutarse en paralelo con C-13 (`frontend2-rediseno`) y C-08 (`portal-autogestion`). Sin dependencias mutuas.
+- **Nota**: El alcance original "Plan de Tratamiento" se eliminó de C-14 por decisión de producto (Jul 2026). No hay UI planificada en frontend2.
 - **Leer antes**:
-  - `docs/AUDITORIA_BACKEND.md` (hallazgo 6.2)
-  - `docs/BLUEPRINT_FRONTEND2.md` (secciones 2.5 y 2.6)
+   - `docs/AUDITORIA_BACKEND.md` (hallazgo 6.2)
+   - `docs/BLUEPRINT_FRONTEND2.md` (secciones 2.5 y 2.6)
+   - `knowledge-base/04_modelo_de_datos.md`
+   - `knowledge-base/05_reglas_de_negocio.md`
+
+### [C-15] `imagenes-radiografias-paciente` ✅
+
+- **Estado**: [x] completado (2026-07-10)
+- **Scope**:
+  - Modelos: `CarpetaPaciente` (dni FK, nombre, creado_por_id, creado_en), `Imagen` (id_carpeta FK, nombre_original, tipo_mime, tamano_bytes, es_radiografia bool, creado_por_id, creado_en), `ImagenContenido` (id_imagen FK PK, contenido LargeBinary).
+  - Abstracción de almacenamiento: clase ABC `AlmacenamientoArchivos` con `guardar(id, bytes, es_radiografia) → int`, `obtener(id) → bytes`, `eliminar(id)`. Implementación concreta `AlmacenamientoPostgres` contra `imagenes_contenido`. Factory intercambiable para migrar a Supabase Storage.
+  - Compresión con Pillow en `guardar()`: toda imagen se normaliza a WebP. Si `es_radiografia=true` → lossless (fallback quality=95 si lossless >15MB). Si `es_radiografia=false` → quality=80 + resize lado mayor a 2000px manteniendo proporción. `tipo_mime` siempre `"image/webp"`. Error claro si conversión falla (archivo corrupto).
+  - Límite 10 MB sobre archivo original recibido (antes de comprimir). Sin segundo límite post-compresión.
+  - CRUD carpetas: `POST /pacientes/{dni}/carpetas`, `GET /pacientes/{dni}/carpetas`, `PUT .../carpetas/{id}`, `DELETE .../carpetas/{id}` (CASCADE: elimina imágenes + binarios).
+  - CRUD imágenes: `POST .../carpetas/{id}/imagenes` (multipart/form-data + campo `es_radiografia`), `GET .../carpetas/{id}/imagenes` (solo metadatos), `GET /imagenes/{id}/contenido` (binario WebP), `DELETE /imagenes/{id}`.
+  - Actualización `GET /pacientes/{dni}/resumen`: campo `imagenes` pasa de `None` a conteo real.
+  - Seguridad: solo admin/secretaria. Validación MIME original (`image/jpeg`, `image/png`, `image/webp`). No exponer nombres de archivo ni contenido en logs.
+  - Schemas Pydantic v2 con `from_attributes=True`.
+  - Tests integración DB real (`test_imagenes.py`): subida radiografía lossless, subida normal comprimida + resize, archivo corrupto, archivo >10MB, eliminación cascada carpeta.
+  - KB: nueva RN-19 (gestión de imágenes y radiografías).
+- **Historias**: HU-001 (ampliada)
+- **Reglas de negocio**: RN-19 (formatos permitidos, compresión WebP según es_radiografia, límite 10MB original, cascada al eliminar carpeta, no exponer en logs)
+- **Dependencias**: C-02 (pacientes), C-06 (auth). Ambas ✅.
+- **Governance**: MEDIO
+- **Paralelismo**: paralelo con C-13, C-14, C-08, C-10.
+- **Leer antes**:
   - `knowledge-base/04_modelo_de_datos.md`
   - `knowledge-base/05_reglas_de_negocio.md`
+  - `knowledge-base/03_actores_y_roles.md`
 
 ---
 
@@ -448,13 +476,13 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-08 →
 | FASE 1 | C-02, C-03 | ✅ ✅ | MEDIO, ALTO |
 | FASE 2 | C-04, C-05 | ✅ ✅ | MEDIO, BAJO |
 | FASE 3 | C-06, C-07 | ✅ ✅ | CRITICO, MEDIO |
-| FASE 3.5 | C-12, C-13, C-14 | ✅ 🔲 ✅ | ALTO, ALTO, ALTO |
+| FASE 3.5 | C-12, C-13, C-14, C-15 | ✅ 🔲 ✅ 🔲 | ALTO, ALTO, ALTO, MEDIO |
 | FASE 4 | C-08, C-09, C-10 | 🔲 🔲 🔲 | ALTO, ALTO, BAJO |
 | FASE 5 | C-11 | 🔲 | CRITICO |
 
-- **14 changes en 6 fases**
+- **15 changes en 6 fases**
 - **9 completados** (C-01 a C-07, C-12, C-14)
-- **5 pendientes** (C-13, C-08 a C-11)
+- **6 pendientes** (C-13, C-08 a C-11, C-15)
 - **Camino crítico**: 9 changes (C-01 → C-06 → C-07 → C-12 → C-08 → C-09 → C-11)
 - **Paralelismo**: C-10, C-13 y C-14 pueden ejecutarse en paralelo con C-08 y C-09
 - **Primer change pendiente**: C-13 (`frontend2-rediseno`)

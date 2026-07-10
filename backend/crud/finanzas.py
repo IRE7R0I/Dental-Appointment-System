@@ -139,14 +139,19 @@ def cerrar_turno_con_pago(
     tratamientos_input: list,
     pagos_input: list,
     comentarios: Optional[str] = None,
+    pieza_dental: Optional[int] = None,
+    ubicacion_lesion: Optional[str] = None,
+    conformidad_paciente: Optional[bool] = None,
+    creado_por_id: Optional[int] = None,
 ):
     """
     Cierra un turno:
     1. Marca turno como Realizado
     2. Crea registros en turnos_tratamientos
-    3. Crea pagos
-    4. Calcula totales vs pagado → genera deuda en cuenta corriente si corresponde
-    5. Devuelve CerrarTurnoResponse con totales y deudas
+    3. Crea evolución clínica
+    4. Crea pagos
+    5. Calcula totales vs pagado → genera deuda en cuenta corriente si corresponde
+    6. Devuelve CerrarTurnoResponse con totales y deudas
     """
     turno = db.query(models.Turno).filter(models.Turno.id == turno_id).first()
     if not turno:
@@ -168,9 +173,22 @@ def cerrar_turno_con_pago(
         )
         db.add(tt)
 
+    # ── 2. Crear evolución clínica ──
+    evolucion = models.EvolucionClinica(
+        id_turno=turno.id,
+        dni_paciente=turno.dni_paciente,
+        fecha=turno.fecha_hora.date(),
+        observaciones=comentarios or "",
+        pieza_dental=pieza_dental,
+        ubicacion_lesion=ubicacion_lesion,
+        conformidad_paciente=conformidad_paciente,
+        creado_por_id=creado_por_id,
+    )
+    db.add(evolucion)
+
     db.flush()
 
-    # ── 2. Calcular totales ──
+    # ── 3. Calcular totales ──
     total_ars = Decimal("0.00")
     total_usd = Decimal("0.00")
     for t in tratamientos_input:
@@ -179,7 +197,7 @@ def cerrar_turno_con_pago(
         if t.precio_usd:
             total_usd += t.precio_usd * t.cantidad
 
-    # ── 3. Crear pagos ──
+    # ── 4. Crear pagos ──
     pagado_ars = Decimal("0.00")
     pagado_usd = Decimal("0.00")
     for p in pagos_input:
@@ -195,11 +213,11 @@ def cerrar_turno_con_pago(
         else:
             pagado_usd += p.monto
 
-    # ── 4. Calcular deuda ──
+    # ── 5. Calcular deuda ──
     deuda_ars = max(Decimal("0.00"), total_ars - pagado_ars)
     deuda_usd = max(Decimal("0.00"), total_usd - pagado_usd)
 
-    # ── 5. Registrar en cuenta corriente ──
+    # ── 6. Registrar en cuenta corriente ──
     from backend.crud.pacientes import registrar_movimiento
 
     if deuda_ars > 0:
@@ -225,7 +243,7 @@ def cerrar_turno_con_pago(
     db.commit()
     db.refresh(turno)
 
-    # ── 6. Si pagó de más (ej: abona deuda anterior), registrar como pago en cuenta ──
+    # ── 7. Si pagó de más (ej: abona deuda anterior), registrar como pago en cuenta ──
     if pagado_ars > total_ars:
         exceso_ars = pagado_ars - total_ars
         from backend.crud.pacientes import registrar_movimiento

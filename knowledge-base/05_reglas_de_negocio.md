@@ -92,15 +92,23 @@ Pagos agrupados en Particulares (obra_social = "Particular") y Obras Sociales (r
 - La corrección registra `actualizado_por_id` y `actualizado_en`.
 - Nunca exponer datos clínicos en logs ni mensajes de error (ver RN-12).
 
-### RN-17: Plan de tratamiento
-- El plan de tratamiento contiene ítems que pueden estar vinculados al catálogo (`id_tratamiento` FK a `tratamientos_catalogo`) o ser texto libre.
-- Los ítems vinculados al catálogo heredan el precio del tratamiento para calcular el monto estimado total del plan pendiente.
-- Los ítems libres (sin FK) no suman al monto estimado.
-- Cada ítem tiene estado: `pendiente` o `completado`.
-- El campo `orden` mantiene la secuencia visual en el frontend.
-- Solo admin y secretaria pueden crear, modificar estado, o eliminar ítems.
+### ~~RN-17: Plan de tratamiento~~ ⛔ DEROGADA
+~~Alcance eliminado de C-14 por decisión de producto (Jul 2026).~~
+~~El plan de tratamiento ya no se implementa en esta app.~~
 
 ### RN-18: Protección de datos clínicos
 - No se expone DNI, email, ni historial clínico en logs o mensajes de error del servidor.
 - Los endpoints de historia clínica requieren autenticación JWT con rol admin o secretaria.
 - Los mensajes de error deben ser genéricos ("Paciente no encontrado", "Error al procesar la solicitud") sin incluir datos del paciente.
+
+### RN-19: Gestión de imágenes y radiografías
+- Las imágenes se almacenan en carpetas organizadas por el usuario, sin estructura fija impuesta.
+- Al eliminar una carpeta, se eliminan en cascada todas sus imágenes y contenidos binarios (CASCADE).
+- Solo usuarios con rol `admin` o `secretaria` pueden gestionar imágenes (mismo criterio que datos clínicos).
+- Tipos de archivo permitidos al subir: `image/jpeg`, `image/png`, `image/webp`. Cualquier otro tipo es rechazado.
+- Límite de 10 MB sobre el archivo original recibido (antes de comprimir). El archivo comprimido WebP no tiene un segundo límite.
+- Toda imagen se normaliza a WebP (tipo_mime = "image/webp") independientemente del formato original.
+- Si `es_radiografia = true`: compresión WebP lossless (fallback a quality=95 si el lossless supera los 15 MB).
+- Si `es_radiografia = false`: compresión WebP quality=80, con redimensión previa si el lado mayor supera 2000 px (manteniendo proporción).
+- Si la conversión falla (archivo corrupto u otro error), se retorna un error claro sin almacenar ningún dato.
+- No exponer contenido de imágenes ni nombres de archivo con datos sensibles en logs (ver RN-12).

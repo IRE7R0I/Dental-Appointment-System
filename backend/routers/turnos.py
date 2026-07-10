@@ -169,13 +169,23 @@ def borrar_turno(turno_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{turno_id}/cerrar", response_model=CerrarTurnoResponse)
-def cerrar_turno(turno_id: int, datos: CerrarTurnoInput, db: Session = Depends(get_db)):
+def cerrar_turno(
+    turno_id: int,
+    datos: CerrarTurnoInput,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+):
     """Cierra turno: registra tratamientos + pagos + calcula deuda."""
     resultado = cerrar_turno_con_pago(
-        db, turno_id,
+        db,
+        turno_id,
         tratamientos_input=datos.tratamientos,
         pagos_input=datos.pagos,
         comentarios=datos.comentarios,
+        pieza_dental=datos.pieza_dental,
+        ubicacion_lesion=datos.ubicacion_lesion,
+        conformidad_paciente=datos.conformidad_paciente,
+        creado_por_id=current_user.id,
     )
     if not resultado:
         raise HTTPException(status_code=404, detail="Turno no encontrado")

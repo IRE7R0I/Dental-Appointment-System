@@ -1,7 +1,8 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from datetime import datetime
 from typing import Optional
 from decimal import Decimal
+from backend.schemas.historia_clinica import EvolucionClinicaCreate
 
 
 class PagoCreate(BaseModel):
@@ -69,6 +70,19 @@ class CerrarTurnoInput(BaseModel):
     tratamientos: list[TratamientoInput]
     pagos: list[PagoInput]
     comentarios: Optional[str] = None
+    pieza_dental: Optional[int] = None
+    ubicacion_lesion: Optional[str] = None
+    conformidad_paciente: Optional[bool] = None
+
+    @field_validator("pieza_dental", mode="before")
+    @classmethod
+    def validar_pieza_dental(cls, v):
+        return EvolucionClinicaCreate.validar_pieza_dental(v)
+
+    @field_validator("ubicacion_lesion", mode="before")
+    @classmethod
+    def validar_ubicacion_lesion(cls, v):
+        return EvolucionClinicaCreate.validar_ubicacion_lesion(v)
 
 
 class CerrarTurnoResponse(BaseModel):

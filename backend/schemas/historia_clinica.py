@@ -1,6 +1,5 @@
-from typing import Optional, Literal
+from typing import Optional
 from datetime import date, datetime
-from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, field_validator
 
 VALID_UBICACION_CODES = {"O", "D", "G", "L", "M", "I", "V", "P"}
@@ -33,7 +32,7 @@ class EvolucionClinicaCreate(BaseModel):
     pieza_dental: Optional[int] = None
     ubicacion_lesion: Optional[str] = None
     observaciones: str
-    conformidad_paciente: bool = False
+    conformidad_paciente: Optional[bool] = None
 
     @field_validator("pieza_dental", mode="before")
     @classmethod
@@ -98,46 +97,11 @@ class EvolucionClinicaResponse(BaseModel):
     pieza_dental: Optional[int] = None
     ubicacion_lesion: Optional[str] = None
     observaciones: str
-    conformidad_paciente: bool
+    conformidad_paciente: Optional[bool] = None
     creado_por_id: int
     actualizado_por_id: Optional[int] = None
     creado_en: datetime
     actualizado_en: Optional[datetime] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-# ── Plan de Tratamiento ──────────────────────────────────────
-
-
-class TratamientoCatalogoInfo(BaseModel):
-    nombre: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class PlanTratamientoItemCreate(BaseModel):
-    id_tratamiento: Optional[int] = None
-    descripcion: Optional[str] = None
-    fecha_objetivo: Optional[date] = None
-    estado: Literal["pendiente", "completado"] = "pendiente"
-    orden: int = 0
-
-
-class PlanTratamientoItemUpdateEstado(BaseModel):
-    estado: Literal["pendiente", "completado"]
-
-
-class PlanTratamientoItemResponse(BaseModel):
-    id: int
-    dni_paciente: str
-    id_tratamiento: Optional[int] = None
-    descripcion: str
-    fecha_objetivo: Optional[date] = None
-    estado: str
-    orden: int
-    creado_en: datetime
-    tratamiento: Optional[TratamientoCatalogoInfo] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -147,10 +111,7 @@ class PlanTratamientoItemResponse(BaseModel):
 
 class ResumenPacienteResponse(BaseModel):
     hallazgos: Optional[int] = None
-    pendientes: int
-    pendientes_monto_estimado_ars: Decimal
-    pendientes_monto_estimado_usd: Decimal
     evoluciones: int
-    imagenes: Optional[int] = None
+    imagenes: int = 0
 
     model_config = ConfigDict(from_attributes=True)
