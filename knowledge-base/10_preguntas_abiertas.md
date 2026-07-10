@@ -2,8 +2,10 @@
 
 ## Inconsistencias con el código
 
-### I-01: Validación de horarios desactualizada
-**Doc**: franjas mañana/tarde por día. **Código**: hora < 9 or hora >= 19. **Plan**: migrar en portal-autogestion. **Riesgo**: bajo (solo secretaria crea turnos por ahora).
+### I-01: Validación de horarios desactualizada (✅ RESUELTO en C-12)
+**Doc**: franjas mañana/tarde por día. **Código**: ahora sincronizado vía `core/horarios.py`.
+**Solución**: C-12 implementó reglas reales con timezone AR, granularidad 30 min, cierre exclusivo, 
+y endpoint público `GET /config/horarios` para frontend2.
 
 ### I-02: Estados del turno simplificados
 **Doc**: 7 estados. **Código**: "Pendiente", "Asistió", "Canceló". **Plan**: portal-autogestion agrega estados nuevos. Migrar "Asistió" → "realizado".
@@ -42,3 +44,28 @@ Con múltiples secretarias, ¿alcanza polling 15s o se requiere WebSocket? **Pro
 
 ### Q-11: ¿Google OAuth para recuperación de admin?
 Usuario pidió conectar cuenta de Google por si olvida contraseña. También recuperación por teléfono. **Propuesta**: post-deploy (CHANGE-012). Requiere Google Cloud Console + OAuth2. Complejidad alta para 1 usuario. **Prioridad**: baja.
+
+## Input documentado para C-08 (portal-autogestion) y C-09 (notificaciones)
+
+Los siguientes requerimientos fueron acordados durante el diseño de C-12 y deben 
+ser el punto de partida al proponer C-08 y C-09:
+
+### Portal (C-08)
+- El paciente podrá elegir su propio turno disponible, respetando:
+  - Horario de atención real (reglas de C-12, consumidas vía `GET /config/horarios`).
+  - Slots bloqueados manualmente (C-12, ya resueltos).
+- El turno elegido queda en estado "solicitado" hasta que admin o secretaria lo acepte o rechace.
+- Si lo rechazan, deben poder indicar:
+  - Motivo (texto libre, obligatorio).
+  - Sugerencia de horario alternativo (texto, opcional).
+- El paciente recibe notificación de rechazo con motivo + sugerencia.
+
+### Notificaciones (C-09)
+- Canal: email (vía Resend) o WhatsApp (vía bot) — a definir si uno, otro, o configurable.
+- Eventos: confirmación, rechazo, recordatorio.
+- Depende de C-08 (los triggers de notificación están en confirmar/rechazar turno).
+
+### Notas de diseño
+- No definir modelo de datos ni endpoints todavía — esto es input para el `/opsx:propose` 
+  de C-08/C-09, no para C-12.
+- C-12 ya resolvió prerrequisitos: reglas de horario reales + slots bloqueados.

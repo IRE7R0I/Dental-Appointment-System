@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Optional, List
 from sqlalchemy.orm import Session, joinedload
 from backend import models
+from backend.core.horarios import dt_local
 from backend.schemas.finanzas import PagoCreate, CerrarTurnoResponse
 
 
@@ -397,6 +398,14 @@ def listar_pagos_filtrados(
                     "apellido": pac.apellido,
                 }
 
+        # ── Constancia de turno ──
+        constancia = None
+        if turno_id and hasattr(pago, 'turno') and pago.turno and pago.turno.paciente:
+            t = pago.turno
+            p = t.paciente
+            fecha_local = dt_local(t.fecha_hora)
+            constancia = f"{fecha_local.strftime('%d/%m')} - {p.apellido} ({fecha_local.strftime('%H:%M')})"
+
         resultados.append(PagoContextoResponse(
             id=pago.id,
             fecha_pago=pago.fecha_pago,
@@ -407,6 +416,7 @@ def listar_pagos_filtrados(
             dni_paciente=dni,
             paciente=paciente_data,
             doctor=doctor_data,
+            constancia_turno=constancia,
         ))
 
     return resultados

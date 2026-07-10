@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional
 from decimal import Decimal
@@ -16,9 +16,9 @@ class PagoCreate(BaseModel):
 class PagoResponse(PagoCreate):
     id: int
     fecha_pago: datetime
+    constancia_turno: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ─── Pago con contexto (para listado de finanzas) ───────────────
@@ -42,6 +42,7 @@ class PagoContextoResponse(BaseModel):
     metodo_pago: str
     id_turno: Optional[int]
     dni_paciente: Optional[str]
+    constancia_turno: Optional[str] = None
     paciente: Optional[PacienteMinResponse]
     doctor: Optional[DoctorMinResponse]
 

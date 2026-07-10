@@ -10,6 +10,9 @@ sqlalchemy
 pydantic
 # Validación de datos (schemas Request/Response)
 
+tzdata
+# Timezone database para zoneinfo (necesario en Windows para America/Argentina/Buenos_Aires)
+
 pydantic-settings
 # Carga de settings desde .env con tipado estricto
 

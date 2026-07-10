@@ -1,7 +1,8 @@
 from backend.database import engine, Base, SessionLocal
 from backend.models import (
     Paciente, Doctor, Turno, Pago, HistoriaClinica,
-    TurnoTratamiento, CuentaCorriente, MovimientoCuenta, Usuario, ObraSocial
+    TurnoTratamiento, CuentaCorriente, MovimientoCuenta, Usuario, ObraSocial,
+    AlertaMedica, EvolucionClinica, PlanTratamientoItem,
 )
 from backend.core.security import hash_password
 from sqlalchemy import text

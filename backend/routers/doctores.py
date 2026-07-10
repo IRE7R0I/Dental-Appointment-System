@@ -24,7 +24,11 @@ def listar_doctores(db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=DoctorResponse, status_code=201)
-def post_doctor(doctor: DoctorCreate, db: Session = Depends(get_db)):
+def post_doctor(
+    doctor: DoctorCreate,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(["admin"])),
+):
     return crear_doctor(db=db, doctor=doctor)
 
 
@@ -37,7 +41,12 @@ def obtener_doctor(id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{id}", response_model=DoctorResponse)
-def put_doctor(id: int, data: DoctorUpdate, db: Session = Depends(get_db)):
+def put_doctor(
+    id: int,
+    data: DoctorUpdate,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(["admin"])),
+):
     doctor = actualizar_doctor(db, id, data)
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")
@@ -45,7 +54,11 @@ def put_doctor(id: int, data: DoctorUpdate, db: Session = Depends(get_db)):
 
 
 @router.delete("/{id}", response_model=DoctorResponse)
-def delete_doctor(id: int, db: Session = Depends(get_db)):
+def delete_doctor(
+    id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(["admin"])),
+):
     doctor = desactivar_doctor(db, id)
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")

@@ -4,15 +4,28 @@ from typing import Optional
 from datetime import date
 from backend.database import get_db
 from backend.dependencies import require_role
+from backend.core.horarios import dt_local
 from backend.crud.finanzas import crear_pago, resumen_caja_hoy, listar_pagos_filtrados
 from backend.schemas.finanzas import PagoCreate, PagoResponse, ResumenCajaResponse, PagoContextoResponse
 
 router = APIRouter(prefix="/finanzas", tags=["Finanzas"], dependencies=[Depends(require_role(["admin", "secretaria"]))])
 
 
+def _build_constancia(pago) -> Optional[str]:
+    """Construye constancia_turno desde un pago con turno asociado."""
+    if pago.id_turno and hasattr(pago, 'turno') and pago.turno and pago.turno.paciente:
+        t = pago.turno
+        p = t.paciente
+        fecha_local = dt_local(t.fecha_hora)
+        return f"{fecha_local.strftime('%d/%m')} - {p.apellido} ({fecha_local.strftime('%H:%M')})"
+    return None
+
+
 @router.post("/pagos", response_model=PagoResponse, status_code=201)
 def registrar_pago(pago: PagoCreate, db: Session = Depends(get_db)):
-    return crear_pago(db=db, pago=pago)
+    pago_obj = crear_pago(db=db, pago=pago)
+    pago_obj.constancia_turno = _build_constancia(pago_obj)
+    return pago_obj
 
 
 @router.get("/pagos", response_model=list[PagoContextoResponse])

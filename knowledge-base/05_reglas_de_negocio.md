@@ -1,12 +1,22 @@
 # 05 — Reglas de Negocio
 
 ## RN-01: Horarios de atención
-- Lunes a viernes: mañana 09:00-12:30, tarde 16:00-19:30.
-- Sábado: solo mañana 09:00-12:30.
-- Sin atención: jueves y domingo.
-- Clínica cerrada: 13:00 a 16:00.
-- Slots cada 30 minutos.
-- Implementado en CHANGE-007 (actualmente validación simplificada).
+- Lunes, martes, miércoles y viernes: mañana 09:00-13:00, tarde 16:00-20:00.
+- Sábado: solo mañana 09:00-13:00.
+- Jueves y domingo: cerrado (sin atención).
+- Los horarios de cierre son exclusivos: `inicio_turno + duracion_minutos <= hora_cierre`.
+- Slot máximo: 12:30 en mañana, 19:30 en tarde (duración 30 min).
+- Granularidad de 30 minutos: solo horarios en :00 y :30.
+- Todos los horarios se validan en timezone `America/Argentina/Buenos_Aires`.
+- Implementado en C-12 `correccion-horarios-doctores-pagos`.
+
+## RN-14: Slots bloqueados manualmente
+- Admin y secretaria pueden bloquear/liberar slots puntuales en la agenda.
+- Un slot bloqueado no puede recibir un turno.
+- `UNIQUE(fecha, hora, id_doctor)` — no se puede bloquear el mismo slot dos veces.
+- El bloqueo es independiente del turno: un slot puede estar libre, ocupado (turno) o bloqueado.
+- Al bloquear, se puede indicar un motivo opcional.
+- Los slots bloqueados se muestran diferenciados de los ocupados por turno en `GET /turnos/slots`.
 
 ## RN-02: Estados del turno
 | Estado | Significado | Quién lo setea |
@@ -23,7 +33,7 @@
 - pendiente → realizado (cierra con cobro), cancelado
 - bloqueado → cancelado (libera)
 
-Nota: actualmente models.py usa valores simplificados. CHANGE-007 migrará.
+Nota: actualmente models.py usa 3 estados simplificados para turnos. C-08 migrará a 7 estados. Los slots bloqueados tienen su propia tabla independiente (C-12).
 
 ## RN-03: Prevención de duplicados
 No pueden existir dos turnos mismo doctor + misma hora. Estados "cancelado" y "rechazado" no bloquean.
@@ -64,3 +74,33 @@ PUT /turnos/{id}/cerrar → registra tratamientos + pagos → calcula deuda → 
 
 ## RN-13: Clasificación de ingresos
 Pagos agrupados en Particulares (obra_social = "Particular") y Obras Sociales (resto). Dashboard muestra separación por origen en ARS y USD.
+
+### RN-15: Alertas médicas
+- Las alertas médicas se asocian a un paciente en la tabla `alertas_medicas`.
+- Solo usuarios con rol `admin` o `secretaria` pueden crear, listar o eliminar alertas.
+- El tipo de alerta puede ser `"alergia"` o `"condicion"`.
+- Las alertas se muestran como badges de alerta en el banner de la ficha del paciente en frontend2.
+
+### RN-16: Evoluciones clínicas
+- Cada evolución clínica requiere `fecha` (obligatoria).
+- Si tiene `id_turno`, ese turno debe estar en estado "Asistió" y `fecha` debe coincidir con `turno.fecha_hora.date()`.
+- Si `id_turno` es null, `fecha` se ingresa manualmente (migración de registros históricos en papel).
+- `pieza_dental` y `ubicacion_lesion` son opcionales.
+- `pieza_dental` usa notación FDI (11-48, null si no aplica).
+- `ubicacion_lesion` usa códigos: O (Oclusal), D (Distal), G (Gingival), L (Lingual), M (Mesial), I (Incisal), V (Vestibular), P (Palatino), separados por coma.
+- Solo admin y secretaria pueden crear y corregir evoluciones.
+- La corrección registra `actualizado_por_id` y `actualizado_en`.
+- Nunca exponer datos clínicos en logs ni mensajes de error (ver RN-12).
+
+### RN-17: Plan de tratamiento
+- El plan de tratamiento contiene ítems que pueden estar vinculados al catálogo (`id_tratamiento` FK a `tratamientos_catalogo`) o ser texto libre.
+- Los ítems vinculados al catálogo heredan el precio del tratamiento para calcular el monto estimado total del plan pendiente.
+- Los ítems libres (sin FK) no suman al monto estimado.
+- Cada ítem tiene estado: `pendiente` o `completado`.
+- El campo `orden` mantiene la secuencia visual en el frontend.
+- Solo admin y secretaria pueden crear, modificar estado, o eliminar ítems.
+
+### RN-18: Protección de datos clínicos
+- No se expone DNI, email, ni historial clínico en logs o mensajes de error del servidor.
+- Los endpoints de historia clínica requieren autenticación JWT con rol admin o secretaria.
+- Los mensajes de error deben ser genéricos ("Paciente no encontrado", "Error al procesar la solicitud") sin incluir datos del paciente.

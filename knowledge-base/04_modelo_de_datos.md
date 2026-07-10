@@ -99,6 +99,45 @@ ObraSocial ── independiente
 | `nombre` | String(100) | unique |
 | `activo` | Boolean | soft-delete |
 
+### C-014 Agregados: Historia Clínica
+
+### AlertaMedica (`alertas_medicas`)
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | Integer PK | |
+| `dni_paciente` | String(20) FK → pacientes.dni | index |
+| `tipo` | String(50) | "alergia" o "condicion" |
+| `descripcion` | String(255) | |
+| `creado_en` | DateTime | |
+
+### EvolucionClinica (`evoluciones_clinicas`)
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | Integer PK | |
+| `fecha` | Date | NOT NULL, index |
+| `id_turno` | Integer FK → turnos.id | nullable (papel sin turno) |
+| `dni_paciente` | String(20) FK → pacientes.dni | index |
+| `pieza_dental` | Integer | nullable, FDI 11-48 |
+| `ubicacion_lesion` | String(100) | nullable, códigos separados por coma |
+| `observaciones` | Text | |
+| `conformidad_paciente` | Boolean | default False |
+| `creado_por_id` | Integer FK → usuarios.id | |
+| `actualizado_por_id` | Integer FK → usuarios.id | nullable |
+| `creado_en` | DateTime | |
+| `actualizado_en` | DateTime | nullable |
+
+### PlanTratamientoItem (`plan_tratamiento_items`)
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | Integer PK | |
+| `dni_paciente` | String(20) FK → pacientes.dni | index |
+| `id_tratamiento` | Integer FK → tratamientos_catalogo.id | nullable |
+| `descripcion` | String(255) | texto libre |
+| `fecha_objetivo` | Date | nullable |
+| `estado` | String(20) | pendiente | completado |
+| `orden` | Integer | default 0 |
+| `creado_en` | DateTime | |
+
 ### Usuario (`usuarios`) — CHANGE-009
 | Campo | Tipo | Notas |
 |-------|------|-------|

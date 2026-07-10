@@ -1,10 +1,12 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend.database import get_db
-from backend.dependencies import require_role
+from backend.dependencies import require_role, get_current_user
 from backend import models
+from backend.core.horarios import es_hora_valida, validar_granularidad, dt_local, generar_slots
 from backend.crud.turnos import (
     crear_turno,
     cancelar_turno,
@@ -12,9 +14,17 @@ from backend.crud.turnos import (
     obtener_turnos_por_paciente,
     obtener_todos_turnos,
     obtener_turnos_hoy,
+    obtener_slots_con_estado,
+    bloquear_slot,
+    desbloquear_slot,
+    slot_esta_bloqueado,
+    slot_tiene_turno,
 )
 from backend.crud.finanzas import cerrar_turno_con_pago
-from backend.schemas.turnos import TurnoCreate, TurnoResponse
+from backend.schemas.turnos import (
+    TurnoCreate, TurnoResponse, SlotBloquearInput,
+    SlotResponse, SlotBloqueadoResponse
+)
 from backend.schemas.finanzas import CerrarTurnoInput, CerrarTurnoResponse
 
 router = APIRouter(prefix="/turnos", tags=["Turnos"], dependencies=[Depends(require_role(["admin", "secretaria"]))])
@@ -59,26 +69,86 @@ def turnos_por_paciente(dni: str, db: Session = Depends(get_db)):
     return [_turno_to_response(t) for t in turnos]
 
 
+# ─── C-012: Slots ──────────────────────────────────────────────
+
+
+@router.get("/slots", response_model=list[SlotResponse])
+def listar_slots(fecha: date, id_doctor: int, db: Session = Depends(get_db)):
+    """Devuelve todos los slots del día con estado (libre/ocupado/bloqueado)."""
+    return obtener_slots_con_estado(db, fecha, id_doctor)
+
+
+@router.post("/slots/bloquear", response_model=SlotBloqueadoResponse, status_code=201)
+def post_bloquear_slot(
+    data: SlotBloquearInput,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_current_user),
+):
+    """Bloquea un slot manualmente. Admin o secretaria."""
+    # Validar que sea hora válida
+    dt_check = datetime.combine(data.fecha, data.hora)
+    if not es_hora_valida(dt_check):
+        raise HTTPException(status_code=400, detail="El slot no está dentro del horario de atención")
+
+    # Validar que no tenga turno ya
+    if slot_tiene_turno(db, data.fecha, data.hora, data.id_doctor):
+        raise HTTPException(status_code=409, detail="El slot ya tiene un turno asignado")
+
+    # Validar que no esté ya bloqueado
+    if slot_esta_bloqueado(db, data.fecha, data.hora, data.id_doctor):
+        raise HTTPException(status_code=409, detail="El slot ya está bloqueado")
+
+    # Si pasó validación: bloquear
+    try:
+        return bloquear_slot(db=db, data=data, usuario_id=int(usuario.id))
+    except Exception as e:
+        if "UNIQUE" in str(e):
+            raise HTTPException(status_code=409, detail="El slot ya está bloqueado")
+        raise
+
+
+@router.delete("/slots/{slot_id}/desbloquear")
+def delete_desbloquear_slot(slot_id: int, db: Session = Depends(get_db)):
+    """Libera un slot bloqueado manualmente."""
+    slot = desbloquear_slot(db, slot_id)
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot bloqueado no encontrado")
+    return {"mensaje": "Slot desbloqueado correctamente"}
+
+
+# ─── CRUD Turnos ───────────────────────────────────────────────
+
+
 @router.post("/", response_model=TurnoResponse, status_code=201)
 def post_turno(turno: TurnoCreate, db: Session = Depends(get_db)):
-    # Validar horario de atención
-    dt = turno.fecha_hora
-    dia_semana = dt.weekday()  # 0=lun, 1=mar, 2=mie, 3=jue, 4=vie, 5=sab, 6=dom
-    hora = dt.hour + dt.minute / 60
+    # Validar horario centralizado con timezone AR
+    if not es_hora_valida(turno.fecha_hora, turno.duracion_minutos):
+        raise HTTPException(
+            status_code=400,
+            detail="El horario está fuera del horario de atención o la granularidad es inválida"
+        )
 
-    if dia_semana == 3:  # jueves
-        raise HTTPException(status_code=400, detail="Los jueves no se atiende. Elegí otro día.")
-    if dia_semana == 6:  # domingo
-        raise HTTPException(status_code=400, detail="Los domingos no se atiende. Elegí otro día.")
-    if hora < 9 or hora >= 19:
-        raise HTTPException(status_code=400, detail="El horario de atención es de 9:00 a 19:00. Elegí otro horario.")
+    # Verificar que no haya conflicto con otro turno (solapamiento real)
+    local = dt_local(turno.fecha_hora)
+    inicio_nuevo = local.hour * 60 + local.minute
+    fin_nuevo = inicio_nuevo + turno.duracion_minutos
 
-    existe = db.query(models.Turno).filter(
+    conflictos = db.query(models.Turno).filter(
         models.Turno.id_doctor == turno.id_doctor,
-        models.Turno.fecha_hora == turno.fecha_hora,
-    ).first()
-    if existe:
-        raise HTTPException(status_code=400, detail="El doctor ya tiene un turno a esa hora")
+        func.date(models.Turno.fecha_hora) == local.date(),
+        models.Turno.estado.in_(["Pendiente", "Realizado"]),
+    ).all()
+
+    for t in conflictos:
+        t_local = dt_local(t.fecha_hora)
+        t_inicio = t_local.hour * 60 + t_local.minute
+        t_fin = t_inicio + int(t.duracion_minutos or 30)
+        if inicio_nuevo < t_fin and fin_nuevo > t_inicio:
+            raise HTTPException(
+                status_code=400,
+                detail="El doctor ya tiene un turno que se solapa en ese horario"
+            )
+
     return _turno_to_response(crear_turno(db=db, turno=turno))
 
 

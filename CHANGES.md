@@ -18,13 +18,15 @@
 ## Árbol de dependencias
 
 ```
-C-01 foundation-setup ──┬── C-02 pacientes-turnos ── C-03 finanzas ── C-04 cuentas ── C-05 historial
+C-01 foundation-setup ──┬── C-02 pacientes-turnos ── C-03 finanzas ── C-04 cuentas ── C-05 historial ──┐
                          │
-                         └── C-06 auth ──┬── C-07 catalogo ── C-08 portal ── C-09 notificaciones
-                                         │
-                                         └── C-10 reportes ────────────────────────┐
-                                                                                     │
-                         todos ──────────────────────────────────────── C-11 polish-y-deploy
+                         └── C-06 auth ──┬── C-07 catalogo ── C-12 correccion ──┬── C-08 portal ── C-09 notificaciones
+                                         │                                       │
+                                         ├── C-14 historia-clinica ──────────────┤── C-13 frontend2-rediseno (PARALELO)
+                                         │                                       │
+                                         └── C-10 reportes ──────────────────────┤
+                                                                                 │
+                         todos ────────────────────────────────────────────────── C-11 polish-y-deploy
 ```
 
 ### Paralelismo por fase
@@ -38,7 +40,9 @@ FASE 2 ───── C-04 → C-05 (secuencial, mismo dominio)
                 │
 FASE 3 ───── C-06 → C-07 (C-06 es CRITICO, C-07 depende de C-06)
                 │
-                ├── C-08 → C-09 (secuencial, portal necesita catálogo)
+                ├── C-12 → C-08 → C-09 (secuencial, correccion desbloquea portal)
+                │
+                ├── C-14 (PARALELO con C-08/C-13 — depende de C-07 y C-12)
                 │
                 └── C-10 (PARALELO con C-08/C-09 — solo depende de C-06)
                             │
@@ -47,16 +51,18 @@ FASE 5 ───── C-11 (bloqueado por C-08, C-09, C-10)
 
 **Gates de paralelismo**:
 - **GATE-1**: C-06 (`auth-y-autorizacion`) desbloquea C-07, C-10.
-- **GATE-2**: C-07 (`catalogo-tratamientos`) desbloquea C-08.
+- **GATE-2**: C-07 (`catalogo-tratamientos`) desbloquea C-12.
+- **GATE-2b**: C-12 (`correccion-horarios-doctores-pagos`) desbloquea C-08.
+- **GATE-2c**: C-12 desbloquea C-14 (`historia-clinica-y-plan-tratamiento`). C-07 desbloquea C-14 (catálogo para plan).
 - **GATE-3**: C-08 (`portal-autogestion`) desbloquea C-09, C-11.
 
 ### Camino crítico
 
 ```
-C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-08 → C-09 → C-11
-  ✅      ✅      ✅      ✅      ✅      ✅      ✅      🔲      🔲      🔲
+C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-08 → C-09 → C-11
+  ✅      ✅      ✅      ✅      ✅      ✅      ✅      ✅      🔲      🔲      🔲
 ```
-**8 changes en cadena lineal mínima irreducible para sistema funcionando en producción.**
+**9 changes en cadena lineal mínima irreducible para sistema funcionando en producción.**
 
 ### Plan óptimo con 3 agentes
 
@@ -67,9 +73,10 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-08 → C-09 →
 | 3 | C-03 finanzas | — | — |
 | 4 | C-04 cuentas | C-06 auth (inicia) | — |
 | 5 | C-05 historial | C-06 auth (completa) | C-07 catalogo |
-| 6 | — | C-10 reportes (paralelo) | C-08 portal |
-| 7 | — | — | C-09 notificaciones |
-| 8 | C-11 polish-y-deploy (todos convergen) | | |
+| 6 | C-12 correccion-horarios | — | — |
+| 7 | — | C-10 reportes (paralelo) | C-08 portal |
+| 8 | — | — | C-09 notificaciones |
+| 9 | C-11 polish-y-deploy (todos convergen) | | |
 
 ---
 
@@ -220,6 +227,110 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-08 → C-09 →
   - `knowledge-base/04_modelo_de_datos.md` (TratamientoCatalogo, ObraSocial)
   - `knowledge-base/09_decisiones_y_supuestos.md` (D-02, D-03, D-08)
 
+> **Prerequisito para**: C-12 (`correccion-horarios-doctores-pagos`), C-08 (`portal-autogestion`)
+
+---
+
+## FASE 3.5 — Correcciones de Backend
+
+### [C-12] `correccion-horarios-doctores-pagos` 🔲
+
+- **Estado**: [x] completado
+- **Scope**:
+  - `core/horarios.py`: reglas reales de clínica centralizadas.
+    - Lunes a sábado: 9:00 a 13:00 (cierre exclusivo).
+    - Lunes, martes, miércoles y viernes: además 16:00 a 20:00 (cierre exclusivo).
+    - Jueves y domingo: cerrado.
+    - Sábado: solo mañana, sin turno tarde.
+    - Cierre exclusivo validado contra `inicio + duracion_minutos <= hora_cierre`.
+  - Granularidad 30 min obligatoria: solo :00 y :30. Validar en creación y en generación de slots.
+  - `duracion_minutos` en `TurnoCreate` (opcional, default 30). No se deriva de catálogo al crear.
+  - Timezone: toda validación horaria usa `America/Argentina/Buenos_Aires` vía `zoneinfo` (stdlib).
+    - Helper `dt_local()` en `core/horarios.py` para convertir a AR_TZ.
+  - Endpoint `GET /turnos/slots?fecha=&id_doctor=` — devuelve slots con estado: `"libre"`, `"ocupado"`, `"bloqueado"`.
+  - Endpoint `GET /config/horarios` — expone reglas de horario como fuente única para frontend2.
+  - Tabla `slots_bloqueados` en models.py:
+    - Columnas: `id`, `fecha` (date), `hora` (time), `id_doctor` (FK), `motivo` (opcional), `bloqueado_por_id` (FK usuarios), `creado_en` (datetime).
+    - `UniqueConstraint('fecha', 'hora', 'id_doctor')`.
+  - Endpoints para bloques manuales: `POST /turnos/slots/bloquear`, `DELETE /turnos/slots/{id}/desbloquear`.
+    - Solo admin y secretaria. Mismo rol que agenda de turnos.
+  - Doctores: restringir POST/PUT/DELETE a solo admin. Secretaria solo GET (lectura).
+  - Validación de formato hex en `color_agenda` (regex `^#[0-9A-Fa-f]{6}$`) en schemas de doctores.
+  - Pagos: campo `constancia_turno: Optional[str]` en `PagoResponse` y `PagoContextoResponse`.
+    - Formato: `"DD/MM - Apellido (HH:MM)"` (ej. `"03/07 - Pérez (16:00)"`).
+    - `null` cuando pago no está ligado a un turno (pago general sin id_turno).
+  - Pydantic v2 modernization: `model_config = ConfigDict(from_attributes=True)` en schemas tocados.
+  - KB: actualizar `05_reglas_de_negocio.md` (RN-01 corregida, +RN slots bloqueados).
+  - KB: actualizar `10_preguntas_abiertas.md` (I-01 resuelto, +input documentado para C-08/C-09).
+- **Historias**: HU-001 (ampliada, horarios reales)
+- **Reglas de negocio**: RN-01 (corregida), RN-02 (slots bloqueados)
+- **Dependencias**: C-02 (turnos), C-06 (auth/roles), C-07 (catálogo duración_minutos). Todas completadas.
+- **Governance**: ALTO
+- **Leer antes**:
+  - `knowledge-base/05_reglas_de_negocio.md` (RN-01 actual)
+  - `knowledge-base/03_actores_y_roles.md`
+  - `docs/AUDITORIA_BACKEND.md` (hallazgos 5.1, 6.1)
+
+### [C-13] `frontend2-rediseno` 🔲
+
+- **Estado**: [ ] pendiente
+- **Scope**:
+  - Nuevo proyecto `frontend2/` en paralelo a `frontend/` (sin tocar).
+  - Stack: React 19 + TypeScript 6 + Vite 8 + Tailwind CSS 4.x + shadcn/ui.
+  - Diseño: tokens de `docs/DISENO_CONSOLIDADO_FRONTEND2.md` (paleta Afluente turquesa `#1D9E75`).
+  - 9 vistas según `docs/BLUEPRINT_FRONTEND2.md`:
+    - `/login` — autenticación JWT
+    - `/` — panel de control con KPIs y turnos del día
+    - `/agenda` — vista semanal/mensual con slots por doctor
+    - `/pagos` — libro de cobros, deudores, registro de pagos
+    - `/pacientes` — directorio y ficha de paciente
+    - `/pacientes/:dni/historial` — historial clínico y tratamientos
+    - `/admin/usuarios` — gestión de cuentas (solo admin)
+    - `/admin/doctores` — catálogo de profesionales (VISTA NUEVA, solo admin)
+    - `/catalogo` — tratamientos y obras sociales
+  - Componentes compartidos: `TarjetaKPI`, `SlotHorario`, `SelectorColorHex`, `ConstanciaPagoBadge`, `BuscadorPaciente`, `SelectorProfesional`.
+  - Componentes C-12: `SlotHorario` (3 estados: libre/ocupado/bloqueado), `SelectorColorHex` (validación `#RRGGBB`), `ConstanciaPagoBadge` (`"DD/MM - Apellido (HH:MM)"`).
+  - Reskin completo de primitivos shadcn/ui con tokens DISENO (nunca defaults grises de fábrica).
+  - Sistema de toasts: Sonner con colores semánticos DISENO.
+  - Responsive desde el primer componente: sidebar overlay mobile, KPIs 4→2→1, agenda doctores apilados mobile, tablas scroll horizontal.
+  - Motion: micro-interacciones ≤300ms, `prefers-reduced-motion`, nada decorativo.
+  - Testing: unitarios (utils) + componentes (React Testing Library) + integración (MSW).
+  - Cliente HTTP: axios con interceptors JWT + refresh (mismo patrón que `frontend/`).
+  - Tipos alineados a contratos reales del backend post C-12: `monto`+`moneda` (no `monto_ars`/`monto_usd`), `tipo: 'cargo'|'pago'` (no `'debito'|'credito'`), `color_agenda` (no `color`).
+- **Historias**: HU-001 (ampliada, nueva UI completa)
+- **Reglas de negocio**: RN-01 (horarios desde GET /config/horarios, sin hardcodear), RN-02 (estados de turno), RN-04 (monedas)
+- **Dependencias**: C-12 (contratos de API corregidos: slots, horarios, constancia_turno, doctores admin-only, color_agenda hex). También hereda dependencias de C-06 (auth) y C-07 (catálogo).
+- **Governance**: ALTO
+- **Leer antes**:
+  - `docs/DISENO_CONSOLIDADO_FRONTEND2.md` (fuente de verdad visual, 98 líneas)
+  - `docs/BLUEPRINT_FRONTEND2.md` (fuente de verdad funcional, 259 líneas)
+  - `docs/AUDITORIA_BACKEND.md` (contratos reales de API)
+  - `docs/Cambios_Respecto_Anterior_Auditoria.md` (estado post C-12)
+  - `knowledge-base/08_arquitectura_propuesta.md`
+
+### [C-14] `historia-clinica-y-plan-tratamiento` ✅
+
+- **Estado**: [x] completado (2026-07-10)
+- **Scope**:
+  - **Alertas médicas**: tabla `alertas_medicas` (tipo: alergia/condicion, descripcion). CRUD vía `GET/POST/DELETE /pacientes/{dni}/alertas`. Badges en ficha frontend2.
+  - **Evoluciones clínicas**: tabla `evoluciones_clinicas` (fecha, id_turno nullable, pieza_dental int FDI 11-48 nullable, ubicacion_lesion string comma-separated O/D/G/L/M/I/V/P nullable, observaciones Text, conformidad_paciente bool). Endpoints: `POST` crear, `GET` listar, `PUT` corregir (con auditoría `actualizado_por_id` + `actualizado_en`). Reemplaza `localStorage` del hallazgo 6.2 de `AUDITORIA_BACKEND.md`.
+  - **Plan de tratamiento**: tabla `plan_tratamiento_items` (id_tratamiento FK opcional a tratamientos_catalogo, descripcion texto libre, fecha_objetivo opcional, estado pendiente/completado, orden). Endpoints: `POST` crear, `GET` listar, `PUT` cambiar estado, `DELETE` eliminar. Items con FK al catálogo permiten estimación de costo total.
+  - **Endpoint de resumen**: `GET /pacientes/{dni}/resumen` — devuelve conteos: evoluciones, plan pendientes (+ monto estimado si tienen FK al catálogo), hallazgos=null, imagenes=null.
+  - Nuevo router `historia_clinica.py` bajo prefijo `/pacientes/{dni}/...`, protegido `admin`/`secretaria`.
+  - Schemas Pydantic v2 con `model_config = ConfigDict(from_attributes=True)`.
+  - Tests de integración con base de datos real (`test_historia_clinica.py`).
+  - KB: `05_reglas_de_negocio.md` (RN-15 a RN-18).
+- **Historias**: HU-001 (ampliada, ficha clínica completa)
+- **Reglas de negocio**: RN-15 (alertas médicas — solo admin/secretaria), RN-16 (evoluciones — turno debe estar "Asistió", fecha manual si sin turno, corrección con auditoría), RN-17 (plan de tratamiento — estimación de costo vía catálogo), RN-18 (no exponer datos clínicos en logs)
+- **Dependencias**: C-02 (turnos), C-06 (auth/roles), C-07 (catálogo para FK de plan), C-12 (estado "Asistió"). Todas completadas.
+- **Governance**: ALTO
+- **Paralelismo**: puede ejecutarse en paralelo con C-13 (`frontend2-rediseno`) y C-08 (`portal-autogestion`). Sin dependencias mutuas.
+- **Leer antes**:
+  - `docs/AUDITORIA_BACKEND.md` (hallazgo 6.2)
+  - `docs/BLUEPRINT_FRONTEND2.md` (secciones 2.5 y 2.6)
+  - `knowledge-base/04_modelo_de_datos.md`
+  - `knowledge-base/05_reglas_de_negocio.md`
+
 ---
 
 ## FASE 4 — Autogestión y Notificaciones
@@ -246,7 +357,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-08 → C-09 →
   - Frontend: `portal/PortalPage.tsx` (stepper 4 pasos), `portal/Step1Servicio.tsx`, `portal/Step2Profesional.tsx`, `portal/Step3Agenda.tsx` (tarjetas rectangulares), `portal/Step4Identificacion.tsx` (DNI + shadow profile), `portal/ConfirmacionTurno.tsx`, `ConsultaTurnoPage.tsx` (/consulta/:uuid), `AgendaPage.tsx` (+panel solicitudes + bloqueo slots).
 - **Historias**: HU-008, HU-008b
 - **Reglas de negocio**: RN-01 (horarios por día incluyendo sábado), RN-02 (estados ampliados), RN-06 (shadow profiles), RN-08 (UUID público), RN-13 (clasificación ingresos)
-- **Dependencias**: C-07 (paso 1 muestra catálogo, paso 4 usa obras sociales)
+- **Dependencias**: C-07 (paso 1 muestra catálogo, paso 4 usa obras sociales), C-12 (slots bloqueados y reglas de horario reales para disponibilidad)
 - **Governance**: ALTO
 - **Leer antes**:
   - `knowledge-base/05_reglas_de_negocio.md` (RN-01, RN-02, RN-06, RN-08, RN-13)
@@ -337,14 +448,15 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-08 → C-09 →
 | FASE 1 | C-02, C-03 | ✅ ✅ | MEDIO, ALTO |
 | FASE 2 | C-04, C-05 | ✅ ✅ | MEDIO, BAJO |
 | FASE 3 | C-06, C-07 | ✅ ✅ | CRITICO, MEDIO |
+| FASE 3.5 | C-12, C-13, C-14 | ✅ 🔲 ✅ | ALTO, ALTO, ALTO |
 | FASE 4 | C-08, C-09, C-10 | 🔲 🔲 🔲 | ALTO, ALTO, BAJO |
 | FASE 5 | C-11 | 🔲 | CRITICO |
 
-- **11 changes en 5 fases**
-- **7 completados** (C-01 a C-07)
-- **4 pendientes** (C-08 a C-11)
-- **Camino crítico**: 8 changes (C-01 → C-06 → C-07 → C-08 → C-09 → C-11)
-- **Paralelismo**: C-10 puede ejecutarse en paralelo con C-08 y C-09
-- **Primer change pendiente**: C-08 (`portal-autogestion`)
+- **14 changes en 6 fases**
+- **9 completados** (C-01 a C-07, C-12, C-14)
+- **5 pendientes** (C-13, C-08 a C-11)
+- **Camino crítico**: 9 changes (C-01 → C-06 → C-07 → C-12 → C-08 → C-09 → C-11)
+- **Paralelismo**: C-10, C-13 y C-14 pueden ejecutarse en paralelo con C-08 y C-09
+- **Primer change pendiente**: C-13 (`frontend2-rediseno`)
 
-Para arrancar: `/opsx:propose portal-autogestion`
+Para arrancar: `/opsx:propose frontend2-rediseno`

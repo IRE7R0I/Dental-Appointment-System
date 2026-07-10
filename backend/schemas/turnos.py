@@ -1,10 +1,11 @@
-from pydantic import BaseModel
-from datetime import datetime
-from typing import Optional
+from pydantic import BaseModel, ConfigDict
+from datetime import date, time, datetime
+from typing import Literal, Optional
 
 
 class TurnoCreate(BaseModel):
     fecha_hora: datetime
+    duracion_minutos: int = 30
     motivo: Optional[str] = None
     dni_paciente: str
     id_doctor: int
@@ -16,8 +17,7 @@ class TurnoResponse(TurnoCreate):
     paciente: Optional[dict] = None
     doctor: Optional[dict] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TurnoUpdate(BaseModel):
@@ -75,3 +75,32 @@ class HistorialPacienteResponse(BaseModel):
     saldo_usd: float
     turnos: list[HistorialTurnoItemResponse]
     totales: TotalesHistorial
+
+
+# ─── C-012: Slots y bloqueos ───────────────────────────────────
+
+class SlotBloquearInput(BaseModel):
+    fecha: date
+    hora: time
+    id_doctor: int
+    motivo: Optional[str] = None
+
+
+class SlotResponse(BaseModel):
+    hora: str  # "09:00"
+    estado: Literal["libre", "ocupado", "bloqueado"]
+    turno_id: Optional[int] = None
+    paciente: Optional[str] = None
+    motivo: Optional[str] = None
+    slot_bloqueado_id: Optional[int] = None  # solo cuando estado=="bloqueado"
+
+
+class SlotBloqueadoResponse(BaseModel):
+    id: int
+    fecha: date
+    hora: time
+    id_doctor: int
+    motivo: Optional[str]
+    creado_en: datetime
+
+    model_config = ConfigDict(from_attributes=True)

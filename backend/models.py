@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Date, DateTime, Boolean, DECIMAL, ForeignKey, Text, Index
+from sqlalchemy import Column, String, Integer, Date, DateTime, Boolean, DECIMAL, ForeignKey, Text, Time, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 from backend.database import Base
 from datetime import datetime
@@ -17,6 +17,9 @@ class Paciente(Base):
     # Relaciones
     turnos = relationship("Turno", back_populates="paciente")
     historia_clinica = relationship("HistoriaClinica", back_populates="paciente", uselist=False)
+    alertas_medicas = relationship("AlertaMedica", back_populates="paciente")
+    evoluciones_clinicas = relationship("EvolucionClinica", back_populates="paciente")
+    plan_tratamiento = relationship("PlanTratamientoItem", back_populates="paciente")
 
 class Doctor(Base):
     __tablename__ = "doctores"
@@ -156,3 +159,83 @@ class ObraSocial(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(100), unique=True, nullable=False)
     activo = Column(Boolean, default=True)
+
+
+# ── C-014: Historia Clínica y Plan de Tratamiento ──────────
+class AlertaMedica(Base):
+    """Alergia o condición médica relevante del paciente."""
+    __tablename__ = "alertas_medicas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dni_paciente = Column(String(20), ForeignKey("pacientes.dni"), nullable=False, index=True)
+    tipo = Column(String(50), nullable=False)  # "alergia" | "condicion"
+    descripcion = Column(String(255), nullable=False)
+    activo = Column(Boolean, default=True)
+    creado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    creado_en = Column(DateTime, default=datetime.now)
+    eliminado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    eliminado_en = Column(DateTime, nullable=True)
+
+    paciente = relationship("Paciente", back_populates="alertas_medicas")
+    creado_por = relationship("Usuario", foreign_keys=[creado_por_id])
+    eliminado_por = relationship("Usuario", foreign_keys=[eliminado_por_id])
+
+
+class EvolucionClinica(Base):
+    """Evolución clínica asociada a un turno o registrada manualmente."""
+    __tablename__ = "evoluciones_clinicas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fecha = Column(Date, nullable=False, index=True)
+    id_turno = Column(Integer, ForeignKey("turnos.id"), nullable=True)
+    dni_paciente = Column(String(20), ForeignKey("pacientes.dni"), nullable=False, index=True)
+    pieza_dental = Column(Integer, nullable=True)
+    ubicacion_lesion = Column(String(100), nullable=True)
+    observaciones = Column(Text, nullable=False)
+    conformidad_paciente = Column(Boolean, default=False)
+    creado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    actualizado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    creado_en = Column(DateTime, default=datetime.now)
+    actualizado_en = Column(DateTime, nullable=True, onupdate=datetime.now)
+
+    paciente = relationship("Paciente", back_populates="evoluciones_clinicas")
+    turno = relationship("Turno")
+    creado_por = relationship("Usuario", foreign_keys=[creado_por_id])
+    actualizado_por = relationship("Usuario", foreign_keys=[actualizado_por_id])
+
+
+class PlanTratamientoItem(Base):
+    """Ítem del plan de tratamiento del paciente."""
+    __tablename__ = "plan_tratamiento_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dni_paciente = Column(String(20), ForeignKey("pacientes.dni"), nullable=False, index=True)
+    id_tratamiento = Column(Integer, ForeignKey("tratamientos_catalogo.id"), nullable=True)
+    descripcion = Column(String(255), nullable=False)
+    fecha_objetivo = Column(Date, nullable=True)
+    estado = Column(String(20), nullable=False, default="pendiente")  # pendiente | completado
+    orden = Column(Integer, default=0)
+    creado_en = Column(DateTime, default=datetime.now)
+
+    paciente = relationship("Paciente", back_populates="plan_tratamiento")
+    tratamiento = relationship("TratamientoCatalogo")
+
+
+# ── C-012: Slots bloqueados manualmente ─────────────────────
+class SlotsBloqueado(Base):
+    __tablename__ = "slots_bloqueados"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fecha = Column(Date, nullable=False)
+    hora = Column(Time, nullable=False)
+    id_doctor = Column(Integer, ForeignKey("doctores.id"), nullable=False)
+    motivo = Column(String(255), nullable=True)
+    bloqueado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    creado_en = Column(DateTime, default=datetime.now)
+
+    __table_args__ = (
+        UniqueConstraint('fecha', 'hora', 'id_doctor', name='uq_slot_bloqueado'),
+    )
+
+    doctor = relationship("Doctor")
+    bloqueado_por = relationship("Usuario")
