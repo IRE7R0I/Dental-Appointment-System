@@ -342,6 +342,7 @@ def listar_pagos_filtrados(
     dni_paciente=None,
     id_doctor=None,
     solo_deudores=False,
+    moneda=None,
 ):
     """
     Lista pagos con datos de paciente y doctor, filtrable.
@@ -367,6 +368,8 @@ def listar_pagos_filtrados(
         metodo_norm = _normalizar_metodo(metodo_pago)
         # LIKE para cubrir variaciones en la DB (banco, mercadopago, transferencia)
         query = query.filter(models.Pago.metodo_pago.ilike(f"%{metodo_norm}%"))
+    if moneda:
+        query = query.filter(models.Pago.moneda == moneda)
 
     pagos = query.order_by(models.Pago.fecha_pago.desc()).all()
 

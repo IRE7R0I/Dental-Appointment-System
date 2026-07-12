@@ -72,8 +72,10 @@ def registrar_movimiento(db: Session, dni: str, tipo: str, monto: Decimal, moned
     return cuenta
 
 
-def listar_deudores(db: Session):
-    """Lista pacientes con saldo > 0 en ARS o USD."""
+def listar_deudores(db: Session, orden: str = "antiguedad_desc"):
+    """Lista pacientes con saldo > 0 en ARS o USD, ordenados por antigüedad de deuda."""
+    from datetime import datetime
+
     cuentas = db.query(models.CuentaCorriente).filter(
         (models.CuentaCorriente.saldo_ars > 0) | (models.CuentaCorriente.saldo_usd > 0)
     ).all()
@@ -82,6 +84,35 @@ def listar_deudores(db: Session):
     for c in cuentas:
         p = db.query(models.Paciente).filter(models.Paciente.dni == c.dni_paciente).first()
         if p:
+            # Calcular antigüedad de deuda (días desde el cargo sin saldar más antiguo)
+            dias_antiguedad = 0
+            oldest_cargo_date = None
+
+            for mon in ["ARS", "USD"]:
+                saldo_mon = c.saldo_ars if mon == "ARS" else c.saldo_usd
+                if saldo_mon and saldo_mon > 0:
+                    movs = db.query(models.MovimientoCuenta).filter(
+                        models.MovimientoCuenta.id_cuenta == c.id,
+                        models.MovimientoCuenta.moneda == mon
+                    ).order_by(models.MovimientoCuenta.fecha.asc()).all()
+
+                    cargos = [m for m in movs if m.tipo == "cargo"]
+                    pagos = [m for m in movs if m.tipo == "pago"]
+                    total_pagado = sum(p.monto for p in pagos)
+
+                    running_pagos = total_pagado
+                    for cargo in cargos:
+                        if running_pagos >= cargo.monto:
+                            running_pagos -= cargo.monto
+                        else:
+                            # Encontrado cargo no saldado del todo
+                            if oldest_cargo_date is None or cargo.fecha < oldest_cargo_date:
+                                oldest_cargo_date = cargo.fecha
+                            break
+
+            if oldest_cargo_date:
+                dias_antiguedad = max(0, (datetime.now() - oldest_cargo_date).days)
+
             from backend.schemas.pacientes import DeudorResponse
             resultado.append(DeudorResponse(
                 dni=p.dni,
@@ -90,7 +121,15 @@ def listar_deudores(db: Session):
                 telefono=p.telefono,
                 saldo_ars=c.saldo_ars or Decimal("0.00"),
                 saldo_usd=c.saldo_usd or Decimal("0.00"),
+                dias_antiguedad=dias_antiguedad,
             ))
+
+    # Ordenamiento
+    if orden == "antiguedad_asc":
+        resultado.sort(key=lambda x: x.dias_antiguedad)
+    else:
+        resultado.sort(key=lambda x: x.dias_antiguedad, reverse=True)
+
     return resultado
 
 
@@ -217,3 +256,49 @@ def obtener_historial_paciente(db: Session, dni: str, fecha_desde=None, fecha_ha
         turnos=turnos_response,
         totales=totales,
     )
+
+
+def obtener_turnos_con_deuda(db: Session, dni: str):
+    """Devuelve turnos del paciente que tengan saldo deudor (pendiente)."""
+    turnos = db.query(models.Turno).options(
+        joinedload(models.Turno.tratamientos),
+        joinedload(models.Turno.pagos),
+        joinedload(models.Turno.doctor)
+    ).filter(
+        models.Turno.dni_paciente == dni
+    ).all()
+
+    resultado = []
+    for t in turnos:
+        total_facturado_ars = sum(Decimal(str(tr.precio_ars)) * tr.cantidad for tr in t.tratamientos if tr.precio_ars)
+        total_facturado_usd = sum(Decimal(str(tr.precio_usd)) * tr.cantidad for tr in t.tratamientos if tr.precio_usd)
+
+        total_pagado_ars = sum(Decimal(str(p.monto)) for p in t.pagos if p.moneda == "ARS")
+        total_pagado_usd = sum(Decimal(str(p.monto)) for p in t.pagos if p.moneda == "USD")
+
+        saldo_pendiente_ars = max(Decimal("0.00"), total_facturado_ars - total_pagado_ars)
+        saldo_pendiente_usd = max(Decimal("0.00"), total_facturado_usd - total_pagado_usd)
+
+        if saldo_pendiente_ars > 0 or saldo_pendiente_usd > 0:
+            doctor_data = None
+            if t.doctor:
+                doctor_data = {
+                    "id": t.doctor.id,
+                    "nombre": t.doctor.nombre
+                }
+            resultado.append({
+                "id_turno": t.id,
+                "fecha_hora": t.fecha_hora,
+                "motivo": t.motivo,
+                "doctor": doctor_data,
+                "total_facturado_ars": float(total_facturado_ars),
+                "total_facturado_usd": float(total_facturado_usd),
+                "total_pagado_ars": float(total_pagado_ars),
+                "total_pagado_usd": float(total_pagado_usd),
+                "saldo_pendiente_ars": float(saldo_pendiente_ars),
+                "saldo_pendiente_usd": float(saldo_pendiente_usd),
+            })
+
+    # Ordenar por fecha_hora asc
+    resultado.sort(key=lambda x: x["fecha_hora"])
+    return resultado
