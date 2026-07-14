@@ -98,7 +98,7 @@ Las siguientes skills están instaladas en el proyecto y deben leerse antes de e
 | C-07 | `catalogo-tratamientos` | MEDIO | ✅ completado |
 | C-12 | `correccion-horarios-doctores-pagos` | ALTO | ✅ completado |
 | C-16 | `horarios-individuales-por-doctor` | ALTO | ✅ completado |
-| C-17 | `agenda-vista-mensual-bulk` | MEDIO | 🔲 pendiente |
+| C-17 | `agenda-vista-mensual-bulk` | MEDIO | ✅ completado |
 | C-13 | `frontend2-rediseno` | ALTO | 🔲 pendiente |
 | C-14 | `historia-clinica-y-plan-tratamiento` | ALTO | ✅ completado |
 | C-15 | `imagenes-radiografias-paciente` | MEDIO | ✅ completado |

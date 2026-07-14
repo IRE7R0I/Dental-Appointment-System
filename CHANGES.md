@@ -310,9 +310,9 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-16 →
   - `knowledge-base/05_reglas_de_negocio.md` (RN-01)
   - `backend/core/horarios.py`
 
-### [C-17] `agenda-vista-mensual-bulk` 🔲
+### [C-17] `agenda-vista-mensual-bulk` ✅
 
-- **Estado**: [ ] pendiente
+- **Estado**: [x] completado (2026-07-14)
 - **Scope**:
   - Nuevo endpoint `GET /turnos/slots/bulk` para vista mensual de agenda en frontend2.
   - Query params: `fecha_desde`, `fecha_hasta` (rango), `id_doctor` (comma-separated, opcional — si se omite, todos los activos).
@@ -533,13 +533,13 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-16 →
 | FASE 1 | C-02, C-03 | ✅ ✅ | MEDIO, ALTO |
 | FASE 2 | C-04, C-05 | ✅ ✅ | MEDIO, BAJO |
 | FASE 3 | C-06, C-07 | ✅ ✅ | CRITICO, MEDIO |
-| FASE 3.5 | C-12, C-16, C-17, C-13, C-14, C-15 | ✅ ✅ 🔲 🔲 ✅ ✅ | ALTO, ALTO, MEDIO, ALTO, ALTO, MEDIO |
+| FASE 3.5 | C-12, C-16, C-17, C-13, C-14, C-15 | ✅ ✅ ✅ 🔲 ✅ ✅ | ALTO, ALTO, MEDIO, ALTO, ALTO, MEDIO |
 | FASE 4 | C-08, C-09, C-10 | 🔲 🔲 🔲 | ALTO, ALTO, BAJO |
 | FASE 5 | C-11 | 🔲 | CRITICO |
 
 - **17 changes en 6 fases**
-- **11 completados** (C-01 a C-07, C-12, C-14, C-15, C-16)
-- **6 pendientes** (C-17, C-13, C-08 a C-11)
+- **12 completados** (C-01 a C-07, C-12, C-14, C-15, C-16, C-17)
+- **5 pendientes** (C-13, C-08 a C-11)
 - **Camino crítico**: 11 changes (C-01 → C-06 → C-07 → C-12 → C-16 → C-08 → C-09 → C-11)
 - **Paralelismo**: C-10, C-13, C-14 y C-17 pueden ejecutarse en paralelo con C-08 y C-09
 - **Primer change pendiente**: C-17 (`agenda-vista-mensual-bulk`) o C-13 (`frontend2-rediseno`)
