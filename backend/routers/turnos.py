@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.dependencies import require_role, get_current_user
 from backend import models
-from backend.core.horarios import es_hora_valida, validar_granularidad, dt_local, generar_slots
+from backend.core.horarios import es_hora_valida, es_hora_valida_doctor, validar_granularidad, dt_local, generar_slots
 from backend.crud.turnos import (
     crear_turno,
     cancelar_turno,
@@ -15,6 +15,7 @@ from backend.crud.turnos import (
     obtener_todos_turnos,
     obtener_turnos_hoy,
     obtener_slots_con_estado,
+    obtener_slots_bulk,
     bloquear_slot,
     desbloquear_slot,
     slot_esta_bloqueado,
@@ -23,7 +24,7 @@ from backend.crud.turnos import (
 from backend.crud.finanzas import cerrar_turno_con_pago
 from backend.schemas.turnos import (
     TurnoCreate, TurnoResponse, SlotBloquearInput,
-    SlotResponse, SlotBloqueadoResponse
+    SlotResponse, SlotBloqueadoResponse, SlotsBulkResponse
 )
 from backend.schemas.finanzas import CerrarTurnoInput, CerrarTurnoResponse
 
@@ -87,7 +88,7 @@ def post_bloquear_slot(
     """Bloquea un slot manualmente. Admin o secretaria."""
     # Validar que sea hora válida
     dt_check = datetime.combine(data.fecha, data.hora)
-    if not es_hora_valida(dt_check):
+    if not es_hora_valida_doctor(db, data.id_doctor, dt_check):
         raise HTTPException(status_code=400, detail="El slot no está dentro del horario de atención")
 
     # Validar que no tenga turno ya
@@ -116,13 +117,64 @@ def delete_desbloquear_slot(slot_id: int, db: Session = Depends(get_db)):
     return {"mensaje": "Slot desbloqueado correctamente"}
 
 
+# ─── C-017: Slots bulk mensual ──────────────────────────────────
+
+@router.get("/slots/bulk", response_model=SlotsBulkResponse)
+def get_slots_bulk(
+    fecha_desde: date = Query(..., description="Fecha inicio del rango (YYYY-MM-DD)"),
+    fecha_hasta: date = Query(..., description="Fecha fin del rango (YYYY-MM-DD)"),
+    id_doctor: Optional[str] = Query(
+        None,
+        description="IDs de doctores separados por coma (ej: 1,2,3). Si se omite, todos los activos.",
+    ),
+    db: Session = Depends(get_db),
+):
+    """
+    Devuelve conteos agregados de slots por día para un rango de fechas.
+
+    Útil para la vista mensual de agenda en frontend2.
+    - 4 queries SQL → agregación Python. Evita N+1 requests.
+    - Turnos con duración > 30 min ocupan múltiples slots.
+    - Respuesta incluye totales combinados + desglose por doctor.
+    """
+    if fecha_desde > fecha_hasta:
+        raise HTTPException(status_code=400, detail="fecha_desde debe ser <= fecha_hasta")
+
+    # Resolver doctores
+    if id_doctor:
+        try:
+            doctores_ids = [int(x.strip()) for x in id_doctor.split(",") if x.strip()]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="id_doctor debe ser números separados por coma")
+        if not doctores_ids:
+            raise HTTPException(status_code=400, detail="id_doctor no puede estar vacío")
+    else:
+        doctores_activos = db.query(models.Doctor).filter(models.Doctor.activo == True).all()
+        doctores_ids = [d.id for d in doctores_activos]
+        if not doctores_ids:
+            return SlotsBulkResponse(
+                fecha_desde=fecha_desde,
+                fecha_hasta=fecha_hasta,
+                doctores=[],
+                dias={},
+            )
+
+    resultado = obtener_slots_bulk(db, fecha_desde, fecha_hasta, doctores_ids)
+    return SlotsBulkResponse(
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        doctores=doctores_ids,
+        dias=resultado,
+    )
+
+
 # ─── CRUD Turnos ───────────────────────────────────────────────
 
 
 @router.post("/", response_model=TurnoResponse, status_code=201)
 def post_turno(turno: TurnoCreate, db: Session = Depends(get_db)):
     # Validar horario centralizado con timezone AR
-    if not es_hora_valida(turno.fecha_hora, turno.duracion_minutos):
+    if not es_hora_valida_doctor(db, turno.id_doctor, turno.fecha_hora, turno.duracion_minutos):
         raise HTTPException(
             status_code=400,
             detail="El horario está fuera del horario de atención o la granularidad es inválida"

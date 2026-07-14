@@ -1,14 +1,19 @@
 # 05 — Reglas de Negocio
 
-## RN-01: Horarios de atención
-- Lunes, martes, miércoles y viernes: mañana 09:00-13:00, tarde 16:00-20:00.
-- Sábado: solo mañana 09:00-13:00.
-- Jueves y domingo: cerrado (sin atención).
+## RN-01: Horarios de atención (por doctor)
+- Cada doctor tiene su propio patrón semanal almacenado en `horarios_doctor` (7 filas: una por día, con franjas mañana y/o tarde).
+- Doctores nuevos heredan el horario default de clínica como punto de partida editable por admin.
+- Días puntuales pueden marcarse como no laborables por doctor en `dias_no_laborables_doctor` (feriados, vacaciones, ausencias).
+- Un día con `DiaNoLaborableDoctor` activo para ese doctor se considera cerrado sin importar el patrón semanal.
 - Los horarios de cierre son exclusivos: `inicio_turno + duracion_minutos <= hora_cierre`.
-- Slot máximo: 12:30 en mañana, 19:30 en tarde (duración 30 min).
 - Granularidad de 30 minutos: solo horarios en :00 y :30.
 - Todos los horarios se validan en timezone `America/Argentina/Buenos_Aires`.
-- Implementado en C-12 `correccion-horarios-doctores-pagos`.
+- Horario default de clínica (usado para seeding de nuevos doctores):
+  - Lunes, martes, miércoles y viernes: mañana 09:00-13:00, tarde 16:00-20:00.
+  - Sábado: solo mañana 09:00-13:00.
+  - Jueves y domingo: cerrado.
+- La generación de slots y validación de turnos usan el horario del doctor, no el global.
+- Implementado en C-12 `correccion-horarios-doctores-pagos` (infraestructura) y C-16 `horarios-individuales-por-doctor` (per-doctor).
 
 ## RN-14: Slots bloqueados manualmente
 - Admin y secretaria pueden bloquear/liberar slots puntuales en la agenda.

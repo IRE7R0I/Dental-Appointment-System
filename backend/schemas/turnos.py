@@ -20,6 +20,61 @@ class TurnoResponse(TurnoCreate):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ─── C-017: Slots bulk mensual ──────────────────────────────────
+
+class DoctorSlotSummary(BaseModel):
+    """Conteo de slots para un doctor en un día."""
+    total: int = 0
+    libres: int = 0
+    ocupados: int = 0
+    bloqueados: int = 0
+
+
+class DaySlotSummary(BaseModel):
+    """Conteo agregado de slots para un día (todos los doctores)."""
+    total: int = 0
+    libres: int = 0
+    ocupados: int = 0
+    bloqueados: int = 0
+    por_doctor: dict[str, DoctorSlotSummary] = {}
+
+
+class SlotsBulkResponse(BaseModel):
+    """Respuesta del endpoint bulk de slots mensuales."""
+    fecha_desde: date
+    fecha_hasta: date
+    doctores: list[int]
+    dias: dict[str, DaySlotSummary]
+
+
+# ─── C-017: Slots bulk mensual ──────────────────────────────────
+
+
+class DoctorSlotSummary(BaseModel):
+    """Conteo de slots para un doctor en un día."""
+    total: int = 0
+    libres: int = 0
+    ocupados: int = 0
+    bloqueados: int = 0
+
+
+class DaySlotSummary(BaseModel):
+    """Conteo agregado de slots para un día (todos los doctores)."""
+    total: int = 0
+    libres: int = 0
+    ocupados: int = 0
+    bloqueados: int = 0
+    por_doctor: dict[str, DoctorSlotSummary] = {}
+
+
+class SlotsBulkResponse(BaseModel):
+    """Respuesta del endpoint bulk de slots mensuales."""
+    fecha_desde: date
+    fecha_hasta: date
+    doctores: list[int]
+    dias: dict[str, DaySlotSummary]
+
+
 class TurnoUpdate(BaseModel):
     estado: Optional[str] = None
     fecha_hora: Optional[datetime] = None

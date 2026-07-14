@@ -7,7 +7,7 @@ AR_TZ = ZoneInfo("America/Argentina/Buenos_Aires")
 # ── Franjas por día de semana ──
 # weekday() -> [(inicio_mañana, fin_mañana), (inicio_tarde, fin_tarde)]
 # Lista vacía = cerrado
-HORARIOS: dict[int, list[tuple[time, time]]] = {
+HORARIOS_DEFAULT: dict[int, list[tuple[time, time]]] = {
     0: [(time(9, 0), time(13, 0)), (time(16, 0), time(20, 0))],  # lunes
     1: [(time(9, 0), time(13, 0)), (time(16, 0), time(20, 0))],  # martes
     2: [(time(9, 0), time(13, 0)), (time(16, 0), time(20, 0))],  # miércoles
@@ -22,6 +22,11 @@ NOMBRES_DIAS = {
     4: "viernes", 5: "sábado", 6: "domingo",
 }
 
+DIA_SEMANA_KEYS = {
+    0: "lunes", 1: "martes", 2: "miercoles", 3: "jueves",
+    4: "viernes", 5: "sabado", 6: "domingo",
+}
+
 
 def dt_local(dt: datetime) -> datetime:
     """Convierte datetime a timezone AR para validación de horario."""
@@ -32,7 +37,7 @@ def dt_local(dt: datetime) -> datetime:
 
 def es_dia_laboral(fecha: date) -> bool:
     """True si el día tiene al menos una franja horaria."""
-    return len(HORARIOS.get(fecha.weekday(), [])) > 0
+    return len(HORARIOS_DEFAULT.get(fecha.weekday(), [])) > 0
 
 
 def es_hora_valida(fecha_hora: datetime, duracion_minutos: int = 30) -> bool:
@@ -48,7 +53,7 @@ def es_hora_valida(fecha_hora: datetime, duracion_minutos: int = 30) -> bool:
     if not validar_granularidad(local.hour, local.minute):
         return False
 
-    for apertura, cierre in HORARIOS.get(dia, []):
+    for apertura, cierre in HORARIOS_DEFAULT.get(dia, []):
         apertura_min = apertura.hour * 60 + apertura.minute
         cierre_min = cierre.hour * 60 + cierre.minute
         if inicio >= apertura_min and fin <= cierre_min:
@@ -60,7 +65,7 @@ def generar_slots(fecha: date, duracion_minutos: int = 30) -> list[time]:
     """Genera slots válidos para una fecha con la duración dada."""
     dia = fecha.weekday()
     slots: list[time] = []
-    for apertura, cierre in HORARIOS.get(dia, []):
+    for apertura, cierre in HORARIOS_DEFAULT.get(dia, []):
         actual = apertura.hour * 60 + apertura.minute
         cierre_min = cierre.hour * 60 + cierre.minute
         while actual + duracion_minutos <= cierre_min:
@@ -79,7 +84,7 @@ def obtener_horarios_publicos() -> dict:
     """Devuelve reglas de horario como dict para endpoint público."""
     dias = {}
     for wd, nombre in NOMBRES_DIAS.items():
-        franjas = HORARIOS.get(wd, [])
+        franjas = HORARIOS_DEFAULT.get(wd, [])
         if not franjas:
             dias[nombre] = None
         else:
@@ -90,3 +95,105 @@ def obtener_horarios_publicos() -> dict:
                 entry["tarde"] = [franjas[1][0].strftime("%H:%M"), franjas[1][1].strftime("%H:%M")]
             dias[nombre] = entry
     return {"zona_horaria": "America/Argentina/Buenos_Aires", "dias": dias, "granularidad_minutos": 30}
+
+
+def cargar_horario_doctor(db, id_doctor: int) -> dict[int, list[tuple[time, time]]]:
+    """Carga patrón semanal del doctor desde DB. Mismo formato que HORARIOS_DEFAULT.
+    Si no tiene filas, retorna HORARIOS_DEFAULT como fallback."""
+    from sqlalchemy.orm import Session
+    from backend.models import HorarioDoctor
+
+    rows = db.query(HorarioDoctor).filter(HorarioDoctor.id_doctor == id_doctor).order_by(HorarioDoctor.dia_semana).all()
+    if not rows:
+        return HORARIOS_DEFAULT  # fallback
+
+    resultado: dict[int, list[tuple[time, time]]] = {}
+    for r in rows:
+        franjas = []
+        if r.manana_inicio and r.manana_fin:
+            franjas.append((r.manana_inicio, r.manana_fin))
+        if r.tarde_inicio and r.tarde_fin:
+            franjas.append((r.tarde_inicio, r.tarde_fin))
+        resultado[r.dia_semana] = franjas
+    return resultado
+
+
+def generar_slots_doctor(db, id_doctor: int, fecha: date, duracion_minutos: int = 30) -> list[time]:
+    """Genera slots válidos para un doctor en una fecha, usando su horario individual."""
+    from backend.crud.horarios_doctor import es_dia_no_laborable
+
+    if es_dia_no_laborable(db, id_doctor, fecha):
+        return []
+
+    horario = cargar_horario_doctor(db, id_doctor)
+    dia = fecha.weekday()
+    slots: list[time] = []
+    for apertura, cierre in horario.get(dia, []):
+        actual = apertura.hour * 60 + apertura.minute
+        cierre_min = cierre.hour * 60 + cierre.minute
+        while actual + duracion_minutos <= cierre_min:
+            h, m = divmod(actual, 60)
+            slots.append(time(int(h), int(m)))
+            actual += 30
+    return slots
+
+
+def es_hora_valida_doctor(db, id_doctor: int, fecha_hora: datetime, duracion_minutos: int = 30) -> bool:
+    """Valida que un slot (fecha_hora + duración) entre completo dentro del horario del doctor."""
+    from backend.crud.horarios_doctor import es_dia_no_laborable
+
+    local = dt_local(fecha_hora)
+    dia = local.weekday()
+    fecha_date = local.date()
+    inicio = local.hour * 60 + local.minute
+    fin = inicio + duracion_minutos
+
+    if not validar_granularidad(local.hour, local.minute):
+        return False
+
+    if es_dia_no_laborable(db, id_doctor, fecha_date):
+        return False
+
+    horario = cargar_horario_doctor(db, id_doctor)
+    for apertura, cierre in horario.get(dia, []):
+        apertura_min = apertura.hour * 60 + apertura.minute
+        cierre_min = cierre.hour * 60 + cierre.minute
+        if inicio >= apertura_min and fin <= cierre_min:
+            return True
+    return False
+
+
+def es_dia_laboral_doctor(db, id_doctor: int, fecha: date) -> bool:
+    """True si el doctor trabaja en esa fecha (patrón semanal + no excluida)."""
+    from backend.crud.horarios_doctor import es_dia_no_laborable
+
+    if es_dia_no_laborable(db, id_doctor, fecha):
+        return False
+    horario = cargar_horario_doctor(db, id_doctor)
+    return len(horario.get(fecha.weekday(), [])) > 0
+
+
+def obtener_horarios_doctor_publico(db, id_doctor: int) -> dict:
+    """Devuelve horario del doctor formateado para API (mismo shape que obtener_horarios_publicos)."""
+    from backend.models import Doctor
+    doctor = db.query(Doctor).filter(Doctor.id == id_doctor).first()
+    nombre_doctor = doctor.nombre if doctor else f"Doctor #{id_doctor}"
+    horario = cargar_horario_doctor(db, id_doctor)
+    dias = {}
+    for wd, nombre in DIA_SEMANA_KEYS.items():
+        franjas = horario.get(wd, [])
+        if not franjas:
+            dias[nombre] = None
+        else:
+            entry = {}
+            if len(franjas) >= 1:
+                entry["manana"] = [franjas[0][0].strftime("%H:%M"), franjas[0][1].strftime("%H:%M")]
+            if len(franjas) >= 2:
+                entry["tarde"] = [franjas[1][0].strftime("%H:%M"), franjas[1][1].strftime("%H:%M")]
+            dias[nombre] = entry
+    return {
+        "id_doctor": id_doctor,
+        "nombre_doctor": nombre_doctor,
+        "granularidad_minutos": 30,
+        "dias": dias,
+    }

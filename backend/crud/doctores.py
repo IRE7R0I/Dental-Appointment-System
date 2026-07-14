@@ -1,6 +1,7 @@
 from typing import Optional
 from sqlalchemy.orm import Session
 from backend import models
+from backend.crud.horarios_doctor import seed_horarios_doctor
 from backend.schemas.doctores import DoctorCreate, DoctorUpdate
 
 
@@ -12,6 +13,7 @@ def crear_doctor(db: Session, doctor: DoctorCreate):
     db.add(db_doctor)
     db.commit()
     db.refresh(db_doctor)
+    seed_horarios_doctor(db, db_doctor.id)
     return db_doctor
 
 

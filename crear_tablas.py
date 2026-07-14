@@ -2,7 +2,7 @@ from backend.database import engine, Base, SessionLocal
 from backend.models import (
     Paciente, Doctor, Turno, Pago, HistoriaClinica,
     TurnoTratamiento, CuentaCorriente, MovimientoCuenta, Usuario, ObraSocial,
-    AlertaMedica, EvolucionClinica,
+    AlertaMedica, EvolucionClinica, HorarioDoctor,
 )
 from backend.core.security import hash_password
 from sqlalchemy import text
@@ -69,6 +69,15 @@ def init_db():
                     db.add(ObraSocial(nombre=nombre, activo=True))
             db.commit()
             print(f"Obras sociales seeded ({len(obras_sociales)})")
+
+            # ── C-016: Seed horarios para doctores existentes ──
+            from backend.crud.horarios_doctor import seed_horarios_doctor
+
+            if db.query(HorarioDoctor).count() == 0:
+                doctores = db.query(Doctor).filter(Doctor.activo == True).all()
+                for doc in doctores:
+                    seed_horarios_doctor(db, doc.id)
+                print(f"Horarios seeded para {len(doctores)} doctores existentes.")
 
         except Exception as e:
             db.rollback()

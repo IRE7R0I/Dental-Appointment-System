@@ -263,3 +263,33 @@ class ImagenContenido(Base):
     contenido = Column(LargeBinary, nullable=False)
 
     imagen = relationship("Imagen", back_populates="contenido")
+
+
+# ── C-016: Horarios individuales por doctor ────────────────────
+class HorarioDoctor(Base):
+    """Patrón semanal de horario por doctor (7 filas por doctor)."""
+    __tablename__ = "horarios_doctor"
+    id = Column(Integer, primary_key=True, index=True)
+    id_doctor = Column(Integer, ForeignKey("doctores.id"), nullable=False)
+    dia_semana = Column(Integer, nullable=False)  # 0=lunes..6=domingo
+    manana_inicio = Column(Time, nullable=True)
+    manana_fin = Column(Time, nullable=True)
+    tarde_inicio = Column(Time, nullable=True)
+    tarde_fin = Column(Time, nullable=True)
+    __table_args__ = (
+        UniqueConstraint('id_doctor', 'dia_semana', name='uq_horario_doctor_dia'),
+    )
+    doctor = relationship("Doctor", backref="horarios_doctor")
+
+
+class DiaNoLaborableDoctor(Base):
+    """Días puntuales no laborables por doctor (feriados, vacaciones, ausencias)."""
+    __tablename__ = "dias_no_laborables_doctor"
+    id = Column(Integer, primary_key=True, index=True)
+    id_doctor = Column(Integer, ForeignKey("doctores.id"), nullable=False)
+    fecha = Column(Date, nullable=False)
+    motivo = Column(String(255), nullable=True)
+    __table_args__ = (
+        UniqueConstraint('id_doctor', 'fecha', name='uq_dia_no_laborable'),
+    )
+    doctor = relationship("Doctor", backref="dias_no_laborables")

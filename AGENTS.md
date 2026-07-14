@@ -97,6 +97,8 @@ Las siguientes skills están instaladas en el proyecto y deben leerse antes de e
 | C-06 | `auth-y-autorizacion` | CRITICO | ✅ completado |
 | C-07 | `catalogo-tratamientos` | MEDIO | ✅ completado |
 | C-12 | `correccion-horarios-doctores-pagos` | ALTO | ✅ completado |
+| C-16 | `horarios-individuales-por-doctor` | ALTO | ✅ completado |
+| C-17 | `agenda-vista-mensual-bulk` | MEDIO | 🔲 pendiente |
 | C-13 | `frontend2-rediseno` | ALTO | 🔲 pendiente |
 | C-14 | `historia-clinica-y-plan-tratamiento` | ALTO | ✅ completado |
 | C-15 | `imagenes-radiografias-paciente` | MEDIO | ✅ completado |
@@ -105,8 +107,8 @@ Las siguientes skills están instaladas en el proyecto y deben leerse antes de e
 | C-10 | `reportes-excel` | BAJO | 🔲 pendiente |
 | C-11 | `polish-y-deploy` | CRITICO | 🔲 pendiente |
 
-**Camino crítico**: C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-08 → C-09 → C-11
-**Próximo change disponible**: C-13 (`frontend2-rediseno`)
+**Camino crítico**: C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-16 → C-08 → C-09 → C-11
+**Próximo change disponible**: C-17 (`agenda-vista-mensual-bulk`) o C-13 (`frontend2-rediseno`) — ambos paralelizables
 
 ---
 

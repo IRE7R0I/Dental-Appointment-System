@@ -20,14 +20,16 @@
 ```
 C-01 foundation-setup ──┬── C-02 pacientes-turnos ── C-03 finanzas ── C-04 cuentas ── C-05 historial ──┐
                          │
-                         └── C-06 auth ──┬── C-07 catalogo ── C-12 correccion ──┬── C-08 portal ── C-09 notificaciones
-                                         │                                       │
-                                         ├── C-15 imagenes ──────────────────────┤
-                                         ├── C-14 historia-clinica ──────────────┤── C-13 frontend2-rediseno (PARALELO)
-                                         │                                       │
-                                         └── C-10 reportes ──────────────────────┤
-                                                                                 │
-                         todos ────────────────────────────────────────────────── C-11 polish-y-deploy
+                         └── C-06 auth ──┬── C-07 catalogo ── C-12 correccion ── C-16 horarios-doctor ──┬── C-08 portal ── C-09 notificaciones
+                                         │                                                              │
+                                         ├── C-15 imagenes ─────────────────────────────────────────────┤
+                                         ├── C-14 historia-clinica ─────────────────────────────────────┤── C-13 frontend2-rediseno (PARALELO)
+                                         │                                                              │
+                                         ├── C-10 reportes ─────────────────────────────────────────────┤
+                                         │                                                              │
+                                         └── C-17 slots-bulk-mensual (PARALELO con C-13) ───────────────┘
+                                                                                                        │
+                         todos ───────────────────────────────────────────────────────────────────────── C-11 polish-y-deploy
 ```
 
 ### Paralelismo por fase
@@ -40,11 +42,12 @@ FASE 1 ───── C-02 → C-03 (secuencial, mismo dominio)
 FASE 2 ───── C-04 → C-05 (secuencial, mismo dominio)
                 │
 FASE 3 ───── C-06 → C-07 (C-06 es CRITICO, C-07 depende de C-06)
-                │
-                ├── C-12 → C-08 → C-09 (secuencial, correccion desbloquea portal)
-                │
+                 │
+                 ├── C-12 → C-16 → C-08 → C-09 (secuencial, correccion desbloquea horarios doctor, que desbloquea portal)
+                 │
                  ├── C-14 (PARALELO con C-08/C-13 — depende de C-07 y C-12)
                  ├── C-15 (PARALELO con C-08/C-13/C-14 — depende de C-02 y C-06)
+                 ├── C-17 (PARALELO con C-13 — depende de C-16, 1 endpoint backend)
                  │
                  └── C-10 (PARALELO con C-08/C-09 — solo depende de C-06)
                             │
@@ -54,7 +57,9 @@ FASE 5 ───── C-11 (bloqueado por C-08, C-09, C-10)
 **Gates de paralelismo**:
 - **GATE-1**: C-06 (`auth-y-autorizacion`) desbloquea C-07, C-10.
 - **GATE-2**: C-07 (`catalogo-tratamientos`) desbloquea C-12.
-- **GATE-2b**: C-12 (`correccion-horarios-doctores-pagos`) desbloquea C-08.
+- **GATE-2b**: C-12 (`correccion-horarios-doctores-pagos`) desbloquea C-16.
+- **GATE-2b2**: C-16 (`horarios-individuales-por-doctor`) desbloquea C-08.
+- **GATE-2b3**: C-16 desbloquea C-17 (`agenda-vista-mensual-bulk`).
 - **GATE-2c**: C-12 desbloquea C-14 (`historia-clinica`).
 - **GATE-2d**: C-06 desbloquea C-15 (`imagenes-radiografias-paciente`).
 - **GATE-3**: C-08 (`portal-autogestion`) desbloquea C-09, C-11.
@@ -62,10 +67,10 @@ FASE 5 ───── C-11 (bloqueado por C-08, C-09, C-10)
 ### Camino crítico
 
 ```
-C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-08 → C-09 → C-11
-  ✅      ✅      ✅      ✅      ✅      ✅      ✅      ✅      🔲      🔲      🔲
+C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-16 → C-08 → C-09 → C-11
+  ✅      ✅      ✅      ✅      ✅      ✅      ✅      ✅      ✅      🔲      🔲      🔲
 ```
-**9 changes en cadena lineal mínima irreducible para sistema funcionando en producción.**
+**11 changes en cadena lineal mínima irreducible para sistema funcionando en producción.**
 
 ### Plan óptimo con 3 agentes
 
@@ -274,6 +279,58 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-08 →
   - `knowledge-base/03_actores_y_roles.md`
   - `docs/AUDITORIA_BACKEND.md` (hallazgos 5.1, 6.1)
 
+### [C-16] `horarios-individuales-por-doctor` ✅
+
+- **Estado**: [x] completado (2026-07-14)
+- **Scope**:
+  - Modelo `HorarioDoctor`: patrón semanal por doctor (7 filas por doctor: `dia_semana` + franjas `manana_inicio`/`manana_fin`/`tarde_inicio`/`tarde_fin`). `UniqueConstraint(id_doctor, dia_semana)`.
+  - Modelo `DiaNoLaborableDoctor`: excepciones puntuales por fecha (`id_doctor`, `fecha`, `motivo`). `UniqueConstraint(id_doctor, fecha)`.
+  - `core/horarios.py`: funciones doctor-aware (`generar_slots_doctor`, `es_hora_valida_doctor`, `es_dia_laboral_doctor`, `obtener_horarios_doctor_publico`). `HORARIOS` global renombrado a `HORARIOS_DEFAULT` (usado solo para seeding).
+  - Endpoints bajo `/doctores/{id}/`:
+    - `GET /horarios` — patrón semanal del doctor.
+    - `PUT /horarios` — actualiza patrón semanal (admin-only).
+    - `GET /dias-no-laborables?desde=&hasta=` — excepciones en rango.
+    - `POST /dias-no-laborables` — marca fecha (admin-only).
+    - `DELETE /dias-no-laborables/{fecha}` — desmarca fecha (admin-only).
+  - Seeding: `POST /doctores/` inserta `horarios_doctor` con `HORARIOS_DEFAULT`. `crear_tablas.py:init_db()` migra doctores existentes.
+  - Baja de doctor (`activo=False`): filas de horarios y días no laborables se conservan.
+  - Impacto en turnos: `GET /turnos/slots`, `POST /turnos/`, `POST /turnos/slots/bloquear` validan contra horario del doctor (no global).
+  - `GET /config/horarios` se mantiene como referencia/default para backward compat.
+  - Tests de integración con DB real (`test_horarios_doctor.py`).
+- **Reglas de negocio**: RN-01 (horarios per-doctor + excepciones por fecha)
+- **Dependencias**: C-12 (infraestructura horarios/slots actual), C-06 (auth/roles). Ambas completadas.
+- **Governance**: ALTO
+- **Prerrequisito para**: C-08 (`portal-autogestion`), C-17 (`agenda-vista-mensual-bulk`).
+- **Integración corregida (2026-07-14)**: Los endpoints `GET /turnos/slots`,
+  `POST /turnos/` y `POST /turnos/slots/bloquear` no fueron migrados a las
+  funciones doctor-aware (`generar_slots_doctor`, `es_hora_valida_doctor`).
+  Quedaron usando las funciones globales viejas. Detectado y corregido durante
+  la implementación de C-17 (`agenda-vista-mensual-bulk`). Ver commit log.
+- **Leer antes**:
+  - `knowledge-base/05_reglas_de_negocio.md` (RN-01)
+  - `backend/core/horarios.py`
+
+### [C-17] `agenda-vista-mensual-bulk` 🔲
+
+- **Estado**: [ ] pendiente
+- **Scope**:
+  - Nuevo endpoint `GET /turnos/slots/bulk` para vista mensual de agenda en frontend2.
+  - Query params: `fecha_desde`, `fecha_hasta` (rango), `id_doctor` (comma-separated, opcional — si se omite, todos los activos).
+  - Response: objeto indexado por fecha con totales combinados (total/libres/ocupados/bloqueados) + desglose `por_doctor`.
+  - Strategy: 4 bulk queries SQL (horarios + excepciones + turnos + bloqueos) + agregación Python — evita ~90 requests N+1.
+  - Turnos con duración > 30 min ocupan N slots (60 min = 2 slots ocupados).
+  - Schemas Pydantic v2: `SlotsBulkResponse`, `DaySlotSummary`, `DoctorSlotSummary`.
+  - Tests de integración con DB real (`test_slots_bulk.py`).
+- **Reglas de negocio**: RN-01 (horarios per-doctor), RN-02 (estados de turno)
+- **Dependencias**: C-16 (`horarios-individuales-por-doctor` — tablas `horarios_doctor` + `dias_no_laborables_doctor`). Completada ✅.
+- **Governance**: MEDIO
+- **Paralelismo**: puede ejecutarse en paralelo con C-13 (`frontend2-rediseno`). La vista mensual de C-13 necesita este endpoint, pero puede implementarse contra un mock hasta que C-17 esté listo.
+- **Leer antes**:
+  - `knowledge-base/04_modelo_de_datos.md` (HorarioDoctor, DiaNoLaborableDoctor)
+  - `knowledge-base/05_reglas_de_negocio.md` (RN-01)
+  - `backend/core/horarios.py`
+  - `backend/crud/turnos.py` (función `obtener_slots_con_estado` existente como referencia)
+
 ### [C-13] `frontend2-rediseno` 🔲
 
 - **Estado**: [ ] pendiente
@@ -476,15 +533,15 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-08 →
 | FASE 1 | C-02, C-03 | ✅ ✅ | MEDIO, ALTO |
 | FASE 2 | C-04, C-05 | ✅ ✅ | MEDIO, BAJO |
 | FASE 3 | C-06, C-07 | ✅ ✅ | CRITICO, MEDIO |
-| FASE 3.5 | C-12, C-13, C-14, C-15 | ✅ 🔲 ✅ 🔲 | ALTO, ALTO, ALTO, MEDIO |
+| FASE 3.5 | C-12, C-16, C-17, C-13, C-14, C-15 | ✅ ✅ 🔲 🔲 ✅ ✅ | ALTO, ALTO, MEDIO, ALTO, ALTO, MEDIO |
 | FASE 4 | C-08, C-09, C-10 | 🔲 🔲 🔲 | ALTO, ALTO, BAJO |
 | FASE 5 | C-11 | 🔲 | CRITICO |
 
-- **15 changes en 6 fases**
-- **9 completados** (C-01 a C-07, C-12, C-14)
-- **6 pendientes** (C-13, C-08 a C-11, C-15)
-- **Camino crítico**: 9 changes (C-01 → C-06 → C-07 → C-12 → C-08 → C-09 → C-11)
-- **Paralelismo**: C-10, C-13 y C-14 pueden ejecutarse en paralelo con C-08 y C-09
-- **Primer change pendiente**: C-13 (`frontend2-rediseno`)
+- **17 changes en 6 fases**
+- **11 completados** (C-01 a C-07, C-12, C-14, C-15, C-16)
+- **6 pendientes** (C-17, C-13, C-08 a C-11)
+- **Camino crítico**: 11 changes (C-01 → C-06 → C-07 → C-12 → C-16 → C-08 → C-09 → C-11)
+- **Paralelismo**: C-10, C-13, C-14 y C-17 pueden ejecutarse en paralelo con C-08 y C-09
+- **Primer change pendiente**: C-17 (`agenda-vista-mensual-bulk`) o C-13 (`frontend2-rediseno`)
 
 Para arrancar: `/opsx:propose frontend2-rediseno`

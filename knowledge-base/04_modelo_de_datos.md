@@ -191,3 +191,28 @@ ObraSocial ── independiente
 | `contenido` | LargeBinary | WebP comprimido |
 
 **Almacenamiento temporal**: Los binarios se guardan en PostgreSQL (tabla separada de metadatos). Previsto migrar a Supabase Storage en deploy real. La capa de abstracción `AlmacenamientoArchivos` permite cambiar el backend sin modificar endpoints ni CRUD.
+
+### C-016 Agregados: Horarios Individuales por Doctor
+
+### HorarioDoctor (`horarios_doctor`)
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | Integer PK | |
+| `id_doctor` | Integer FK → doctores.id | |
+| `dia_semana` | Integer | 0=lunes..6=domingo |
+| `manana_inicio` | Time | nullable, null = día cerrado si tarde también null |
+| `manana_fin` | Time | nullable |
+| `tarde_inicio` | Time | nullable |
+| `tarde_fin` | Time | nullable |
+
+UniqueConstraint: `(id_doctor, dia_semana)`. 7 filas por doctor.
+
+### DiaNoLaborableDoctor (`dias_no_laborables_doctor`)
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | Integer PK | |
+| `id_doctor` | Integer FK → doctores.id | |
+| `fecha` | Date | |
+| `motivo` | String(255) | nullable (feriado, vacaciones, ausencia) |
+
+UniqueConstraint: `(id_doctor, fecha)`. Si existe fila, el día se considera cerrado sin importar patrón semanal.
