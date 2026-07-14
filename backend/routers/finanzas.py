@@ -36,6 +36,7 @@ def listar_pagos(
     dni_paciente: Optional[str] = Query(None, description="Filtrar por DNI de paciente"),
     id_doctor: Optional[int] = Query(None, description="Filtrar por ID de doctor"),
     solo_deudores: bool = Query(False, description="Solo pacientes con saldo > 0"),
+    moneda: Optional[str] = Query(None, description="Filtrar por moneda (ARS | USD)"),
     db: Session = Depends(get_db),
 ):
     return listar_pagos_filtrados(
@@ -46,6 +47,7 @@ def listar_pagos(
         dni_paciente=dni_paciente,
         id_doctor=id_doctor,
         solo_deudores=solo_deudores,
+        moneda=moneda,
     )
 
 

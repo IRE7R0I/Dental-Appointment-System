@@ -58,6 +58,28 @@ class DeudorResponse(BaseModel):
     telefono: Optional[str] = None
     saldo_ars: float
     saldo_usd: float
+    dias_antiguedad: int
+
+    class Config:
+        from_attributes = True
+
+
+class DoctorMinInfo(BaseModel):
+    id: int
+    nombre: str
+
+
+class TurnoConDeudaResponse(BaseModel):
+    id_turno: int
+    fecha_hora: datetime
+    motivo: Optional[str] = None
+    doctor: Optional[DoctorMinInfo] = None
+    total_facturado_ars: float
+    total_facturado_usd: float
+    total_pagado_ars: float
+    total_pagado_usd: float
+    saldo_pendiente_ars: float
+    saldo_pendiente_usd: float
 
     class Config:
         from_attributes = True

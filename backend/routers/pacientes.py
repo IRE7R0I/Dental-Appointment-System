@@ -12,6 +12,7 @@ from backend.crud.pacientes import (
     obtener_o_crear_cuenta,
     listar_deudores,
     obtener_historial_paciente,
+    obtener_turnos_con_deuda,
 )
 from backend.schemas.pacientes import (
     PacienteCreate,
@@ -19,6 +20,7 @@ from backend.schemas.pacientes import (
     PacienteUpdate,
     DeudorResponse,
     CuentaCorrienteResponse,
+    TurnoConDeudaResponse,
 )
 from backend.schemas.turnos import HistorialPacienteResponse
 
@@ -31,8 +33,11 @@ def listar_pacientes(db: Session = Depends(get_db)):
 
 
 @router.get("/deudores", response_model=list[DeudorResponse])
-def listar_deudores_endpoint(db: Session = Depends(get_db)):
-    return listar_deudores(db)
+def listar_deudores_endpoint(
+    orden: str = Query("antiguedad_desc", description="Orden: 'antiguedad_desc' o 'antiguedad_asc'"),
+    db: Session = Depends(get_db)
+):
+    return listar_deudores(db, orden=orden)
 
 
 @router.get("/historial", response_model=HistorialPacienteResponse)
@@ -84,3 +89,11 @@ def obtener_cuenta_paciente(dni: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Paciente no encontrado")
     cuenta = obtener_o_crear_cuenta(db, dni)
     return cuenta
+
+
+@router.get("/{dni}/turnos-con-deuda", response_model=list[TurnoConDeudaResponse])
+def obtener_turnos_con_deuda_endpoint(dni: str, db: Session = Depends(get_db)):
+    paciente = obtener_paciente_por_dni(db, dni)
+    if not paciente:
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    return obtener_turnos_con_deuda(db, dni)
