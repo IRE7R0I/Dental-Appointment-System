@@ -64,17 +64,17 @@ app.add_middleware(
 )
 
 # Routers
-app.include_router(auth.router)
-app.include_router(admin.router)
-app.include_router(pacientes.router)
-app.include_router(turnos.router)
-app.include_router(doctores.router)
-app.include_router(finanzas.router)
-app.include_router(catalogo.router)
-app.include_router(config_router.router)
-app.include_router(historia_clinica.router)
-app.include_router(imagenes.router)
-app.include_router(imagenes.imagenes_router)
+app.include_router(auth.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
+app.include_router(pacientes.router, prefix="/api")
+app.include_router(turnos.router, prefix="/api")
+app.include_router(doctores.router, prefix="/api")
+app.include_router(finanzas.router, prefix="/api")
+app.include_router(catalogo.router, prefix="/api")
+app.include_router(config_router.router, prefix="/api")
+app.include_router(historia_clinica.router, prefix="/api")
+app.include_router(imagenes.router, prefix="/api")
+app.include_router(imagenes.imagenes_router, prefix="/api")
 
 
 @app.get("/health")

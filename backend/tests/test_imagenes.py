@@ -8,7 +8,7 @@ from backend import models
 def _crear_carpeta(client, headers, dni="12345678", nombre="Test Carpeta"):
     """Helper: crea carpeta y retorna su ID."""
     resp = client.post(
-        f"/pacientes/{dni}/carpetas",
+        f"/api/pacientes/{dni}/carpetas",
         json={"nombre": nombre},
         headers=headers,
     )
@@ -29,7 +29,7 @@ def _generar_imagen_bytes(width=100, height=100, fmt="JPEG"):
 
 def test_crear_carpeta(client, headers_admin, sample_paciente):
     resp = client.post(
-        "/pacientes/12345678/carpetas",
+        "/api/pacientes/12345678/carpetas",
         json={"nombre": "Radiografías 2026"},
         headers=headers_admin,
     )
@@ -42,7 +42,7 @@ def test_crear_carpeta(client, headers_admin, sample_paciente):
 
 def test_listar_carpetas(client, headers_admin, sample_paciente):
     _crear_carpeta(client, headers_admin)
-    resp = client.get("/pacientes/12345678/carpetas", headers=headers_admin)
+    resp = client.get("/api/pacientes/12345678/carpetas", headers=headers_admin)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 1
@@ -52,7 +52,7 @@ def test_listar_carpetas(client, headers_admin, sample_paciente):
 def test_renombrar_carpeta(client, headers_admin, sample_paciente):
     carpeta_id = _crear_carpeta(client, headers_admin)
     resp = client.put(
-        f"/pacientes/12345678/carpetas/{carpeta_id}",
+        f"/api/pacientes/12345678/carpetas/{carpeta_id}",
         json={"nombre": "Nuevo nombre"},
         headers=headers_admin,
     )
@@ -63,11 +63,11 @@ def test_renombrar_carpeta(client, headers_admin, sample_paciente):
 def test_eliminar_carpeta_vacia(client, headers_admin, sample_paciente):
     carpeta_id = _crear_carpeta(client, headers_admin)
     resp = client.delete(
-        f"/pacientes/12345678/carpetas/{carpeta_id}",
+        f"/api/pacientes/12345678/carpetas/{carpeta_id}",
         headers=headers_admin,
     )
     assert resp.status_code == 200
-    resp = client.get("/pacientes/12345678/carpetas", headers=headers_admin)
+    resp = client.get("/api/pacientes/12345678/carpetas", headers=headers_admin)
     assert len(resp.json()) == 0
 
 
@@ -78,7 +78,7 @@ def test_eliminar_carpeta_cascada(client, headers_admin, sample_paciente, db):
     for i in range(2):
         img_bytes = _generar_imagen_bytes()
         resp = client.post(
-            f"/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
+            f"/api/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
             files={"archivo": ("test.jpg", img_bytes, "image/jpeg")},
             data={"es_radiografia": "false"},
             headers=headers_admin,
@@ -87,14 +87,14 @@ def test_eliminar_carpeta_cascada(client, headers_admin, sample_paciente, db):
 
     # Verificar que hay imágenes
     resp = client.get(
-        f"/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
+        f"/api/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
         headers=headers_admin,
     )
     assert len(resp.json()) == 2
 
     # Eliminar carpeta
     resp = client.delete(
-        f"/pacientes/12345678/carpetas/{carpeta_id}",
+        f"/api/pacientes/12345678/carpetas/{carpeta_id}",
         headers=headers_admin,
     )
     assert resp.status_code == 200
@@ -120,7 +120,7 @@ def test_subir_radiografia_lossless(client, headers_admin, sample_paciente):
     original_size = len(img_bytes)
 
     resp = client.post(
-        f"/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
+        f"/api/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
         files={"archivo": ("radiografia.jpg", img_bytes, "image/jpeg")},
         data={"es_radiografia": "true"},
         headers=headers_admin,
@@ -143,7 +143,7 @@ def test_subir_imagen_normal_comprimida(client, headers_admin, sample_paciente):
     original_size = len(img_bytes)
 
     resp = client.post(
-        f"/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
+        f"/api/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
         files={"archivo": ("foto.png", img_bytes, "image/png")},
         data={"es_radiografia": "false"},
         headers=headers_admin,
@@ -163,7 +163,7 @@ def test_subir_archivo_corrupto(client, headers_admin, sample_paciente):
     carpeta_id = _crear_carpeta(client, headers_admin)
     # Bytes que no forman una imagen válida
     resp = client.post(
-        f"/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
+        f"/api/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
         files={"archivo": ("fake.jpg", b"not-an-image-binary-data", "image/jpeg")},
         data={"es_radiografia": "false"},
         headers=headers_admin,
@@ -178,7 +178,7 @@ def test_subir_archivo_excede_10mb(client, headers_admin, sample_paciente):
     # Generar bytes que excedan 10MB
     big_data = b"x" * (10 * 1024 * 1024 + 1)
     resp = client.post(
-        f"/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
+        f"/api/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
         files={"archivo": ("big.jpg", big_data, "image/jpeg")},
         data={"es_radiografia": "false"},
         headers=headers_admin,
@@ -192,13 +192,13 @@ def test_listar_imagenes_solo_metadatos(client, headers_admin, sample_paciente):
     carpeta_id = _crear_carpeta(client, headers_admin)
     img_bytes = _generar_imagen_bytes()
     client.post(
-        f"/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
+        f"/api/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
         files={"archivo": ("test.jpg", img_bytes, "image/jpeg")},
         data={"es_radiografia": "false"},
         headers=headers_admin,
     )
     resp = client.get(
-        f"/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
+        f"/api/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
         headers=headers_admin,
     )
     assert resp.status_code == 200
@@ -218,14 +218,14 @@ def test_obtener_contenido_imagen(client, headers_admin, sample_paciente):
     carpeta_id = _crear_carpeta(client, headers_admin)
     img_bytes = _generar_imagen_bytes()
     resp = client.post(
-        f"/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
+        f"/api/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
         files={"archivo": ("test.jpg", img_bytes, "image/jpeg")},
         data={"es_radiografia": "false"},
         headers=headers_admin,
     )
     img_id = resp.json()["id"]
 
-    resp = client.get(f"/imagenes/{img_id}/contenido", headers=headers_admin)
+    resp = client.get(f"/api/imagenes/{img_id}/contenido", headers=headers_admin)
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "image/webp"
     assert len(resp.content) > 0
@@ -236,14 +236,14 @@ def test_eliminar_imagen_individual(client, headers_admin, sample_paciente, db):
     carpeta_id = _crear_carpeta(client, headers_admin)
     img_bytes = _generar_imagen_bytes()
     resp = client.post(
-        f"/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
+        f"/api/pacientes/12345678/carpetas/{carpeta_id}/imagenes",
         files={"archivo": ("test.jpg", img_bytes, "image/jpeg")},
         data={"es_radiografia": "false"},
         headers=headers_admin,
     )
     img_id = resp.json()["id"]
 
-    resp = client.delete(f"/imagenes/{img_id}", headers=headers_admin)
+    resp = client.delete(f"/api/imagenes/{img_id}", headers=headers_admin)
     assert resp.status_code == 200
 
     # Verificar metadato eliminado
@@ -260,9 +260,9 @@ def test_eliminar_imagen_individual(client, headers_admin, sample_paciente, db):
 def test_no_auth_returns_401(client):
     """Endpoints sin token deben retornar 401."""
     endpoints = [
-        ("GET", "/pacientes/12345678/carpetas"),
-        ("POST", "/pacientes/12345678/carpetas"),
-        ("GET", "/pacientes/12345678/carpetas/1/imagenes"),
+        ("GET", "/api/pacientes/12345678/carpetas"),
+        ("POST", "/api/pacientes/12345678/carpetas"),
+        ("GET", "/api/pacientes/12345678/carpetas/1/imagenes"),
     ]
     for method, url in endpoints:
         if method == "GET":

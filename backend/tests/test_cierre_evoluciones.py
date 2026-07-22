@@ -35,11 +35,11 @@ def test_cerrar_turno_crea_evolucion_clinica(client, headers_admin, sample_turno
         "conformidad_paciente": True
     }
 
-    response = client.put(f"/turnos/{turno_id}/cerrar", json=payload, headers=headers_admin)
+    response = client.put(f"/api/turnos/{turno_id}/cerrar", json=payload, headers=headers_admin)
     assert response.status_code == 200
 
     # Consultar evoluciones del paciente
-    resp_evoluciones = client.get(f"/pacientes/{dni}/evoluciones", headers=headers_admin)
+    resp_evoluciones = client.get(f"/api/pacientes/{dni}/evoluciones", headers=headers_admin)
     assert resp_evoluciones.status_code == 200
     evoluciones = resp_evoluciones.json()
 
@@ -67,11 +67,11 @@ def test_cerrar_turno_sin_detalle_clinico_opcional(client, headers_admin, sample
         "comentarios": "Evolucion sin detalles"
     }
 
-    response = client.put(f"/turnos/{turno_id}/cerrar", json=payload, headers=headers_admin)
+    response = client.put(f"/api/turnos/{turno_id}/cerrar", json=payload, headers=headers_admin)
     assert response.status_code == 200
 
     # Consultar evoluciones del paciente
-    resp_evoluciones = client.get(f"/pacientes/{dni}/evoluciones", headers=headers_admin)
+    resp_evoluciones = client.get(f"/api/pacientes/{dni}/evoluciones", headers=headers_admin)
     assert resp_evoluciones.status_code == 200
     evoluciones = resp_evoluciones.json()
 
@@ -112,7 +112,7 @@ def test_cerrar_turno_falla_no_deja_evolucion_huerfana(client, headers_admin, sa
 
     try:
         with pytest.raises(Exception, match="Simulated DB commit failure"):
-            client.put(f"/turnos/{turno_id}/cerrar", json=payload, headers=headers_admin)
+            client.put(f"/api/turnos/{turno_id}/cerrar", json=payload, headers=headers_admin)
     finally:
         monkeypatch.setattr(Session, "commit", original_commit)
 

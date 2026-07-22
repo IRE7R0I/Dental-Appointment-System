@@ -331,6 +331,60 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-16 →
   - `backend/core/horarios.py`
   - `backend/crud/turnos.py` (función `obtener_slots_con_estado` existente como referencia)
 
+### [C-18] `ajustes-integracion-frontend2` ✅
+
+- **Estado**: [x] completado (2026-07-16)
+- **Scope**:
+  - Reactivación por `PATCH .../{id}/activo` con body `{"activo": bool}` en 4 recursos:
+    doctores, catálogo tratamientos, obras sociales, usuarios admin. Patrón único.
+  - Doctor reactivado recupera horario automáticamente (filas `horarios_doctor` intactas, C-16).
+  - Usuario reactivado recupera acceso con password actual. Guard: admin no se desactiva a sí mismo.
+  - Columna `genero` en `pacientes` (nullable, `Literal["Masculino", "Femenino", "Otro"]`, sin backfill).
+  - `GET /pacientes/{dni}` → `PacienteFichaResponse` con alertas médicas activas (reusa `listar_alertas` de C-14).
+  - Prefijo global `/api` en todos los routers (`main.py`). `/health` queda en raíz.
+    Frontend viejo: se elimina `rewrite` del proxy Vite. Tests actualizados a rutas `/api/...`.
+  - Tests de integración con DB real (`test_ajustes_integracion.py`) + suite completa como regresión.
+- **Historias**: soporte integración frontend2 (auditoría cruzada `docs/auditoria-cruzada-endpoints.md`)
+- **Reglas de negocio**: RN-15 (alertas solo admin/secretaria), roles espejo de DELETE existente
+- **Dependencias**: C-06 (auth), C-07 (catálogo), C-14 (alertas), C-16 (horarios doctor). Todas ✅.
+- **Governance**: ALTO (routing global + superficie de auth)
+- **Paralelismo**: prerrequisito práctico de C-13 (integración). Paralelo con C-08/C-10.
+- **Leer antes**:
+  - `docs/auditoria-cruzada-endpoints.md`
+  - `knowledge-base/05_reglas_de_negocio.md` (RN-15)
+  - `backend/crear_tablas.py` (patrón migración existente)
+
+### [C-19] `ajuste-permisos-secretaria` ✅
+
+- **Estado**: [x] completado (2026-07-17)
+- **Scope**:
+  - `PUT /doctores/{id}/horarios` y `POST/DELETE /doctores/{id}/dias-no-laborables` pasan de admin-only a admin+secretaria.
+  - `PUT /doctores/{id}` (ficha completa: nombre, matricula, color_agenda, especialidad) permanece admin-only.
+  - Catálogo: auditado — `PUT /catalogo/tratamientos/{id}` ya era admin+secretaria desde C-18, sin cambios backend.
+  - Tests: actualizar `test_put_horarios_doctor_solo_admin` → secretaria espera 200. Nuevo test secretaria PUT ficha doctor → 403. Nuevo test PUT catálogo precio secretaria → 200. Nuevo test POST/DELETE días no laborables secretaria → 200.
+- **Historias**: soporte decisión de producto (secretaria gestiona horarios y precios, no ficha doctor)
+- **Reglas de negocio**: roles (admin+secretaria para gestión operativa, admin-only para datos sensibles de doctor)
+- **Dependencias**: C-18 (ajustes-integracion-frontend2) ✅
+- **Governance**: MEDIO
+- **Leer antes**:
+  - `backend/routers/doctores.py`
+  - `backend/routers/catalogo.py`
+
+### [C-20] `cancelacion-turnos` ✅
+
+- **Estado**: [x] completado (2026-07-21)
+- **Scope**:
+  - Columna `motivo_cancelacion` (String(255), nullable) en `turnos`. El `motivo` original nunca se sobreescribe al cancelar.
+  - Columna `actualizado_en` (DateTime, nullable): se setea en cancelación y cierre. Preparación C-09.
+  - `actualizado_por_id` poblado con usuario autenticado en cancelación y cierre.
+  - `PATCH /turnos/{id}/cancelar`: body obligatorio `{motivo_cancelacion}` (422 si falta). 400 si estado "Realizado" o ya "Cancelado".
+  - `TurnoResponse` expone `motivo_cancelacion` y `actualizado_en`.
+  - Tests integración DB real (`test_cancelacion_turnos.py`) + suite regresión.
+- **Reglas de negocio**: RN-02 (estados de turno)
+- **Dependencias**: C-02, C-06, C-18. Todas ✅.
+- **Governance**: MEDIO
+- **Leer antes**: `docs/auditoria-cancelacion-turnos.md`
+
 ### [C-13] `frontend2-rediseno` 🔲
 
 - **Estado**: [ ] pendiente
@@ -533,15 +587,25 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-16 →
 | FASE 1 | C-02, C-03 | ✅ ✅ | MEDIO, ALTO |
 | FASE 2 | C-04, C-05 | ✅ ✅ | MEDIO, BAJO |
 | FASE 3 | C-06, C-07 | ✅ ✅ | CRITICO, MEDIO |
-| FASE 3.5 | C-12, C-16, C-17, C-13, C-14, C-15 | ✅ ✅ ✅ 🔲 ✅ ✅ | ALTO, ALTO, MEDIO, ALTO, ALTO, MEDIO |
+| FASE 3.5 | C-12, C-16, C-17, C-18, C-19, C-20, C-13, C-14, C-15 | ✅ ✅ ✅ ✅ ✅ ✅ 🔲 ✅ ✅ | ALTO, ALTO, MEDIO, ALTO, MEDIO, MEDIO, ALTO, ALTO, MEDIO |
 | FASE 4 | C-08, C-09, C-10 | 🔲 🔲 🔲 | ALTO, ALTO, BAJO |
 | FASE 5 | C-11 | 🔲 | CRITICO |
 
-- **17 changes en 6 fases**
-- **12 completados** (C-01 a C-07, C-12, C-14, C-15, C-16, C-17)
+- **20 changes en 6 fases**
+- **15 completados** (C-01 a C-07, C-12, C-14, C-15, C-16, C-17, C-18, C-19, C-20)
 - **5 pendientes** (C-13, C-08 a C-11)
 - **Camino crítico**: 11 changes (C-01 → C-06 → C-07 → C-12 → C-16 → C-08 → C-09 → C-11)
-- **Paralelismo**: C-10, C-13, C-14 y C-17 pueden ejecutarse en paralelo con C-08 y C-09
-- **Primer change pendiente**: C-17 (`agenda-vista-mensual-bulk`) o C-13 (`frontend2-rediseno`)
+- **Paralelismo**: C-10, C-13, C-14, C-17 y C-19 pueden ejecutarse en paralelo con C-08 y C-09
+- **Prerrequisitos de integración**: C-18 (`ajustes-integracion-frontend2`) antes de C-13 (`frontend2-rediseno`)
+- **Primer change pendiente**: C-13 (`frontend2-rediseno`) o C-08 (`portal-autogestion`) — paralelizables
 
-Para arrancar: `/opsx:propose frontend2-rediseno`
+Para arrancar: `/opsx:propose ajustes-integracion-frontend2`
+
+---
+
+## Deuda Técnica
+
+| ID | Descripción | Origen | Condición de eliminación |
+|----|-------------|--------|--------------------------|
+| DT-01 | `PUT /admin/usuarios/{id}/toggle-activo` — endpoint transicional que alterna estado activo sin body explícito. Conservado como puente mientras `frontend/` (viejo) esté en uso (`AdminPage.tsx:144`). El nuevo `PATCH /api/admin/usuarios/{id}/activo` (C-18) es el reemplazo definitivo. | C-06, C-18 | Eliminar cuando `frontend2/` (C-13) reemplace completamente a `frontend/` y este se archive. No dejar indefinidamente. |
+| DT-02 | `DELETE /turnos/{turno_id}` — borrado físico permanente sin soft-delete. Sin uso desde ninguna UI (0 callers). Roles: admin+secretaria. Riesgo: cascade borra `turnos_tratamientos` pero `pagos.id_turno` queda huérfano → descalce financiero si se usa sobre turno facturado. | C-20 (auditoría) | Revisar en change futuro: candidato a restringir admin-only o eliminar el endpoint directamente. |

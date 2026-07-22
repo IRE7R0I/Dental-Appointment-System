@@ -17,12 +17,14 @@ from backend.crud.pacientes import (
 from backend.schemas.pacientes import (
     PacienteCreate,
     PacienteResponse,
+    PacienteFichaResponse,
     PacienteUpdate,
     DeudorResponse,
     CuentaCorrienteResponse,
     TurnoConDeudaResponse,
 )
 from backend.schemas.turnos import HistorialPacienteResponse
+from backend.crud import historia_clinica as crud_historia
 
 router = APIRouter(prefix="/pacientes", tags=["Pacientes"], dependencies=[Depends(require_role(["admin", "secretaria"]))])
 
@@ -53,12 +55,14 @@ def historial_paciente(
     return resultado
 
 
-@router.get("/{dni}", response_model=PacienteResponse)
+@router.get("/{dni}", response_model=PacienteFichaResponse)
 def obtener_paciente(dni: str, db: Session = Depends(get_db)):
     paciente = obtener_paciente_por_dni(db, dni)
     if not paciente:
         raise HTTPException(status_code=404, detail="Paciente no encontrado")
-    return paciente
+    alertas = crud_historia.listar_alertas(db, dni)
+    base = PacienteResponse.model_validate(paciente)
+    return PacienteFichaResponse(**base.model_dump(), alertas=alertas)
 
 
 @router.post("/", response_model=PacienteResponse, status_code=201)

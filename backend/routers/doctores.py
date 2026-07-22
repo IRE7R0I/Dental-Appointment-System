@@ -9,6 +9,7 @@ from backend.crud.doctores import (
     obtener_doctor_por_id,
     actualizar_doctor,
     desactivar_doctor,
+    set_activo_doctor,
 )
 from backend.crud.horarios_doctor import (
     obtener_horario_semanal, guardar_horario_semanal,
@@ -16,6 +17,7 @@ from backend.crud.horarios_doctor import (
     eliminar_dia_no_laborable,
 )
 from backend.core.horarios import obtener_horarios_doctor_publico
+from backend.schemas.catalogo import ActivoUpdate
 from backend.schemas.doctores import DoctorCreate, DoctorUpdate, DoctorResponse
 from backend.schemas.horarios import (
     HorarioDoctorResponse, HorarioDoctorUpdate,
@@ -76,6 +78,20 @@ def delete_doctor(
     return doctor
 
 
+@router.patch("/{id}/activo", response_model=DoctorResponse)
+def patch_doctor_activo(
+    id: int,
+    data: ActivoUpdate,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(["admin"])),
+):
+    """Activar o desactivar doctor. Solo admin."""
+    doctor = set_activo_doctor(db, id, data.activo)
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor no encontrado")
+    return doctor
+
+
 # ─── C-016: Horarios individuales por doctor ────────────────────
 
 
@@ -94,9 +110,9 @@ def put_horarios_doctor(
     id: int,
     data: HorarioDoctorUpdate,
     db: Session = Depends(get_db),
-    _=Depends(require_role(["admin"])),
+    _=Depends(require_role(["admin", "secretaria"])),
 ):
-    """Actualiza el patrón semanal completo del doctor. Solo admin."""
+    """Actualiza el patrón semanal completo del doctor. Admin o secretaria."""
     doctor = obtener_doctor_por_id(db, id)
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")
@@ -123,9 +139,9 @@ def post_dia_no_laborable(
     id: int,
     data: DiaNoLaborableCreate,
     db: Session = Depends(get_db),
-    _=Depends(require_role(["admin"])),
+    _=Depends(require_role(["admin", "secretaria"])),
 ):
-    """Marca una fecha como no laborable para el doctor. Solo admin."""
+    """Marca una fecha como no laborable para el doctor. Admin o secretaria."""
     doctor = obtener_doctor_por_id(db, id)
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")
@@ -140,9 +156,9 @@ def delete_dia_no_laborable(
     id: int,
     fecha_str: str,
     db: Session = Depends(get_db),
-    _=Depends(require_role(["admin"])),
+    _=Depends(require_role(["admin", "secretaria"])),
 ):
-    """Desmarca una fecha como no laborable. Solo admin."""
+    """Desmarca una fecha como no laborable. Admin o secretaria."""
     from datetime import datetime
     doctor = obtener_doctor_por_id(db, id)
     if not doctor:

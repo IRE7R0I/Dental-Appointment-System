@@ -47,7 +47,35 @@ def toggle_usuario_activo(db: Session, user_id: int) -> Optional[Usuario]:
     usuario = get_user_by_id(db, user_id)
     if not usuario:
         return None
+    # CRITICAL: admin can never be deactivated
+    if usuario.activo and usuario.rol == "admin":
+        return usuario
     usuario.activo = not usuario.activo
+    db.commit()
+    db.refresh(usuario)
+    return usuario
+
+
+def set_activo_usuario(db: Session, user_id: int, activo: bool) -> Optional[Usuario]:
+    """Set user active/inactive. CRITICAL: admin users can NEVER be deactivated."""
+    usuario = get_user_by_id(db, user_id)
+    if not usuario:
+        return None
+    if not activo and usuario.rol == "admin":
+        raise ValueError("No se puede desactivar un usuario admin")
+    usuario.activo = activo
+    db.commit()
+    db.refresh(usuario)
+    return usuario
+
+
+def set_activo_usuario(db: Session, user_id: int, activo: bool) -> Optional[Usuario]:
+    usuario = get_user_by_id(db, user_id)
+    if not usuario:
+        return None
+    if not activo and usuario.rol == "admin":
+        raise ValueError("No se puede desactivar un usuario admin")
+    usuario.activo = activo
     db.commit()
     db.refresh(usuario)
     return usuario

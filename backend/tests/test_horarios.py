@@ -105,7 +105,7 @@ class TestSlotsBloqueados:
     def test_bloquear_slot(self, client, headers_admin, sample_doctor):
         """POST /turnos/slots/bloquear -> 201"""
         resp = client.post(
-            "/turnos/slots/bloquear",
+            "/api/turnos/slots/bloquear",
             json={"fecha": "2026-07-06", "hora": "10:00", "id_doctor": sample_doctor.id, "motivo": "Prueba"},
             headers=headers_admin,
         )
@@ -118,37 +118,37 @@ class TestSlotsBloqueados:
     def test_bloquear_duplicado(self, client, headers_admin, sample_doctor):
         """Bloquear mismo slot dos veces -> 409"""
         payload = {"fecha": "2026-07-06", "hora": "10:00", "id_doctor": sample_doctor.id}
-        client.post("/turnos/slots/bloquear", json=payload, headers=headers_admin)
-        resp = client.post("/turnos/slots/bloquear", json=payload, headers=headers_admin)
+        client.post("/api/turnos/slots/bloquear", json=payload, headers=headers_admin)
+        resp = client.post("/api/turnos/slots/bloquear", json=payload, headers=headers_admin)
         assert resp.status_code == 409
 
     def test_desbloquear_slot(self, client, headers_admin, sample_doctor):
         """DELETE /turnos/slots/{id}/desbloquear -> 200"""
         create = client.post(
-            "/turnos/slots/bloquear",
+            "/api/turnos/slots/bloquear",
             json={"fecha": "2026-07-06", "hora": "10:00", "id_doctor": sample_doctor.id},
             headers=headers_admin,
         )
         slot_id = create.json()["id"]
-        resp = client.delete(f"/turnos/slots/{slot_id}/desbloquear", headers=headers_admin)
+        resp = client.delete(f"/api/turnos/slots/{slot_id}/desbloquear", headers=headers_admin)
         assert resp.status_code == 200
         assert resp.json()["mensaje"] == "Slot desbloqueado correctamente"
 
     def test_desbloquear_inexistente(self, client, headers_admin):
         """DELETE sobre ID inexistente -> 404"""
-        resp = client.delete("/turnos/slots/9999/desbloquear", headers=headers_admin)
+        resp = client.delete("/api/turnos/slots/9999/desbloquear", headers=headers_admin)
         assert resp.status_code == 404
 
     def test_slots_endpoint_muestra_bloqueado(self, client, headers_admin, sample_doctor):
         """GET /turnos/slots incluye estado bloqueado con slot_bloqueado_id"""
         create = client.post(
-            "/turnos/slots/bloquear",
+            "/api/turnos/slots/bloquear",
             json={"fecha": "2026-07-06", "hora": "10:00", "id_doctor": sample_doctor.id},
             headers=headers_admin,
         )
         bloqueado_id = create.json()["id"]
         resp = client.get(
-            f"/turnos/slots?fecha=2026-07-06&id_doctor={sample_doctor.id}",
+            f"/api/turnos/slots?fecha=2026-07-06&id_doctor={sample_doctor.id}",
             headers=headers_admin,
         )
         assert resp.status_code == 200
@@ -160,7 +160,7 @@ class TestSlotsBloqueados:
     def test_slots_endpoint_muestra_libre(self, client, headers_admin, sample_doctor):
         """GET /turnos/slots muestra slots libres."""
         resp = client.get(
-            f"/turnos/slots?fecha=2026-07-06&id_doctor={sample_doctor.id}",
+            f"/api/turnos/slots?fecha=2026-07-06&id_doctor={sample_doctor.id}",
             headers=headers_admin,
         )
         assert resp.status_code == 200
@@ -170,7 +170,7 @@ class TestSlotsBloqueados:
     def test_bloquear_fuera_horario(self, client, headers_admin, sample_doctor):
         """Bloquear slot en horario de siesta -> 400"""
         resp = client.post(
-            "/turnos/slots/bloquear",
+            "/api/turnos/slots/bloquear",
             json={"fecha": "2026-07-06", "hora": "14:00", "id_doctor": sample_doctor.id},
             headers=headers_admin,
         )
@@ -179,7 +179,7 @@ class TestSlotsBloqueados:
     def test_bloquear_jueves(self, client, headers_admin, sample_doctor):
         """Bloquear slot jueves -> 400"""
         resp = client.post(
-            "/turnos/slots/bloquear",
+            "/api/turnos/slots/bloquear",
             json={"fecha": "2026-07-09", "hora": "10:00", "id_doctor": sample_doctor.id},
             headers=headers_admin,
         )
@@ -195,37 +195,37 @@ class TestDoctoresRoles:
 
     def test_admin_crear_doctor(self, client, headers_admin):
         """POST /doctores con admin -> 201"""
-        resp = client.post("/doctores/", json={"nombre": "Dr. Test", "color_agenda": "#FF0000"}, headers=headers_admin)
+        resp = client.post("/api/doctores/", json={"nombre": "Dr. Test", "color_agenda": "#FF0000"}, headers=headers_admin)
         assert resp.status_code == 201
 
     def test_secretaria_no_puede_crear_doctor(self, client, headers_secretaria):
         """POST /doctores con secretaria -> 403"""
-        resp = client.post("/doctores/", json={"nombre": "Dr. Test"}, headers=headers_secretaria)
+        resp = client.post("/api/doctores/", json={"nombre": "Dr. Test"}, headers=headers_secretaria)
         assert resp.status_code == 403
 
     def test_secretaria_puede_listar_doctores(self, client, headers_secretaria, sample_doctor):
         """GET /doctores con secretaria -> 200"""
-        resp = client.get("/doctores/", headers=headers_secretaria)
+        resp = client.get("/api/doctores/", headers=headers_secretaria)
         assert resp.status_code == 200
 
     def test_secretaria_no_puede_editar(self, client, headers_secretaria, sample_doctor):
         """PUT /doctores/{id} con secretaria -> 403"""
-        resp = client.put(f"/doctores/{sample_doctor.id}", json={"nombre": "Nuevo"}, headers=headers_secretaria)
+        resp = client.put(f"/api/doctores/{sample_doctor.id}", json={"nombre": "Nuevo"}, headers=headers_secretaria)
         assert resp.status_code == 403
 
     def test_secretaria_no_puede_eliminar(self, client, headers_secretaria, sample_doctor):
         """DELETE /doctores/{id} con secretaria -> 403"""
-        resp = client.delete(f"/doctores/{sample_doctor.id}", headers=headers_secretaria)
+        resp = client.delete(f"/api/doctores/{sample_doctor.id}", headers=headers_secretaria)
         assert resp.status_code == 403
 
     def test_color_hex_invalido(self, client, headers_admin):
         """POST con color='rojo' -> 422"""
-        resp = client.post("/doctores/", json={"nombre": "Dr. Test", "color_agenda": "rojo"}, headers=headers_admin)
+        resp = client.post("/api/doctores/", json={"nombre": "Dr. Test", "color_agenda": "rojo"}, headers=headers_admin)
         assert resp.status_code == 422
 
     def test_color_hex_valido(self, client, headers_admin):
         """POST con color='#FF0000' -> 201"""
-        resp = client.post("/doctores/", json={"nombre": "Dr. Test", "color_agenda": "#FF0000"}, headers=headers_admin)
+        resp = client.post("/api/doctores/", json={"nombre": "Dr. Test", "color_agenda": "#FF0000"}, headers=headers_admin)
         assert resp.status_code == 201
 
 
@@ -240,7 +240,7 @@ class TestConstanciaPago:
         """Pago con turno -> constancia_turno formato 'DD/MM - Apellido (HH:MM)'."""
         # Crear turno
         turno_resp = client.post(
-            "/turnos/",
+            "/api/turnos/",
             json={
                 "fecha_hora": "2026-07-06T16:00:00",
                 "dni_paciente": sample_paciente.dni,
@@ -253,7 +253,7 @@ class TestConstanciaPago:
 
         # Cerrar turno con pago
         cerrar = client.put(
-            f"/turnos/{turno_id}/cerrar",
+            f"/api/turnos/{turno_id}/cerrar",
             json={
                 "tratamientos": [{"nombre": "Consulta", "cantidad": 1, "precio_ars": 5000, "precio_usd": 0}],
                 "pagos": [{"monto": 5000, "moneda": "ARS", "metodo_pago": "efectivo"}],
@@ -263,7 +263,7 @@ class TestConstanciaPago:
         assert cerrar.status_code == 200
 
         # Verificar constancia en GET /finanzas/pagos
-        pagos = client.get("/finanzas/pagos", headers=headers_secretaria)
+        pagos = client.get("/api/finanzas/pagos", headers=headers_secretaria)
         assert pagos.status_code == 200
         pago = next((p for p in pagos.json() if p.get("id_turno") == turno_id), None)
         assert pago is not None, "Pago should be linked to turno"
@@ -274,7 +274,7 @@ class TestConstanciaPago:
     def test_constancia_sin_turno(self, client, headers_secretaria, sample_paciente):
         """Pago sin id_turno -> constancia_turno is None."""
         resp = client.post(
-            "/finanzas/pagos",
+            "/api/finanzas/pagos",
             json={
                 "monto": 10000,
                 "moneda": "ARS",
@@ -297,7 +297,7 @@ class TestTurnosCreacion:
     def test_crear_turno_valido_lunes_1030(self, client, headers_secretaria, sample_doctor, sample_paciente):
         """Crear turno lunes 10:30 -> 201"""
         resp = client.post(
-            "/turnos/",
+            "/api/turnos/",
             json={
                 "fecha_hora": "2026-07-06T10:30:00",
                 "dni_paciente": sample_paciente.dni,
@@ -310,7 +310,7 @@ class TestTurnosCreacion:
     def test_crear_turno_fuera_horario(self, client, headers_secretaria, sample_doctor, sample_paciente):
         """Crear turno 13:30 (siesta) -> 400"""
         resp = client.post(
-            "/turnos/",
+            "/api/turnos/",
             json={
                 "fecha_hora": "2026-07-06T13:30:00",
                 "dni_paciente": sample_paciente.dni,
@@ -323,7 +323,7 @@ class TestTurnosCreacion:
     def test_crear_turno_jueves(self, client, headers_secretaria, sample_doctor, sample_paciente):
         """Crear turno jueves -> 400"""
         resp = client.post(
-            "/turnos/",
+            "/api/turnos/",
             json={
                 "fecha_hora": "2026-07-09T10:00:00",
                 "dni_paciente": sample_paciente.dni,
@@ -336,7 +336,7 @@ class TestTurnosCreacion:
     def test_crear_turno_sabado_tarde(self, client, headers_secretaria, sample_doctor, sample_paciente):
         """Crear turno sabado 16:00 -> 400 (solo manana)"""
         resp = client.post(
-            "/turnos/",
+            "/api/turnos/",
             json={
                 "fecha_hora": "2026-07-11T16:00:00",
                 "dni_paciente": sample_paciente.dni,

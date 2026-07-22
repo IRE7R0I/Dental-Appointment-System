@@ -45,3 +45,26 @@ def desactivar_doctor(db: Session, doctor_id: int) -> Optional[models.Doctor]:
     db.commit()
     db.refresh(doctor)
     return doctor
+
+
+def set_activo_doctor(db: Session, doctor_id: int, activo: bool) -> Optional[models.Doctor]:
+    doctor = obtener_doctor_por_id(db, doctor_id)
+    if not doctor:
+        return None
+    doctor.activo = activo
+    db.commit()
+    db.refresh(doctor)
+    return doctor
+
+
+def set_activo_doctor(db: Session, doctor_id: int, activo: bool) -> Optional[models.Doctor]:
+    """Set doctor active/inactive. activo=False delegates to existing soft-delete."""
+    if not activo:
+        return desactivar_doctor(db, doctor_id)
+    doctor = obtener_doctor_por_id(db, doctor_id)
+    if not doctor:
+        return None
+    doctor.activo = True
+    db.commit()
+    db.refresh(doctor)
+    return doctor

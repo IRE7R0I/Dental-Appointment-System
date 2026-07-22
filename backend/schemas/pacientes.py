@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, Literal
+from backend.schemas.historia_clinica import AlertaMedicaResponse
 from decimal import Decimal
 
 
@@ -12,9 +13,17 @@ class PacienteCreate(BaseModel):
     telefono: Optional[str] = None
     email: Optional[EmailStr] = None
     obra_social: Optional[str] = None
+    genero: Optional[Literal["Masculino", "Femenino", "Otro"]] = None
 
 
 class PacienteResponse(PacienteCreate):
+    class Config:
+        from_attributes = True
+
+
+class PacienteFichaResponse(PacienteResponse):
+    alertas: list["AlertaMedicaResponse"] = []
+
     class Config:
         from_attributes = True
 
@@ -26,6 +35,7 @@ class PacienteUpdate(BaseModel):
     telefono: Optional[str] = None
     email: Optional[EmailStr] = None
     obra_social: Optional[str] = None
+    genero: Optional[Literal["Masculino", "Femenino", "Otro"]] = None
 
 
 class MovimientoResponse(BaseModel):
@@ -83,3 +93,7 @@ class TurnoConDeudaResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PacienteFichaResponse(PacienteResponse):
+    alertas: list[AlertaMedicaResponse] = []

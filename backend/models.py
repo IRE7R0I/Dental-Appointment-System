@@ -13,6 +13,7 @@ class Paciente(Base):
     telefono = Column(String(20))
     email = Column(String(100))
     obra_social = Column(String(100))
+    genero = Column(String(20), nullable=True)
 
     # Relaciones
     turnos = relationship("Turno", back_populates="paciente")
@@ -48,6 +49,8 @@ class Turno(Base):
     id_doctor = Column(Integer, ForeignKey("doctores.id"))
     creado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)  # CHANGE-009
     actualizado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)  # CHANGE-009
+    motivo_cancelacion = Column(String(255), nullable=True)
+    actualizado_en = Column(DateTime, nullable=True)
 
     # Relaciones (Los atajos de Python)
     paciente = relationship("Paciente", back_populates="turnos")

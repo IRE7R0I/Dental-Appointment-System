@@ -13,6 +13,7 @@ def crear_paciente(db: Session, paciente: PacienteCreate):
         telefono=paciente.telefono,
         email=paciente.email,
         obra_social=paciente.obra_social,
+        genero=paciente.genero,
     )
     db.add(db_paciente)
     db.commit()

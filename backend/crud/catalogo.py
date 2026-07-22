@@ -73,3 +73,49 @@ def soft_delete_obra_social(db: Session, os_id: int) -> Optional[models.ObraSoci
     db.commit()
     db.refresh(obj)
     return obj
+
+
+def set_activo_tratamiento(db: Session, tratamiento_id: int, activo: bool) -> Optional[models.TratamientoCatalogo]:
+    obj = obtener_tratamiento(db, tratamiento_id)
+    if not obj:
+        return None
+    obj.activo = activo
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def set_activo_obra_social(db: Session, os_id: int, activo: bool) -> Optional[models.ObraSocial]:
+    obj = db.query(models.ObraSocial).filter(models.ObraSocial.id == os_id).first()
+    if not obj:
+        return None
+    obj.activo = activo
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def set_activo_tratamiento(db: Session, tratamiento_id: int, activo: bool):
+    """Set tratamiento active/inactive."""
+    if not activo:
+        return soft_delete_tratamiento(db, tratamiento_id)
+    obj = obtener_tratamiento(db, tratamiento_id)
+    if not obj:
+        return None
+    obj.activo = True
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def set_activo_obra_social(db: Session, os_id: int, activo: bool):
+    """Set obra social active/inactive."""
+    if not activo:
+        return soft_delete_obra_social(db, os_id)
+    obj = db.query(models.ObraSocial).filter(models.ObraSocial.id == os_id).first()
+    if not obj:
+        return None
+    obj.activo = True
+    db.commit()
+    db.refresh(obj)
+    return obj

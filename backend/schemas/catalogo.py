@@ -55,3 +55,11 @@ class ObraSocialResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ActivoUpdate(BaseModel):
+    activo: bool
+
+
+class ActivoUpdate(BaseModel):
+    activo: bool

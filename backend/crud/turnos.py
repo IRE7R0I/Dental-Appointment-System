@@ -27,17 +27,24 @@ def crear_turno(db: Session, turno: TurnoCreate):
     return db_turno
 
 
-def cancelar_turno(db: Session, turno_id: int):
+def cancelar_turno(db: Session, turno_id: int, motivo_cancelacion: str, usuario_id: int):
     db_turno = db.query(models.Turno).options(
         joinedload(models.Turno.paciente),
         joinedload(models.Turno.doctor),
     ).filter(models.Turno.id == turno_id).first()
-    if db_turno:
-        db_turno.estado = "Cancelado"
-        db.commit()
-        db.refresh(db_turno)
-        return db_turno
-    return None
+    if not db_turno:
+        return None
+    if db_turno.estado == "Realizado":
+        raise ValueError("No se puede cancelar un turno ya facturado")
+    if db_turno.estado == "Cancelado":
+        raise ValueError("El turno ya está cancelado")
+    db_turno.estado = "Cancelado"
+    db_turno.motivo_cancelacion = motivo_cancelacion
+    db_turno.actualizado_en = datetime.now()
+    db_turno.actualizado_por_id = usuario_id
+    db.commit()
+    db.refresh(db_turno)
+    return db_turno
 
 
 def eliminar_turno(db: Session, turno_id: int):

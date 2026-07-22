@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import date, time, datetime
 from typing import Literal, Optional
 
@@ -16,8 +16,16 @@ class TurnoResponse(TurnoCreate):
     estado: str
     paciente: Optional[dict] = None
     doctor: Optional[dict] = None
+    motivo_cancelacion: Optional[str] = None
+    actualizado_en: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ─── C-20: Cancelación de turnos ──────────────────────────────
+
+class TurnoCancelarInput(BaseModel):
+    motivo_cancelacion: str = Field(min_length=1)
 
 
 # ─── C-017: Slots bulk mensual ──────────────────────────────────

@@ -162,6 +162,9 @@ def cerrar_turno_con_pago(
         motivo_previo = turno.motivo or "Consulta"
         turno.motivo = f"{motivo_previo} | {comentarios}"
 
+    turno.actualizado_en = datetime.now()
+    turno.actualizado_por_id = creado_por_id
+
     # ── 1. Crear tratamientos del turno ──
     for t in tratamientos_input:
         tt = models.TurnoTratamiento(

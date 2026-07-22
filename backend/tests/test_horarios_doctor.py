@@ -102,7 +102,7 @@ class TestHorariosDoctorAPI:
 
     def test_get_horarios_doctor(self, client, headers_admin, sample_doctor):
         """GET /doctores/{id}/horarios returns 7 days with correct structure."""
-        resp = client.get(f"/doctores/{sample_doctor.id}/horarios", headers=headers_admin)
+        resp = client.get(f"/api/doctores/{sample_doctor.id}/horarios", headers=headers_admin)
         assert resp.status_code == 200
         data = resp.json()
         assert data["id_doctor"] == sample_doctor.id
@@ -129,7 +129,7 @@ class TestHorariosDoctorAPI:
             }
         }
         put_resp = client.put(
-            f"/doctores/{sample_doctor.id}/horarios",
+            f"/api/doctores/{sample_doctor.id}/horarios",
             json=payload,
             headers=headers_admin,
         )
@@ -140,7 +140,7 @@ class TestHorariosDoctorAPI:
         assert dias_resp["martes"] is None
         assert dias_resp["miercoles"]["manana"] == ["09:00", "13:00"]
 
-        get_resp = client.get(f"/doctores/{sample_doctor.id}/horarios", headers=headers_admin)
+        get_resp = client.get(f"/api/doctores/{sample_doctor.id}/horarios", headers=headers_admin)
         assert get_resp.json()["dias"]["lunes"]["manana"] == ["08:00", "12:00"]
 
     def test_put_horarios_doctor_partial(self, client, headers_admin, sample_doctor):
@@ -157,7 +157,7 @@ class TestHorariosDoctorAPI:
             }
         }
         resp = client.put(
-            f"/doctores/{sample_doctor.id}/horarios",
+            f"/api/doctores/{sample_doctor.id}/horarios",
             json=payload,
             headers=headers_admin,
         )
@@ -168,20 +168,78 @@ class TestHorariosDoctorAPI:
         assert dias["jueves"] is None
         assert dias["domingo"] is None
 
-    def test_put_horarios_doctor_solo_admin(self, client, headers_secretaria, sample_doctor):
-        """Secretaria gets 403 on PUT."""
+
+# =============================================================================
+# F. Regresión — Permisos secretaria (C-19)
+# =============================================================================
+
+class TestPermisosSecretaria:
+    """Regression tests for secretaria permissions expanded in C-19."""
+
+    def test_put_tratamiento_catalogo_secretaria_allowed(self, client, headers_secretaria):
+        """Secretaria can PUT /catalogo/tratamientos/{id} (already allowed since C-18)."""
+        resp = client.post("/api/catalogo/tratamientos", json={
+            "nombre": "Test Precio",
+            "categoria": "Test",
+            "precio_ars": 5000,
+            "precio_usd": 10,
+        }, headers=headers_secretaria)
+        assert resp.status_code == 201
+        t_id = resp.json()["id"]
+
+        resp = client.put(f"/api/catalogo/tratamientos/{t_id}", json={
+            "nombre": "Test Precio",
+            "precio_ars": 6000,
+            "precio_usd": 12,
+        }, headers=headers_secretaria)
+        assert resp.status_code == 200
+        # Decimal fields serialize as strings ("6000.00")
+        assert resp.json()["precio_ars"] == "6000.00"
+        assert resp.json()["precio_usd"] == "12.00"
+
+    def test_put_horarios_doctor_secretaria_allowed(self, client, headers_secretaria, sample_doctor):
+        """Secretaria can now PUT doctor schedule (200)."""
+        payload = {
+            "dias": {
+                "lunes": {"manana": ["08:00", "12:00"], "tarde": ["14:00", "18:00"]},
+                "martes": None,
+                "miercoles": {"manana": ["09:00", "13:00"]},
+                "jueves": None,
+                "viernes": None,
+                "sabado": None,
+                "domingo": None,
+            }
+        }
         resp = client.put(
-            f"/doctores/{sample_doctor.id}/horarios",
-            json={"dias": {"lunes": {"manana": ["09:00", "13:00"]}}},
+            f"/api/doctores/{sample_doctor.id}/horarios",
+            json=payload,
             headers=headers_secretaria,
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 200
+        dias = resp.json()["dias"]
+        assert dias["lunes"]["manana"] == ["08:00", "12:00"]
+        assert dias["lunes"]["tarde"] == ["14:00", "18:00"]
+        assert dias["martes"] is None
 
     def test_get_horarios_doctor_secretaria_allowed(self, client, headers_secretaria, sample_doctor):
         """Secretaria can GET doctor schedule."""
-        resp = client.get(f"/doctores/{sample_doctor.id}/horarios", headers=headers_secretaria)
+        resp = client.get(f"/api/doctores/{sample_doctor.id}/horarios", headers=headers_secretaria)
         assert resp.status_code == 200
         assert "dias" in resp.json()
+
+    def test_put_doctor_ficha_secretaria_forbidden(self, client, headers_secretaria, sample_doctor):
+        """Secretaria gets 403 on PUT /doctores/{id} (full ficha: nombre, matricula, especialidad, color_agenda)."""
+        resp = client.put(
+            f"/api/doctores/{sample_doctor.id}",
+            json={
+                "nombre": "Dr. Modificado",
+                "matricula": "ABC-123",
+                "especialidad": "Odontología General",
+                "color_agenda": "#FF0000",
+            },
+            headers=headers_secretaria,
+        )
+        assert resp.status_code == 403
 
 
 # =============================================================================
@@ -194,7 +252,7 @@ class TestDiasNoLaborablesAPI:
     def test_create_dia_no_laborable(self, client, headers_admin, sample_doctor):
         """POST /doctores/{id}/dias-no-laborables returns 201 with correct data."""
         resp = client.post(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables",
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables",
             json={"fecha": "2026-07-06", "motivo": "Feriado"},
             headers=headers_admin,
         )
@@ -207,12 +265,12 @@ class TestDiasNoLaborablesAPI:
     def test_create_duplicate(self, client, headers_admin, sample_doctor):
         """POST same fecha + doctor returns 409."""
         client.post(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables",
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables",
             json={"fecha": "2026-07-06", "motivo": "Feriado"},
             headers=headers_admin,
         )
         resp = client.post(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables",
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables",
             json={"fecha": "2026-07-06", "motivo": "Otro"},
             headers=headers_admin,
         )
@@ -221,17 +279,17 @@ class TestDiasNoLaborablesAPI:
     def test_list_dias_no_laborables(self, client, headers_admin, sample_doctor):
         """GET with date range returns correct list."""
         client.post(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables",
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables",
             json={"fecha": "2026-07-06", "motivo": "Feriado"},
             headers=headers_admin,
         )
         client.post(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables",
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables",
             json={"fecha": "2026-07-15", "motivo": "Vacaciones"},
             headers=headers_admin,
         )
         resp = client.get(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables?desde=2026-07-01&hasta=2026-07-31",
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables?desde=2026-07-01&hasta=2026-07-31",
             headers=headers_admin,
         )
         assert resp.status_code == 200
@@ -243,19 +301,19 @@ class TestDiasNoLaborablesAPI:
     def test_delete_dia_no_laborable(self, client, headers_admin, sample_doctor):
         """DELETE removes the entry, subsequent GET returns empty."""
         client.post(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables",
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables",
             json={"fecha": "2026-07-06"},
             headers=headers_admin,
         )
         del_resp = client.delete(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables/2026-07-06",
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables/2026-07-06",
             headers=headers_admin,
         )
         assert del_resp.status_code == 200
         assert "mensaje" in del_resp.json()
 
         list_resp = client.get(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables?desde=2026-07-01&hasta=2026-07-31",
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables?desde=2026-07-01&hasta=2026-07-31",
             headers=headers_admin,
         )
         assert list_resp.json() == []
@@ -263,19 +321,35 @@ class TestDiasNoLaborablesAPI:
     def test_delete_not_found(self, client, headers_admin, sample_doctor):
         """DELETE on non-existent date returns 404."""
         resp = client.delete(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables/2026-07-06",
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables/2026-07-06",
             headers=headers_admin,
         )
         assert resp.status_code == 404
 
-    def test_create_secretaria_forbidden(self, client, headers_secretaria, sample_doctor):
-        """Secretaria gets 403 on POST."""
+    def test_create_dia_no_laborable_secretaria_allowed(self, client, headers_secretaria, sample_doctor):
+        """Secretaria can now POST dias-no-laborables (201)."""
         resp = client.post(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables",
-            json={"fecha": "2026-07-06"},
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables",
+            json={"fecha": "2026-07-06", "motivo": "Feriado"},
             headers=headers_secretaria,
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 201
+        assert resp.json()["fecha"] == "2026-07-06"
+
+    def test_delete_dia_no_laborable_secretaria_allowed(self, client, headers_secretaria, sample_doctor):
+        """Secretaria can DELETE dias-no-laborables (200)."""
+        # First create one
+        client.post(
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables",
+            json={"fecha": "2026-07-06", "motivo": "Feriado"},
+            headers=headers_secretaria,
+        )
+        resp = client.delete(
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables/2026-07-06",
+            headers=headers_secretaria,
+        )
+        assert resp.status_code == 200
+        assert "mensaje" in resp.json()
 
 
 # =============================================================================
@@ -297,13 +371,13 @@ class TestImpactoEnTurnos:
                 "domingo": None,
             }
         }
-        return client.put(f"/doctores/{doctor_id}/horarios", json=payload, headers=headers_admin)
+        return client.put(f"/api/doctores/{doctor_id}/horarios", json=payload, headers=headers_admin)
 
     def test_doctor_solo_manana_slots(self, client, headers_admin, sample_doctor):
         """Doctor with only morning hours → GET /turnos/slots returns only morning slots."""
         self._put_solo_manana(client, headers_admin, sample_doctor.id)
         resp = client.get(
-            f"/turnos/slots?fecha=2026-07-06&id_doctor={sample_doctor.id}",
+            f"/api/turnos/slots?fecha=2026-07-06&id_doctor={sample_doctor.id}",
             headers=headers_admin,
         )
         assert resp.status_code == 200
@@ -318,7 +392,7 @@ class TestImpactoEnTurnos:
         """Creating turno at 10:30 works for morning-only doctor."""
         self._put_solo_manana(client, headers_admin, sample_doctor.id)
         resp = client.post(
-            "/turnos/",
+            "/api/turnos/",
             json={
                 "fecha_hora": "2026-07-06T10:30:00",
                 "dni_paciente": sample_paciente.dni,
@@ -332,7 +406,7 @@ class TestImpactoEnTurnos:
         """Creating turno at 16:00 fails for morning-only doctor (400)."""
         self._put_solo_manana(client, headers_admin, sample_doctor.id)
         resp = client.post(
-            "/turnos/",
+            "/api/turnos/",
             json={
                 "fecha_hora": "2026-07-06T16:00:00",
                 "dni_paciente": sample_paciente.dni,
@@ -345,12 +419,12 @@ class TestImpactoEnTurnos:
     def test_dia_no_laborable_slots_vacios(self, client, headers_admin, sample_doctor):
         """Marking Monday as non-working → GET /turnos/slots returns empty for that day."""
         client.post(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables",
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables",
             json={"fecha": "2026-07-06", "motivo": "Feriado"},
             headers=headers_admin,
         )
         resp = client.get(
-            f"/turnos/slots?fecha=2026-07-06&id_doctor={sample_doctor.id}",
+            f"/api/turnos/slots?fecha=2026-07-06&id_doctor={sample_doctor.id}",
             headers=headers_admin,
         )
         assert resp.status_code == 200
@@ -359,12 +433,12 @@ class TestImpactoEnTurnos:
     def test_dia_no_laborable_crear_turno_rechaza(self, client, headers_secretaria, headers_admin, sample_doctor, sample_paciente):
         """Creating turno on a non-working day returns 400."""
         client.post(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables",
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables",
             json={"fecha": "2026-07-06", "motivo": "Feriado"},
             headers=headers_admin,
         )
         resp = client.post(
-            "/turnos/",
+            "/api/turnos/",
             json={
                 "fecha_hora": "2026-07-06T10:00:00",
                 "dni_paciente": sample_paciente.dni,
@@ -378,13 +452,13 @@ class TestImpactoEnTurnos:
         """Blocking slot outside doctor's hours returns 400."""
         self._put_solo_manana(client, headers_admin, sample_doctor.id)
         resp_valido = client.post(
-            "/turnos/slots/bloquear",
+            "/api/turnos/slots/bloquear",
             json={"fecha": "2026-07-06", "hora": "10:00", "id_doctor": sample_doctor.id, "motivo": "Válido"},
             headers=headers_admin,
         )
         assert resp_valido.status_code == 201
         resp_invalido = client.post(
-            "/turnos/slots/bloquear",
+            "/api/turnos/slots/bloquear",
             json={"fecha": "2026-07-06", "hora": "16:00", "id_doctor": sample_doctor.id, "motivo": "Fuera horario"},
             headers=headers_admin,
         )
@@ -393,7 +467,7 @@ class TestImpactoEnTurnos:
     def test_doctor_jueves_cerrado_slots_vacios(self, client, headers_admin, sample_doctor):
         """Doctor with Thursday closed → slots empty on Thursday."""
         resp = client.get(
-            f"/turnos/slots?fecha=2026-07-09&id_doctor={sample_doctor.id}",
+            f"/api/turnos/slots?fecha=2026-07-09&id_doctor={sample_doctor.id}",
             headers=headers_admin,
         )
         assert resp.status_code == 200
@@ -402,21 +476,21 @@ class TestImpactoEnTurnos:
     def test_delete_dia_no_laborable_restaura_slots(self, client, headers_admin, sample_doctor):
         """Unmark non-working day → slots return."""
         client.post(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables",
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables",
             json={"fecha": "2026-07-06", "motivo": "Feriado"},
             headers=headers_admin,
         )
         resp_empty = client.get(
-            f"/turnos/slots?fecha=2026-07-06&id_doctor={sample_doctor.id}",
+            f"/api/turnos/slots?fecha=2026-07-06&id_doctor={sample_doctor.id}",
             headers=headers_admin,
         )
         assert resp_empty.json() == []
         client.delete(
-            f"/doctores/{sample_doctor.id}/dias-no-laborables/2026-07-06",
+            f"/api/doctores/{sample_doctor.id}/dias-no-laborables/2026-07-06",
             headers=headers_admin,
         )
         resp_full = client.get(
-            f"/turnos/slots?fecha=2026-07-06&id_doctor={sample_doctor.id}",
+            f"/api/turnos/slots?fecha=2026-07-06&id_doctor={sample_doctor.id}",
             headers=headers_admin,
         )
         assert len(resp_full.json()) == 16
@@ -433,14 +507,14 @@ class TestDoctorSeeding:
     def test_crear_doctor_tiene_horario_default(self, client, headers_admin):
         """POST /doctores/ creates doctor with 7 schedule rows configuradas."""
         resp = client.post(
-            "/doctores/",
+            "/api/doctores/",
             json={"nombre": "Dr. Nuevo", "color_agenda": "#FF0000"},
             headers=headers_admin,
         )
         assert resp.status_code == 201
         doctor_id = resp.json()["id"]
 
-        horario_resp = client.get(f"/doctores/{doctor_id}/horarios", headers=headers_admin)
+        horario_resp = client.get(f"/api/doctores/{doctor_id}/horarios", headers=headers_admin)
         assert horario_resp.status_code == 200
         data = horario_resp.json()
         assert data["id_doctor"] == doctor_id

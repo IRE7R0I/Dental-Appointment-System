@@ -99,6 +99,9 @@ Las siguientes skills están instaladas en el proyecto y deben leerse antes de e
 | C-12 | `correccion-horarios-doctores-pagos` | ALTO | ✅ completado |
 | C-16 | `horarios-individuales-por-doctor` | ALTO | ✅ completado |
 | C-17 | `agenda-vista-mensual-bulk` | MEDIO | ✅ completado |
+| C-18 | `ajustes-integracion-frontend2` | ALTO | ✅ completado |
+| C-19 | `ajuste-permisos-secretaria` | MEDIO | ✅ completado |
+| C-20 | `cancelacion-turnos` | MEDIO | ✅ completado |
 | C-13 | `frontend2-rediseno` | ALTO | 🔲 pendiente |
 | C-14 | `historia-clinica-y-plan-tratamiento` | ALTO | ✅ completado |
 | C-15 | `imagenes-radiografias-paciente` | MEDIO | ✅ completado |
@@ -108,7 +111,7 @@ Las siguientes skills están instaladas en el proyecto y deben leerse antes de e
 | C-11 | `polish-y-deploy` | CRITICO | 🔲 pendiente |
 
 **Camino crítico**: C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-16 → C-08 → C-09 → C-11
-**Próximo change disponible**: C-13 (`frontend2-rediseno`) — pendiente de arrancar.
+**Próximo change disponible**: C-13 (`frontend2-rediseno`) — desbloqueado tras completar integración (C-18).
 
 ---
 

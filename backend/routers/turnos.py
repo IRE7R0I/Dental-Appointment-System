@@ -24,7 +24,8 @@ from backend.crud.turnos import (
 from backend.crud.finanzas import cerrar_turno_con_pago
 from backend.schemas.turnos import (
     TurnoCreate, TurnoResponse, SlotBloquearInput,
-    SlotResponse, SlotBloqueadoResponse, SlotsBulkResponse
+    SlotResponse, SlotBloqueadoResponse, SlotsBulkResponse,
+    TurnoCancelarInput
 )
 from backend.schemas.finanzas import CerrarTurnoInput, CerrarTurnoResponse
 
@@ -40,6 +41,8 @@ def _turno_to_response(turno) -> TurnoResponse:
         dni_paciente=turno.dni_paciente,
         id_doctor=turno.id_doctor,
         estado=turno.estado,
+        motivo_cancelacion=turno.motivo_cancelacion,
+        actualizado_en=turno.actualizado_en,
         paciente={"nombre": turno.paciente.nombre, "apellido": turno.paciente.apellido, "dni": turno.paciente.dni, "obra_social": turno.paciente.obra_social} if turno.paciente else None,
         doctor={"id": turno.doctor.id, "nombre": turno.doctor.nombre} if turno.doctor else None,
     )
@@ -205,8 +208,16 @@ def post_turno(turno: TurnoCreate, db: Session = Depends(get_db)):
 
 
 @router.patch("/{turno_id}/cancelar", response_model=TurnoResponse)
-def cancelar_turno_api(turno_id: int, db: Session = Depends(get_db)):
-    db_turno = cancelar_turno(db, turno_id)
+def cancelar_turno_api(
+    turno_id: int,
+    body: TurnoCancelarInput,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+):
+    try:
+        db_turno = cancelar_turno(db, turno_id, body.motivo_cancelacion, current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not db_turno:
         raise HTTPException(status_code=404, detail="Turno no encontrado")
     return _turno_to_response(db_turno)

@@ -46,7 +46,7 @@ def sample_turno_pendiente(db, sample_paciente, sample_doctor, admin_user):
 
 def test_crear_alerta(client, headers_admin, sample_paciente):
     response = client.post(
-        "/pacientes/12345678/alertas",
+        "/api/pacientes/12345678/alertas",
         json={"tipo": "alergia", "descripcion": "Alergia a la penicilina"},
         headers=headers_admin,
     )
@@ -59,11 +59,11 @@ def test_crear_alerta(client, headers_admin, sample_paciente):
 
 def test_listar_alertas(client, headers_admin, sample_paciente):
     client.post(
-        "/pacientes/12345678/alertas",
+        "/api/pacientes/12345678/alertas",
         json={"tipo": "alergia", "descripcion": "Penicilina"},
         headers=headers_admin,
     )
-    response = client.get("/pacientes/12345678/alertas", headers=headers_admin)
+    response = client.get("/api/pacientes/12345678/alertas", headers=headers_admin)
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
@@ -71,7 +71,7 @@ def test_listar_alertas(client, headers_admin, sample_paciente):
 
 def test_eliminar_alerta(client, headers_admin, sample_paciente, db):
     resp = client.post(
-        "/pacientes/12345678/alertas",
+        "/api/pacientes/12345678/alertas",
         json={"tipo": "condicion", "descripcion": "Hipertensión"},
         headers=headers_admin,
     )
@@ -79,12 +79,12 @@ def test_eliminar_alerta(client, headers_admin, sample_paciente, db):
 
     # DELETE debe retornar 200
     response = client.delete(
-        f"/pacientes/12345678/alertas/{alerta_id}", headers=headers_admin
+        f"/api/pacientes/12345678/alertas/{alerta_id}", headers=headers_admin
     )
     assert response.status_code == 200
 
     # GET no debe mostrar la alerta (filtra activo=True)
-    response = client.get("/pacientes/12345678/alertas", headers=headers_admin)
+    response = client.get("/api/pacientes/12345678/alertas", headers=headers_admin)
     assert len(response.json()) == 0
 
     # La fila sigue existiendo en DB con soft-delete
@@ -97,7 +97,7 @@ def test_eliminar_alerta(client, headers_admin, sample_paciente, db):
 
 def test_eliminar_alerta_not_found(client, headers_admin):
     response = client.delete(
-        "/pacientes/12345678/alertas/99999", headers=headers_admin
+        "/api/pacientes/12345678/alertas/99999", headers=headers_admin
     )
     assert response.status_code == 404
 
@@ -109,7 +109,7 @@ def test_crear_evolucion_con_turno_asistio(
     client, headers_admin, sample_turno_asistio
 ):
     response = client.post(
-        "/pacientes/12345678/evoluciones",
+        "/api/pacientes/12345678/evoluciones",
         json={
             "fecha": "2026-07-10",
             "id_turno": sample_turno_asistio.id,
@@ -131,7 +131,7 @@ def test_rechazar_evolucion_con_turno_pendiente(
     client, headers_admin, sample_turno_pendiente
 ):
     response = client.post(
-        "/pacientes/12345678/evoluciones",
+        "/api/pacientes/12345678/evoluciones",
         json={
             "fecha": "2026-07-10",
             "id_turno": sample_turno_pendiente.id,
@@ -148,7 +148,7 @@ def test_rechazar_evolucion_con_turno_pendiente(
 
 def test_crear_evolucion_sin_turno(client, headers_admin, sample_paciente):
     response = client.post(
-        "/pacientes/12345678/evoluciones",
+        "/api/pacientes/12345678/evoluciones",
         json={
             "fecha": "2025-03-15",
             "observaciones": "Extracción pieza 36. Sin complicaciones.",
@@ -166,13 +166,13 @@ def test_crear_evolucion_sin_turno(client, headers_admin, sample_paciente):
 
 def test_corregir_evolucion(client, headers_admin, sample_paciente):
     resp = client.post(
-        "/pacientes/12345678/evoluciones",
+        "/api/pacientes/12345678/evoluciones",
         json={"fecha": "2026-07-10", "observaciones": "Texto original"},
         headers=headers_admin,
     )
     evol_id = resp.json()["id"]
     response = client.put(
-        f"/pacientes/12345678/evoluciones/{evol_id}",
+        f"/api/pacientes/12345678/evoluciones/{evol_id}",
         json={"observaciones": "Texto corregido"},
         headers=headers_admin,
     )
@@ -186,7 +186,7 @@ def test_corregir_evolucion(client, headers_admin, sample_paciente):
 
 def test_validar_pieza_dental_fuera_rango(client, headers_admin):
     response = client.post(
-        "/pacientes/12345678/evoluciones",
+        "/api/pacientes/12345678/evoluciones",
         json={"fecha": "2026-07-10", "pieza_dental": 99, "observaciones": "Test"},
         headers=headers_admin,
     )
@@ -195,7 +195,7 @@ def test_validar_pieza_dental_fuera_rango(client, headers_admin):
 
 def test_validar_ubicacion_lesion_invalida(client, headers_admin):
     response = client.post(
-        "/pacientes/12345678/evoluciones",
+        "/api/pacientes/12345678/evoluciones",
         json={"fecha": "2026-07-10", "ubicacion_lesion": "X,Z", "observaciones": "Test"},
         headers=headers_admin,
     )
@@ -210,7 +210,7 @@ def test_resumen_con_datos(
     client, headers_admin, sample_turno_asistio
 ):
     client.post(
-        "/pacientes/12345678/evoluciones",
+        "/api/pacientes/12345678/evoluciones",
         json={
             "fecha": "2026-07-10",
             "id_turno": sample_turno_asistio.id,
@@ -218,7 +218,7 @@ def test_resumen_con_datos(
         },
         headers=headers_admin,
     )
-    response = client.get("/pacientes/12345678/resumen", headers=headers_admin)
+    response = client.get("/api/pacientes/12345678/resumen", headers=headers_admin)
     assert response.status_code == 200
     data = response.json()
     assert data["evoluciones"] == 1
@@ -227,14 +227,14 @@ def test_resumen_con_datos(
 
 
 def test_resumen_sin_datos(client, headers_admin, sample_paciente):
-    response = client.get("/pacientes/12345678/resumen", headers=headers_admin)
+    response = client.get("/api/pacientes/12345678/resumen", headers=headers_admin)
     assert response.status_code == 200
     data = response.json()
     assert data["evoluciones"] == 0
 
 
 def test_resumen_paciente_no_encontrado(client, headers_admin):
-    response = client.get("/pacientes/99999999/resumen", headers=headers_admin)
+    response = client.get("/api/pacientes/99999999/resumen", headers=headers_admin)
     assert response.status_code == 404
 
 
@@ -243,11 +243,11 @@ def test_resumen_paciente_no_encontrado(client, headers_admin):
 
 def test_no_auth_returns_401(client):
     endpoints = [
-        ("GET", "/pacientes/12345678/alertas"),
-        ("POST", "/pacientes/12345678/alertas"),
-        ("GET", "/pacientes/12345678/evoluciones"),
-        ("POST", "/pacientes/12345678/evoluciones"),
-        ("GET", "/pacientes/12345678/resumen"),
+        ("GET", "/api/pacientes/12345678/alertas"),
+        ("POST", "/api/pacientes/12345678/alertas"),
+        ("GET", "/api/pacientes/12345678/evoluciones"),
+        ("POST", "/api/pacientes/12345678/evoluciones"),
+        ("GET", "/api/pacientes/12345678/resumen"),
     ]
     for method, url in endpoints:
         if method == "GET":
@@ -261,7 +261,7 @@ def test_no_auth_returns_401(client):
 
 
 def test_hallazgos_imagenes_null(client, headers_admin, sample_paciente):
-    response = client.get("/pacientes/12345678/resumen", headers=headers_admin)
+    response = client.get("/api/pacientes/12345678/resumen", headers=headers_admin)
     assert response.json()["hallazgos"] is None
     assert response.json()["imagenes"] == 0  # C-015: ahora es conteo real
 
@@ -273,13 +273,13 @@ def test_rn18_no_exponer_datos_clinicos(client, headers_admin, sample_paciente):
     """Verifica que ningún endpoint del módulo exponga DNI, observaciones
     ni otros datos clínicos en sus mensajes de error."""
     # Caso 1: 404 de paciente inexistente — no debe incluir el DNI buscado
-    r = client.get("/pacientes/99999999/evoluciones", headers=headers_admin)
+    r = client.get("/api/pacientes/99999999/evoluciones", headers=headers_admin)
     assert r.status_code == 404
     assert "99999999" not in r.text
 
     # Caso 2: 400 por turno inexistente — no debe incluir DNI ni observaciones
     r = client.post(
-        "/pacientes/12345678/evoluciones",
+        "/api/pacientes/12345678/evoluciones",
         json={"fecha": "2026-07-10", "id_turno": 99999, "observaciones": "Paciente VIH positivo"},
         headers=headers_admin,
     )
@@ -292,7 +292,7 @@ def test_rn18_no_exponer_datos_clinicos(client, headers_admin, sample_paciente):
     # Caso 3: 422 de validación (ubicacion_lesion inválida)
     # — no debe incluir observaciones del body en la respuesta de error
     r = client.post(
-        "/pacientes/12345678/evoluciones",
+        "/api/pacientes/12345678/evoluciones",
         json={
             "fecha": "2026-07-10",
             "ubicacion_lesion": "X,Z",

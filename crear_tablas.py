@@ -41,6 +41,13 @@ def init_db():
                 db.execute(text("ALTER TABLE turnos ADD COLUMN actualizado_por_id INTEGER REFERENCES usuarios(id)"))
                 print("Columnas creado_por_id/actualizado_por_id agregadas a turnos.")
 
+            genero_col = db.execute(text(
+                "SELECT column_name FROM information_schema.columns WHERE table_name='pacientes' AND column_name='genero'"
+            )).fetchone()
+            if not genero_col:
+                db.execute(text("ALTER TABLE pacientes ADD COLUMN genero VARCHAR(20)"))
+                print("Columna genero agregada a pacientes.")
+
             db.commit()
 
             # ── Seed: admin inicial ──

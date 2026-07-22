@@ -41,7 +41,7 @@ def test_filtro_moneda_pagos(client, headers_admin, db, sample_paciente):
     db.commit()
 
     # GET /finanzas/pagos sin filtrar
-    resp_todos = client.get("/finanzas/pagos", headers=headers_admin)
+    resp_todos = client.get("/api/finanzas/pagos", headers=headers_admin)
     assert resp_todos.status_code == 200
     todos = resp_todos.json()
     assert len(todos) >= 2
@@ -51,7 +51,7 @@ def test_filtro_moneda_pagos(client, headers_admin, db, sample_paciente):
     assert pago_usd.id in ids
 
     # GET /finanzas/pagos?moneda=ARS
-    resp_ars = client.get("/finanzas/pagos?moneda=ARS", headers=headers_admin)
+    resp_ars = client.get("/api/finanzas/pagos?moneda=ARS", headers=headers_admin)
     assert resp_ars.status_code == 200
     pagos_ars = resp_ars.json()
     assert all(p["moneda"] == "ARS" for p in pagos_ars)
@@ -59,7 +59,7 @@ def test_filtro_moneda_pagos(client, headers_admin, db, sample_paciente):
     assert not any(p["id"] == pago_usd.id for p in pagos_ars)
 
     # GET /finanzas/pagos?moneda=USD
-    resp_usd = client.get("/finanzas/pagos?moneda=USD", headers=headers_admin)
+    resp_usd = client.get("/api/finanzas/pagos?moneda=USD", headers=headers_admin)
     assert resp_usd.status_code == 200
     pagos_usd = resp_usd.json()
     assert all(p["moneda"] == "USD" for p in pagos_usd)
@@ -102,7 +102,7 @@ def test_dias_antiguedad_y_ordenamiento(client, headers_admin, db, sample_pacien
     db.commit()
 
     # GET /pacientes/deudores por default (antiguedad_desc)
-    resp = client.get("/pacientes/deudores", headers=headers_admin)
+    resp = client.get("/api/pacientes/deudores", headers=headers_admin)
     assert resp.status_code == 200
     deudores = resp.json()
     assert len(deudores) >= 2
@@ -117,7 +117,7 @@ def test_dias_antiguedad_y_ordenamiento(client, headers_admin, db, sample_pacien
     assert deudores[idx_b]["dias_antiguedad"] == 5
 
     # GET /pacientes/deudores?orden=antiguedad_asc
-    resp_asc = client.get("/pacientes/deudores?orden=antiguedad_asc", headers=headers_admin)
+    resp_asc = client.get("/api/pacientes/deudores?orden=antiguedad_asc", headers=headers_admin)
     assert resp_asc.status_code == 200
     deudores_asc = resp_asc.json()
     idx_a_asc = next(i for i, d in enumerate(deudores_asc) if d["dni"] == sample_paciente.dni)
@@ -176,7 +176,7 @@ def test_turnos_con_deuda_desglose(client, headers_admin, db, sample_paciente, s
     db.commit()
 
     # GET /pacientes/{dni}/turnos-con-deuda
-    resp = client.get(f"/pacientes/{sample_paciente.dni}/turnos-con-deuda", headers=headers_admin)
+    resp = client.get(f"/api/pacientes/{sample_paciente.dni}/turnos-con-deuda", headers=headers_admin)
     assert resp.status_code == 200
     turnos_deuda = resp.json()
 
@@ -204,7 +204,7 @@ def test_turnos_con_deuda_desglose(client, headers_admin, db, sample_paciente, s
 
 # 4. Test de Paciente sin deuda
 def test_paciente_sin_deuda_vacio(client, headers_admin, db, sample_paciente):
-    resp = client.get(f"/pacientes/{sample_paciente.dni}/turnos-con-deuda", headers=headers_admin)
+    resp = client.get(f"/api/pacientes/{sample_paciente.dni}/turnos-con-deuda", headers=headers_admin)
     assert resp.status_code == 200
     assert resp.json() == []
 
@@ -233,7 +233,7 @@ def test_deuda_una_sola_moneda_antiguedad(client, headers_admin, db, sample_paci
     db.commit()
 
     # Consultar deudores
-    resp = client.get("/pacientes/deudores", headers=headers_admin)
+    resp = client.get("/api/pacientes/deudores", headers=headers_admin)
     assert resp.status_code == 200
     deudores = resp.json()
 

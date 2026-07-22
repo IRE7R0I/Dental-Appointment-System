@@ -4,8 +4,9 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.dependencies import require_role, get_current_user
 from backend.models import Usuario
-from backend.crud.auth import crear_usuario, listar_usuarios, toggle_usuario_activo, get_user_by_id, update_user
+from backend.crud.auth import crear_usuario, listar_usuarios, toggle_usuario_activo, get_user_by_id, update_user, set_activo_usuario
 from backend.schemas.auth import UserCreate, UserUpdate, UserResponse
+from backend.schemas.catalogo import ActivoUpdate
 
 router = APIRouter(
     prefix="/admin",
@@ -28,10 +29,17 @@ def get_usuarios(db: Session = Depends(get_db)):
 
 @router.put("/usuarios/{user_id}/toggle-activo", response_model=UserResponse)
 def toggle_activo(user_id: int, db: Session = Depends(get_db)):
-    usuario = toggle_usuario_activo(db, user_id)
+    """Alternar estado activo. Solo admin. Admin no puede desactivarse.
+    NOTA: endpoint transicional (DT-01). Reemplazar por PATCH .../activo cuando frontend/ se archive."""
+    usuario = get_user_by_id(db, user_id)
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return usuario
+    if usuario.activo and usuario.rol == "admin":
+        raise HTTPException(status_code=400, detail="No se puede desactivar un usuario admin")
+    result = toggle_usuario_activo(db, user_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return result
 
 
 @router.delete("/usuarios/{user_id}")
@@ -62,5 +70,17 @@ def put_usuario(
             old = get_user_by_id(db, user_id)
             if old:
                 raise HTTPException(status_code=403, detail="Contraseña actual incorrecta")
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return usuario
+
+
+@router.patch("/usuarios/{user_id}/activo", response_model=UserResponse)
+def patch_usuario_activo(user_id: int, data: ActivoUpdate, db: Session = Depends(get_db)):
+    """Activar o desactivar usuario. Solo admin. Admin nunca puede desactivarse."""
+    try:
+        usuario = set_activo_usuario(db, user_id, data.activo)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return usuario

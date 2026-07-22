@@ -35,7 +35,7 @@ class TestSlotsBulk:
         db.commit()
 
         resp = client.get(
-            "/turnos/slots/bulk",
+            "/api/turnos/slots/bulk",
             params={"fecha_desde": "2026-08-03", "fecha_hasta": "2026-08-09", "id_doctor": str(sample_doctor.id)},
             headers=headers_admin,
         )
@@ -79,7 +79,7 @@ class TestSlotsBulk:
         db.commit()
 
         resp = client.get(
-            "/turnos/slots/bulk",
+            "/api/turnos/slots/bulk",
             params={"fecha_desde": "2026-08-01", "fecha_hasta": "2026-08-15", "id_doctor": str(sample_doctor.id)},
             headers=headers_admin,
         )
@@ -100,7 +100,7 @@ class TestSlotsBulk:
         seed_horarios_doctor(db, sample_doctor.id)
 
         resp = client.get(
-            "/turnos/slots/bulk",
+            "/api/turnos/slots/bulk",
             params={"fecha_desde": "2026-07-27", "fecha_hasta": "2026-08-02", "id_doctor": str(sample_doctor.id)},
             headers=headers_admin,
         )
@@ -117,7 +117,7 @@ class TestSlotsBulk:
         seed_horarios_doctor(db, sample_doctor.id)
 
         resp = client.get(
-            "/turnos/slots/bulk",
+            "/api/turnos/slots/bulk",
             params={"fecha_desde": "2026-08-03", "fecha_hasta": "2026-08-09", "id_doctor": str(sample_doctor.id)},
             headers=headers_admin,
         )
@@ -145,7 +145,7 @@ class TestSlotsBulk:
         db.commit()
 
         resp = client.get(
-            "/turnos/slots/bulk",
+            "/api/turnos/slots/bulk",
             params={"fecha_desde": "2026-08-03", "fecha_hasta": "2026-08-03", "id_doctor": str(sample_doctor.id)},
             headers=headers_admin,
         )
@@ -159,7 +159,7 @@ class TestSlotsBulk:
     def test_invalid_date_range(self, db, client, headers_admin):
         """fecha_desde > fecha_hasta → 400."""
         resp = client.get(
-            "/turnos/slots/bulk",
+            "/api/turnos/slots/bulk",
             params={"fecha_desde": "2026-08-15", "fecha_hasta": "2026-08-01"},
             headers=headers_admin,
         )
@@ -180,7 +180,7 @@ class TestSlotsBulk:
         seed_horarios_doctor(db, doctor3.id)
 
         resp = client.get(
-            "/turnos/slots/bulk",
+            "/api/turnos/slots/bulk",
             params={"fecha_desde": "2026-08-03", "fecha_hasta": "2026-08-09"},
             headers=headers_admin,
         )
@@ -195,6 +195,37 @@ class TestSlotsBulk:
         d03 = data["dias"]["2026-08-03"]
         assert d03["total"] == 32
         assert d03["libres"] == 32
+
+    def test_doctor_with_custom_pattern_not_fallback(self, db, client, headers_admin, sample_doctor):
+        """Doctor WITH HorarioDoctor rows uses custom pattern, NOT HORARIOS_DEFAULT.
+        
+        Oracle: seed_horarios_doctor then edit Monday to 08:00-10:00 (4 slots).
+        If fallback were used, total would be 20 (HORARIOS_DEFAULT morning+afternoon).
+        Asserting 4 proves the configured row is loaded, not the default fallback.
+        """
+        seed_horarios_doctor(db, sample_doctor.id)
+
+        h_row = db.query(models.HorarioDoctor).filter(
+            models.HorarioDoctor.id_doctor == sample_doctor.id,
+            models.HorarioDoctor.dia_semana == 0,
+        ).first()
+        h_row.manana_inicio = time(8, 0)
+        h_row.manana_fin = time(10, 0)
+        h_row.tarde_inicio = None
+        h_row.tarde_fin = None
+        db.commit()
+
+        resp = client.get(
+            "/api/turnos/slots/bulk",
+            params={"fecha_desde": "2026-08-03", "fecha_hasta": "2026-08-03", "id_doctor": str(sample_doctor.id)},
+            headers=headers_admin,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        d03 = data["dias"]["2026-08-03"]
+        assert d03["total"] == 4, f"Expected 4 (08:00-10:00), got {d03['total']}. Fallback would give 20."
+        assert d03["por_doctor"][str(sample_doctor.id)]["total"] == 4
+        assert d03["libres"] == 4
 
     def test_two_doctors_with_different_patterns(self, db, client, headers_admin, sample_doctor):
         """Doctor 1 works Wed, Doctor 2 has Wed closed → combined 16."""
@@ -216,7 +247,7 @@ class TestSlotsBulk:
         db.commit()
 
         resp = client.get(
-            "/turnos/slots/bulk",
+            "/api/turnos/slots/bulk",
             params={
                 "fecha_desde": "2026-08-03",
                 "fecha_hasta": "2026-08-05",
