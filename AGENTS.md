@@ -102,6 +102,9 @@ Las siguientes skills están instaladas en el proyecto y deben leerse antes de e
 | C-18 | `ajustes-integracion-frontend2` | ALTO | ✅ completado |
 | C-19 | `ajuste-permisos-secretaria` | MEDIO | ✅ completado |
 | C-20 | `cancelacion-turnos` | MEDIO | ✅ completado |
+| C-21 | `validacion-turnos-multi-slot` | MEDIO | ✅ completado |
+| C-22 | `busqueda-pacientes` | BAJO | ✅ completado |
+| C-23 | `ajuste-constancia-y-auditoria-categoria` | BAJO | ✅ completado |
 | C-13 | `frontend2-rediseno` | ALTO | 🔲 pendiente |
 | C-14 | `historia-clinica-y-plan-tratamiento` | ALTO | ✅ completado |
 | C-15 | `imagenes-radiografias-paciente` | MEDIO | ✅ completado |

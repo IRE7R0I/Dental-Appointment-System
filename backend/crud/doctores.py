@@ -9,6 +9,7 @@ def crear_doctor(db: Session, doctor: DoctorCreate):
     db_doctor = models.Doctor(
         nombre=doctor.nombre,
         color_agenda=doctor.color_agenda,
+        horizonte_dias=doctor.horizonte_dias or 180,
     )
     db.add(db_doctor)
     db.commit()

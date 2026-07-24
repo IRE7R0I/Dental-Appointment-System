@@ -1,0 +1,138 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-brand-50: #E1F5EE;
+  --color-brand-100: #9FE1CB;
+  --color-brand-200: #5DCAA5;
+  --color-brand-400: #1D9E75;
+  --color-brand-600: #0F6E56;
+  --color-brand-800: #085041;
+  --color-brand-900: #04342C;
+  
+  --color-neutral-warm-50: #F1EFE8;
+  --color-neutral-warm-100: #D8C3A5;
+  --color-neutral-warm-600: #5F5E5A;
+  --color-neutral-warm-900: #2C2C2A;
+  
+  --color-surface-white: #FFFFFF;
+}
+
+body {
+  background-color: #F1EFE8; /* --neutral-warm-50 */
+  color: #2C2C2A; /* --neutral-warm-900 */
+  font-family: "Outfit", "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Enlarge body text sizes by 20% on desktop screens, leaving titles and mobile untouched */
+@media (min-width: 1024px) {
+  :root {
+    --text-xs: 0.9rem;  /* 0.75rem * 1.2 */
+    --text-sm: 1.05rem; /* 0.875rem * 1.2 */
+    --text-base: 1.2rem; /* 1rem * 1.2 */
+  }
+  body {
+    font-size: 1.2rem;
+  }
+}
+
+/* Custom scrollbar and diagonal patterns for slots */
+.slot-bloqueado-pattern {
+  background-color: #F1EFE8;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 10px,
+    #D3D1C7 10px,
+    #D3D1C7 20px
+  );
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 110, 86, 0.3); /* brand-600 */
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 110, 86, 0.6);
+}
+
+/* Hide scrollbar utility */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Sentence case utility */
+.sentence-case {
+  text-transform: lowercase;
+}
+.sentence-case::first-letter {
+  text-transform: uppercase;
+}
+
+/* Print styles for physical/PDF receipt tickets */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-ticket, .print-ticket * {
+    visibility: visible;
+  }
+  .print-ticket {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 80mm;
+    margin: 0 auto;
+    border: none !important;
+    box-shadow: none !important;
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+  }
+}
+
+/* Ensure consistent elegant default typography across form fields and placeholders, keeping mono/finanzas safe */
+input:not(.pagos-page-container *, .font-mono, .font-mono *),
+textarea:not(.pagos-page-container *, .font-mono, .font-mono *),
+select:not(.pagos-page-container *, .font-mono, .font-mono *),
+button:not(.pagos-page-container *, .font-mono, .font-mono *),
+input:not(.pagos-page-container *, .font-mono, .font-mono *)::placeholder,
+textarea:not(.pagos-page-container *, .font-mono, .font-mono *)::placeholder {
+  font-family: "Outfit", "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* Sutil typography scaling with clamp() for large monitors while keeping desktop standard ratios intact */
+.text-clamp-title-lg {
+  font-size: clamp(1.875rem, 1.7rem + 0.3vw, 2.25rem) !important; /* ~30px on 1440px to ~34px on 2560px */
+}
+.text-clamp-title-md {
+  font-size: clamp(1rem, 0.925rem + 0.15vw, 1.15rem) !important; /* ~16px on 1440px to ~18px on 2560px */
+}
+.text-clamp-kpi-sm {
+  font-size: clamp(1.125rem, 1.05rem + 0.2vw, 1.35rem) !important; /* ~18px on 1440px to ~21px on 2560px */
+}
+.text-clamp-kpi-lg {
+  font-size: clamp(1.5rem, 1.4rem + 0.25vw, 1.75rem) !important; /* ~24px on 1440px to ~28px on 2560px */
+}

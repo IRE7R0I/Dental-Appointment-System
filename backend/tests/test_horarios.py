@@ -237,7 +237,7 @@ class TestConstanciaPago:
     """Tests for constancia_turno in payment responses."""
 
     def test_constancia_con_turno(self, client, headers_secretaria, sample_doctor, sample_paciente):
-        """Pago con turno -> constancia_turno formato 'DD/MM - Apellido (HH:MM)'."""
+        """Pago con turno -> constancia_turno formato 'DD/MM - Apellido / Doctor (HH:MM)'."""
         # Crear turno
         turno_resp = client.post(
             "/api/turnos/",
@@ -269,7 +269,9 @@ class TestConstanciaPago:
         assert pago is not None, "Pago should be linked to turno"
         assert pago.get("constancia_turno") is not None
         assert "Perez" in pago["constancia_turno"]
+        assert sample_doctor.nombre in pago["constancia_turno"]
         assert "16:00" in pago["constancia_turno"]
+        assert pago["constancia_turno"] == f"06/07 - {sample_paciente.apellido} / {sample_doctor.nombre} (16:00)"
 
     def test_constancia_sin_turno(self, client, headers_secretaria, sample_paciente):
         """Pago sin id_turno -> constancia_turno is None."""

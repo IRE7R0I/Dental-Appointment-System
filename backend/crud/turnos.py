@@ -95,6 +95,14 @@ def obtener_slots_con_estado(
     Genera slots para una fecha+doctor, cruza con turnos existentes y
     bloqueos manuales, devuelve estado de cada slot.
     """
+    from datetime import timedelta
+    from backend.core.horarios import HORIZONTE_DIAS_DEFAULT
+    doctor = db.query(models.Doctor).filter(models.Doctor.id == id_doctor).first()
+    horizonte = doctor.horizonte_dias if (doctor and doctor.horizonte_dias) else HORIZONTE_DIAS_DEFAULT
+    hoy_local = dt_local(datetime.now()).date()
+    if fecha > hoy_local + timedelta(days=horizonte):
+        return []
+
     slots = generar_slots_doctor(db, id_doctor, fecha)
     if not slots:
         return []
@@ -114,8 +122,13 @@ def obtener_slots_con_estado(
     slots_ocupados: dict[str, models.Turno] = {}
     for t in turnos:
         t_local = dt_local(t.fecha_hora)
-        key = f"{t_local.hour:02d}:{t_local.minute:02d}"
-        slots_ocupados[key] = t
+        t_start = t_local.hour * 60 + t_local.minute
+        t_dur = int(t.duracion_minutos or 30)
+        for offset in range(0, t_dur, 30):
+            slot_min = t_start + offset
+            h, m = divmod(slot_min, 60)
+            key = f"{h:02d}:{m:02d}"
+            slots_ocupados[key] = t
 
     slots_bloqueados: dict[str, models.SlotsBloqueado] = {}
     for b in bloqueados:
@@ -210,6 +223,7 @@ def obtener_slots_bulk(
     """
     from collections import defaultdict
     from datetime import timedelta
+    from backend.core.horarios import HORIZONTE_DIAS_DEFAULT
 
     # ── Query 1: Patrón semanal por doctor ──
     patrones: dict[int, dict[int, list[tuple[time, time]]]] = {}
@@ -277,6 +291,11 @@ def obtener_slots_bulk(
         key = f"{b.hora.hour:02d}:{b.hora.minute:02d}"
         bloqueados[(b.fecha, b.id_doctor)].add(key)
 
+    # ── Cargar horizontes por doctor ──
+    doctores_db = db.query(models.Doctor).filter(models.Doctor.id.in_(doctores_ids)).all()
+    horizontes: dict[int, int] = {d.id: (d.horizonte_dias or HORIZONTE_DIAS_DEFAULT) for d in doctores_db}
+    hoy_local = dt_local(datetime.now()).date()
+
     # ── Iterar días del rango y calcular conteos ──
     resultado: dict[str, dict] = {}
     current = fecha_desde
@@ -289,10 +308,14 @@ def obtener_slots_bulk(
         }
 
         for doc_id in doctores_ids:
+            doc_horizonte = horizontes.get(doc_id, HORIZONTE_DIAS_DEFAULT)
+            doc_limite = hoy_local + timedelta(days=doc_horizonte)
+            is_fuera_horizonte = current > doc_limite
+
             doc_patron = patrones.get(doc_id, {}).get(dow, [])
             is_no_lab = (doc_id, current) in no_laborables
 
-            if not doc_patron or is_no_lab:
+            if not doc_patron or is_no_lab or is_fuera_horizonte:
                 dia_summary["por_doctor"][str(doc_id)] = {
                     "total": 0, "libres": 0, "ocupados": 0, "bloqueados": 0,
                 }

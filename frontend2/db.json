@@ -1,0 +1,438 @@
+{
+  "usuarios": [
+    {
+      "id": 1,
+      "username": "admin",
+      "hashed_password": "c24bea43ec02df20f476657f39e91e2daed0ed6ad6979e74cd431824f806d4b0",
+      "rol": "admin",
+      "activo": true,
+      "creado_en": "2026-07-21T16:57:30.106Z"
+    },
+    {
+      "id": 2,
+      "username": "secretaria",
+      "hashed_password": "d97af4b90aed2dea0eecaae14e2539747d3d38890b6b0c347f6a63f27ff79e18",
+      "rol": "secretaria",
+      "activo": true,
+      "creado_en": "2026-07-21T16:57:30.106Z"
+    }
+  ],
+  "pacientes": [
+    {
+      "dni": "12345678",
+      "nombre": "Juan",
+      "apellido": "Pérez",
+      "fecha_nacimiento": "1985-05-12",
+      "telefono": "11-2233-4455",
+      "email": "juan.perez@example.com",
+      "obra_social": "OSDE"
+    },
+    {
+      "dni": "87654321",
+      "nombre": "María",
+      "apellido": "González",
+      "fecha_nacimiento": "1990-11-23",
+      "telefono": "11-9988-7766",
+      "email": "maria.g@example.com",
+      "obra_social": "Particular"
+    },
+    {
+      "dni": "45123890",
+      "nombre": "Carlos Eduardo",
+      "apellido": "de la Vega",
+      "fecha_nacimiento": "1994-08-14",
+      "telefono": "11-5462-8899",
+      "email": "carlos.delavega@example.com",
+      "obra_social": "Particular"
+    }
+  ],
+  "doctores": [
+    {
+      "id": 1,
+      "nombre": "Dr. Darío",
+      "color_agenda": "#1D9E75",
+      "activo": true
+    },
+    {
+      "id": 2,
+      "nombre": "Dra. Fabiana",
+      "color_agenda": "#5DCAA5",
+      "activo": true
+    },
+    {
+      "id": 3,
+      "nombre": "Dr. Marcelo",
+      "color_agenda": "#9FE1CB",
+      "activo": true
+    }
+  ],
+  "turnos": [
+    {
+      "id": 100,
+      "fecha_hora": "2026-07-01T13:00:00.000Z",
+      "duracion_minutos": 60,
+      "motivo": "Tratamiento de Conducto y Restauración",
+      "estado": "Realizado",
+      "id_doctor": 1,
+      "dni_paciente": "45123890"
+    },
+    {
+      "id": 101,
+      "fecha_hora": "2026-07-21T09:30:00.000Z",
+      "duracion_minutos": 30,
+      "motivo": "Limpieza Dental y Fluoración",
+      "estado": "Realizado",
+      "id_doctor": 1,
+      "dni_paciente": "45123890"
+    },
+    {
+      "id": 102,
+      "fecha_hora": "2026-07-21T11:30:00.000Z",
+      "duracion_minutos": 30,
+      "motivo": "Ortodoncia Control",
+      "estado": "Pendiente",
+      "id_doctor": 2,
+      "dni_paciente": "12345678"
+    },
+    {
+      "id": 103,
+      "fecha_hora": "2026-07-21T16:00:00.000Z",
+      "duracion_minutos": 30,
+      "motivo": "Consulta Diagnóstica",
+      "estado": "Pendiente",
+      "id_doctor": 1,
+      "dni_paciente": "87654321"
+    },
+    {
+      "id": 104,
+      "fecha_hora": "2026-07-23T09:30:00.000Z",
+      "duracion_minutos": 30,
+      "motivo": "Limpieza Dental y Fluoración",
+      "estado": "Realizado",
+      "id_doctor": 1,
+      "dni_paciente": "45123890"
+    },
+    {
+      "id": 105,
+      "fecha_hora": "2026-07-23T11:30:00.000Z",
+      "duracion_minutos": 30,
+      "motivo": "Ortodoncia Control",
+      "estado": "Pendiente",
+      "id_doctor": 2,
+      "dni_paciente": "12345678"
+    },
+    {
+      "id": 106,
+      "fecha_hora": "2026-07-23T16:00:00.000Z",
+      "duracion_minutos": 30,
+      "motivo": "Consulta Diagnóstica",
+      "estado": "Pendiente",
+      "id_doctor": 1,
+      "dni_paciente": "87654321"
+    }
+  ],
+  "turnos_tratamientos": [
+    {
+      "id": 200,
+      "id_turno": 100,
+      "nombre": "Tratamiento de Conducto (Endodoncia)",
+      "cantidad": 1,
+      "precio_ars": 25000,
+      "precio_usd": 50
+    },
+    {
+      "id": 201,
+      "id_turno": 100,
+      "nombre": "Resina Composite (Arreglo)",
+      "cantidad": 1,
+      "precio_ars": 10000,
+      "precio_usd": 20
+    },
+    {
+      "id": 202,
+      "id_turno": 101,
+      "nombre": "Limpieza Dental y Fluoración",
+      "cantidad": 1,
+      "precio_ars": 8000,
+      "precio_usd": 15
+    },
+    {
+      "id": 203,
+      "id_turno": 104,
+      "nombre": "Limpieza Dental y Fluoración",
+      "cantidad": 1,
+      "precio_ars": 8000,
+      "precio_usd": 15
+    }
+  ],
+  "pagos": [
+    {
+      "id": 300,
+      "monto": 20000,
+      "fecha_pago": "2026-07-01T14:15:00.000Z",
+      "metodo_pago": "Efectivo",
+      "moneda": "ARS",
+      "saldo_pendiente": 0,
+      "dni_paciente": "45123890",
+      "id_turno": 100
+    },
+    {
+      "id": 301,
+      "monto": 40,
+      "fecha_pago": "2026-07-01T14:18:00.000Z",
+      "metodo_pago": "Transferencia",
+      "moneda": "USD",
+      "saldo_pendiente": 0,
+      "dni_paciente": "45123890",
+      "id_turno": 100
+    },
+    {
+      "id": 302,
+      "monto": 8000,
+      "fecha_pago": "2026-07-21T09:50:00.000Z",
+      "metodo_pago": "Efectivo",
+      "moneda": "ARS",
+      "saldo_pendiente": 0,
+      "dni_paciente": "45123890",
+      "id_turno": 101
+    },
+    {
+      "id": 303,
+      "monto": 8000,
+      "fecha_pago": "2026-07-23T09:50:00.000Z",
+      "metodo_pago": "Efectivo",
+      "moneda": "ARS",
+      "saldo_pendiente": 0,
+      "dni_paciente": "45123890",
+      "id_turno": 104
+    }
+  ],
+  "cuentas_corrientes": [
+    {
+      "id": 1,
+      "dni_paciente": "12345678",
+      "saldo_ars": 0,
+      "saldo_usd": 0,
+      "ultima_actualizacion": "2026-07-21T16:57:30.106Z"
+    },
+    {
+      "id": 2,
+      "dni_paciente": "87654321",
+      "saldo_ars": 0,
+      "saldo_usd": 0,
+      "ultima_actualizacion": "2026-07-21T16:57:30.106Z"
+    },
+    {
+      "id": 3,
+      "dni_paciente": "45123890",
+      "saldo_ars": 15000,
+      "saldo_usd": 30,
+      "ultima_actualizacion": "2026-07-01T15:30:00.000Z"
+    }
+  ],
+  "movimientos_cuenta": [
+    {
+      "id": 400,
+      "id_cuenta": 3,
+      "tipo": "cargo",
+      "monto": 35000,
+      "moneda": "ARS",
+      "descripcion": "Cargo por tratamientos en turno cerrado (ID: 100)",
+      "fecha": "2026-07-01T14:10:00.000Z"
+    },
+    {
+      "id": 401,
+      "id_cuenta": 3,
+      "tipo": "pago",
+      "monto": 20000,
+      "moneda": "ARS",
+      "descripcion": "Abono imputado a turno ID: 100",
+      "fecha": "2026-07-01T14:15:00.000Z"
+    },
+    {
+      "id": 402,
+      "id_cuenta": 3,
+      "tipo": "cargo",
+      "monto": 70,
+      "moneda": "USD",
+      "descripcion": "Cargo por tratamientos en turno cerrado (ID: 100)",
+      "fecha": "2026-07-01T14:10:00.000Z"
+    },
+    {
+      "id": 403,
+      "id_cuenta": 3,
+      "tipo": "pago",
+      "monto": 40,
+      "moneda": "USD",
+      "descripcion": "Abono imputado a turno ID: 100",
+      "fecha": "2026-07-01T14:18:00.000Z"
+    },
+    {
+      "id": 404,
+      "id_cuenta": 3,
+      "tipo": "cargo",
+      "monto": 8000,
+      "moneda": "ARS",
+      "descripcion": "Cargo por Limpieza Dental en turno cerrado (ID: 101)",
+      "fecha": "2026-07-21T09:40:00.000Z"
+    },
+    {
+      "id": 405,
+      "id_cuenta": 3,
+      "tipo": "pago",
+      "monto": 8000,
+      "moneda": "ARS",
+      "descripcion": "Abono imputado a turno ID: 101",
+      "fecha": "2026-07-21T09:50:00.000Z"
+    },
+    {
+      "id": 406,
+      "id_cuenta": 3,
+      "tipo": "cargo",
+      "monto": 8000,
+      "moneda": "ARS",
+      "descripcion": "Cargo por Limpieza Dental en turno cerrado (ID: 104)",
+      "fecha": "2026-07-23T09:40:00.000Z"
+    },
+    {
+      "id": 407,
+      "id_cuenta": 3,
+      "tipo": "pago",
+      "monto": 8000,
+      "moneda": "ARS",
+      "descripcion": "Abono imputado a turno ID: 104",
+      "fecha": "2026-07-23T09:50:00.000Z"
+    }
+  ],
+  "historias_clinicas": [
+    {
+      "id": 1,
+      "notas": "Paciente asiste a consulta inicial de diagnóstico. Se observa caries en molar inferior izquierdo.",
+      "ultima_actualizacion": "2026-07-21T16:57:30.106Z",
+      "dni_paciente": "12345678"
+    },
+    {
+      "id": 2,
+      "notas": "Control general realizado. Encías sanas, se recomienda limpieza dental en la próxima sesión.",
+      "ultima_actualizacion": "2026-07-21T16:57:30.106Z",
+      "dni_paciente": "87654321"
+    },
+    {
+      "id": 3,
+      "notas": "Tratamiento de conducto realizado con éxito en pieza 46 (molar inferior derecho). Se coloca perno de resina composite provisoria. Paciente refiere excelente tolerancia. Queda pendiente el control de la endodoncia y colocación de corona definitiva.",
+      "ultima_actualizacion": "2026-07-01T15:00:00.000Z",
+      "dni_paciente": "45123890"
+    }
+  ],
+  "tratamientos_catalogo": [
+    {
+      "id": 1,
+      "nombre": "Consulta Diagnóstica",
+      "precio_ars": 5000,
+      "precio_usd": 0,
+      "duracion_minutos": 30,
+      "categoria": "Ortodoncia",
+      "activo": true
+    },
+    {
+      "id": 2,
+      "nombre": "Limpieza Dental y Fluoración",
+      "precio_ars": 8000,
+      "precio_usd": 15,
+      "duracion_minutos": 30,
+      "categoria": "Ortodoncia",
+      "activo": true
+    },
+    {
+      "id": 3,
+      "nombre": "Extracción Simple",
+      "precio_ars": 12000,
+      "precio_usd": 25,
+      "duracion_minutos": 30,
+      "categoria": "Cirugía",
+      "activo": true
+    },
+    {
+      "id": 4,
+      "nombre": "Tratamiento de Conducto (Endodoncia)",
+      "precio_ars": 25000,
+      "precio_usd": 50,
+      "duracion_minutos": 60,
+      "categoria": "Endodoncia",
+      "activo": true
+    },
+    {
+      "id": 5,
+      "nombre": "Resina Composite (Arreglo)",
+      "precio_ars": 10000,
+      "precio_usd": 20,
+      "duracion_minutos": 30,
+      "categoria": "Restauradora",
+      "activo": true
+    },
+    {
+      "id": 6,
+      "nombre": "Implante Dental",
+      "precio_ars": 150000,
+      "precio_usd": 300,
+      "duracion_minutos": 60,
+      "categoria": "Implantología",
+      "activo": true
+    },
+    {
+      "id": 7,
+      "nombre": "Ortodoncia Mensualidad",
+      "precio_ars": 15000,
+      "precio_usd": 30,
+      "duracion_minutos": 30,
+      "categoria": "Ortodoncia",
+      "activo": true
+    }
+  ],
+  "obras_sociales": [
+    {
+      "id": 1,
+      "nombre": "Particular",
+      "activo": true
+    },
+    {
+      "id": 2,
+      "nombre": "OSDE",
+      "activo": true
+    },
+    {
+      "id": 3,
+      "nombre": "Swiss Medical",
+      "activo": true
+    },
+    {
+      "id": 4,
+      "nombre": "Galeno",
+      "activo": true
+    },
+    {
+      "id": 5,
+      "nombre": "Medicus",
+      "activo": true
+    },
+    {
+      "id": 6,
+      "nombre": "Sancor Salud",
+      "activo": true
+    },
+    {
+      "id": 7,
+      "nombre": "OMINT",
+      "activo": true
+    },
+    {
+      "id": 8,
+      "nombre": "SEES",
+      "activo": true
+    }
+  ],
+  "slots_bloqueados": [],
+  "pacientes_imagenes": [],
+  "horarios_doctores": {},
+  "dias_no_laborables_doctores": {}
+}

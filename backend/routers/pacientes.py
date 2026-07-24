@@ -30,8 +30,13 @@ router = APIRouter(prefix="/pacientes", tags=["Pacientes"], dependencies=[Depend
 
 
 @router.get("/", response_model=list[PacienteResponse])
-def listar_pacientes(db: Session = Depends(get_db)):
-    return obtener_pacientes(db)
+def listar_pacientes(
+    buscar: Optional[str] = Query(None, description="Búsqueda parcial por nombre, apellido o DNI"),
+    limit: Optional[int] = Query(20, ge=1, le=100, description="Límite de resultados (solo aplica cuando hay búsqueda)"),
+    db: Session = Depends(get_db)
+):
+    limit_aplicar = limit if (buscar and buscar.strip()) else None
+    return obtener_pacientes(db, buscar=buscar, limit=limit_aplicar)
 
 
 @router.get("/deudores", response_model=list[DeudorResponse])

@@ -37,6 +37,7 @@ def _turno_to_response(turno) -> TurnoResponse:
     return TurnoResponse(
         id=turno.id,
         fecha_hora=turno.fecha_hora,
+        duracion_minutos=turno.duracion_minutos or 30,
         motivo=turno.motivo,
         dni_paciente=turno.dni_paciente,
         id_doctor=turno.id_doctor,
@@ -176,6 +177,21 @@ def get_slots_bulk(
 
 @router.post("/", response_model=TurnoResponse, status_code=201)
 def post_turno(turno: TurnoCreate, db: Session = Depends(get_db)):
+    from datetime import timedelta
+    from backend.core.horarios import HORIZONTE_DIAS_DEFAULT
+    local = dt_local(turno.fecha_hora)
+    hoy_local = dt_local(datetime.now()).date()
+
+    doctor = db.query(models.Doctor).filter(models.Doctor.id == turno.id_doctor).first()
+    horizonte = doctor.horizonte_dias if (doctor and doctor.horizonte_dias) else HORIZONTE_DIAS_DEFAULT
+    limite_horizonte = hoy_local + timedelta(days=horizonte)
+
+    if local.date() > limite_horizonte:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se pueden agendar turnos con más de {horizonte} días de anticipación"
+        )
+
     # Validar horario centralizado con timezone AR
     if not es_hora_valida_doctor(db, turno.id_doctor, turno.fecha_hora, turno.duracion_minutos):
         raise HTTPException(
@@ -202,6 +218,21 @@ def post_turno(turno: TurnoCreate, db: Session = Depends(get_db)):
             raise HTTPException(
                 status_code=400,
                 detail="El doctor ya tiene un turno que se solapa en ese horario"
+            )
+
+    # Verificar que no haya conflicto con bloqueos manuales
+    bloqueos = db.query(models.SlotsBloqueado).filter(
+        models.SlotsBloqueado.id_doctor == turno.id_doctor,
+        models.SlotsBloqueado.fecha == local.date(),
+    ).all()
+
+    for b in bloqueos:
+        b_inicio = b.hora.hour * 60 + b.hora.minute
+        b_fin = b_inicio + 30
+        if inicio_nuevo < b_fin and fin_nuevo > b_inicio:
+            raise HTTPException(
+                status_code=400,
+                detail="El horario solicitado se superpone con un bloqueo manual"
             )
 
     return _turno_to_response(crear_turno(db=db, turno=turno))

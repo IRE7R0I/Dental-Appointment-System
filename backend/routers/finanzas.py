@@ -16,8 +16,9 @@ def _build_constancia(pago) -> Optional[str]:
     if pago.id_turno and hasattr(pago, 'turno') and pago.turno and pago.turno.paciente:
         t = pago.turno
         p = t.paciente
+        doc_nombre = f" / {t.doctor.nombre}" if (hasattr(t, 'doctor') and t.doctor and t.doctor.nombre) else ""
         fecha_local = dt_local(t.fecha_hora)
-        return f"{fecha_local.strftime('%d/%m')} - {p.apellido} ({fecha_local.strftime('%H:%M')})"
+        return f"{fecha_local.strftime('%d/%m')} - {p.apellido}{doc_nombre} ({fecha_local.strftime('%H:%M')})"
     return None
 
 

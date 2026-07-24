@@ -4,6 +4,9 @@ from typing import Optional
 
 AR_TZ = ZoneInfo("America/Argentina/Buenos_Aires")
 
+# Horizonte por defecto (días a futuro para agendar) asignado al crear/seeder doctores
+HORIZONTE_DIAS_DEFAULT: int = 180
+
 # ── Franjas por día de semana ──
 # weekday() -> [(inicio_mañana, fin_mañana), (inicio_tarde, fin_tarde)]
 # Lista vacía = cerrado
@@ -191,9 +194,11 @@ def obtener_horarios_doctor_publico(db, id_doctor: int) -> dict:
             if len(franjas) >= 2:
                 entry["tarde"] = [franjas[1][0].strftime("%H:%M"), franjas[1][1].strftime("%H:%M")]
             dias[nombre] = entry
+    horizonte_dias = doctor.horizonte_dias if (doctor and doctor.horizonte_dias) else HORIZONTE_DIAS_DEFAULT
     return {
         "id_doctor": id_doctor,
         "nombre_doctor": nombre_doctor,
         "granularidad_minutos": 30,
+        "horizonte_dias": horizonte_dias,
         "dias": dias,
     }

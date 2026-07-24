@@ -424,11 +424,12 @@ def listar_pagos_filtrados(
 
         # ── Constancia de turno ──
         constancia = None
-        if turno_id and hasattr(pago, 'turno') and pago.turno and pago.turno.paciente:
-            t = pago.turno
+        t = pago.turno if (hasattr(pago, 'turno') and pago.turno) else (turno if 'turno' in locals() else None)
+        if turno_id and t and t.paciente:
             p = t.paciente
+            doc_nombre = f" / {t.doctor.nombre}" if (hasattr(t, 'doctor') and t.doctor and t.doctor.nombre) else ""
             fecha_local = dt_local(t.fecha_hora)
-            constancia = f"{fecha_local.strftime('%d/%m')} - {p.apellido} ({fecha_local.strftime('%H:%M')})"
+            constancia = f"{fecha_local.strftime('%d/%m')} - {p.apellido}{doc_nombre} ({fecha_local.strftime('%H:%M')})"
 
         resultados.append(PagoContextoResponse(
             id=pago.id,

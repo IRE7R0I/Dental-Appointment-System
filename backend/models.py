@@ -27,6 +27,7 @@ class Doctor(Base):
     nombre = Column(String(100), nullable=False)
     color_agenda = Column(String(7))
     activo = Column(Boolean, default=True)  # CHANGE-009: soft-delete
+    horizonte_dias = Column(Integer, default=180, nullable=False)
 
     # Relaciones
     turnos = relationship("Turno", back_populates="doctor")

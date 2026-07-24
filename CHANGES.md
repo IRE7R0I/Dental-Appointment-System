@@ -385,6 +385,47 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-16 →
 - **Governance**: MEDIO
 - **Leer antes**: `docs/auditoria-cancelacion-turnos.md`
 
+### [C-21] `validacion-turnos-multi-slot` ✅
+
+- **Estado**: [x] completado (2026-07-21)
+- **Scope**:
+  - Validación de solapamiento y disponibilidad en creación/modificación de turnos de mayor duración que ocupan múltiples slots consecutivos.
+  - Verificación de la suite de tests (`test_turnos_multi_slot.py`).
+- **Dependencias**: C-16
+- **Governance**: MEDIO
+
+### [C-22] `busqueda-pacientes` ✅
+
+- **Estado**: [x] completado (2026-07-22)
+- **Scope**:
+  - Endpoint de búsqueda avanzada de pacientes por nombre, apellido, DNI y teléfono (`GET /api/pacientes/buscar`).
+  - Verificación de la suite de tests (`test_busqueda_pacientes.py`).
+- **Dependencias**: C-02
+- **Governance**: BAJO
+
+### [C-23] `ajuste-constancia-y-auditoria-categoria` ✅
+
+- **Estado**: [x] completado (2026-07-23)
+- **Scope**:
+  - `routers/finanzas.py` — actualización de `_build_constancia` al formato `"DD/MM - Apellido / Doctor (HH:MM)"`.
+  - `crud/finanzas.py` — actualización de cálculo de `constancia` en `listar_pagos_filtrados`.
+  - Mantenimiento del valor `None` para pagos sin turno asociado.
+  - Auditoría de campo `categoria` en catálogo de tratamientos (`TratamientoCatalogo`).
+  - `tests/test_horarios.py` — asertividad de formato ampliada.
+- **Dependencias**: C-12
+- **Governance**: BAJO
+
+### [C-24] `horizonte-agendamiento` ✅
+
+- **Estado**: [x] completado (2026-07-23)
+- **Scope**:
+  - Campo `horizonte_dias` (`Literal[30, 60, 90, 180]`, default 180) por doctor en tabla `doctores`.
+  - `GET /api/doctores/{id}/horarios` y `PUT /api/doctores/{id}/horarios` exponen y permiten modificar `horizonte_dias`.
+  - Validación en `POST /api/turnos/`: rechaza con HTTP 400 si `fecha_hora` supera el `horizonte_dias` específico del doctor del turno (límite inclusive el día N).
+  - `GET /api/turnos/slots` y `GET /api/turnos/slots/bulk` respetan el horizonte de cada doctor de forma independiente (horizontes mixtos en bulk).
+- **Dependencias**: C-12, C-16, C-17, C-18
+- **Governance**: BAJO
+
 ### [C-13] `frontend2-rediseno` 🔲
 
 - **Estado**: [ ] pendiente
@@ -587,12 +628,12 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-12 → C-16 →
 | FASE 1 | C-02, C-03 | ✅ ✅ | MEDIO, ALTO |
 | FASE 2 | C-04, C-05 | ✅ ✅ | MEDIO, BAJO |
 | FASE 3 | C-06, C-07 | ✅ ✅ | CRITICO, MEDIO |
-| FASE 3.5 | C-12, C-16, C-17, C-18, C-19, C-20, C-13, C-14, C-15 | ✅ ✅ ✅ ✅ ✅ ✅ 🔲 ✅ ✅ | ALTO, ALTO, MEDIO, ALTO, MEDIO, MEDIO, ALTO, ALTO, MEDIO |
+| FASE 3.5 | C-12, C-16, C-17, C-18, C-19, C-20, C-21, C-22, C-23, C-24, C-13, C-14, C-15 | ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ 🔲 ✅ ✅ | ALTO, ALTO, MEDIO, ALTO, MEDIO, MEDIO, MEDIO, BAJO, BAJO, BAJO, ALTO, ALTO, MEDIO |
 | FASE 4 | C-08, C-09, C-10 | 🔲 🔲 🔲 | ALTO, ALTO, BAJO |
 | FASE 5 | C-11 | 🔲 | CRITICO |
 
-- **20 changes en 6 fases**
-- **15 completados** (C-01 a C-07, C-12, C-14, C-15, C-16, C-17, C-18, C-19, C-20)
+- **24 changes en 6 fases**
+- **19 completados** (C-01 a C-07, C-12, C-14 a C-24)
 - **5 pendientes** (C-13, C-08 a C-11)
 - **Camino crítico**: 11 changes (C-01 → C-06 → C-07 → C-12 → C-16 → C-08 → C-09 → C-11)
 - **Paralelismo**: C-10, C-13, C-14, C-17 y C-19 pueden ejecutarse en paralelo con C-08 y C-09

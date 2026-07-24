@@ -116,7 +116,12 @@ def put_horarios_doctor(
     doctor = obtener_doctor_por_id(db, id)
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor no encontrado")
-    guardar_horario_semanal(db, id, data.dias)
+    if data.dias is not None:
+        guardar_horario_semanal(db, id, data.dias)
+    if data.horizonte_dias is not None:
+        doctor.horizonte_dias = data.horizonte_dias
+        db.commit()
+        db.refresh(doctor)
     return obtener_horarios_doctor_publico(db, id)
 
 

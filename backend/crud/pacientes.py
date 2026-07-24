@@ -1,7 +1,19 @@
+import unicodedata
 from decimal import Decimal
+from typing import Optional
+from sqlalchemy import or_, func
 from sqlalchemy.orm import Session, joinedload
 from backend import models
 from backend.schemas.pacientes import PacienteCreate
+
+
+def normalizar_texto(texto: str) -> str:
+    """Aplica lower() y remueve acentos/diacríticos simétricamente."""
+    if not texto:
+        return ""
+    texto = texto.strip().lower()
+    normalized = unicodedata.normalize("NFD", texto)
+    return "".join(c for c in normalized if unicodedata.category(c) != "Mn")
 
 
 def crear_paciente(db: Session, paciente: PacienteCreate):
@@ -21,8 +33,22 @@ def crear_paciente(db: Session, paciente: PacienteCreate):
     return db_paciente
 
 
-def obtener_pacientes(db: Session):
-    return db.query(models.Paciente).all()
+def obtener_pacientes(db: Session, buscar: Optional[str] = None, limit: Optional[int] = None):
+    query = db.query(models.Paciente)
+    if buscar and buscar.strip():
+        term_norm = f"%{normalizar_texto(buscar)}%"
+        term_raw = f"%{buscar.strip()}%"
+        query = query.filter(
+            or_(
+                func.unaccent(func.lower(models.Paciente.nombre)).like(term_norm),
+                func.unaccent(func.lower(models.Paciente.apellido)).like(term_norm),
+                models.Paciente.dni.like(term_raw),
+            )
+        )
+        if limit is not None:
+            query = query.limit(limit)
+    return query.all()
+
 
 
 def obtener_paciente_por_dni(db: Session, dni: str):

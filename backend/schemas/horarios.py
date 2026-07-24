@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, Literal
 from pydantic import BaseModel, ConfigDict
 
 
@@ -13,12 +13,14 @@ class HorarioDoctorResponse(BaseModel):
     id_doctor: int
     nombre_doctor: str
     granularidad_minutos: int = 30
+    horizonte_dias: Literal[30, 60, 90, 180] = 180
     dias: dict[str, Optional[DiaHorarioEntry]]  # keys: "lunes"..."domingo"
     model_config = ConfigDict(from_attributes=True)
 
 
 class HorarioDoctorUpdate(BaseModel):
-    dias: dict[str, Optional[DiaHorarioEntry]]
+    dias: Optional[dict[str, Optional[DiaHorarioEntry]]] = None
+    horizonte_dias: Optional[Literal[30, 60, 90, 180]] = None
 
 
 class DiaNoLaborableCreate(BaseModel):
